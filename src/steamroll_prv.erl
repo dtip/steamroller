@@ -27,9 +27,34 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    rebar_api:warn("Steamroll is not implemented.", []),
-    {ok, State}.
+    case format_apps(rebar_state:project_apps(State)) of
+        ok -> {ok, State};
+        {error, Err} -> {error, format_error(Err)}
+    end.
 
 -spec format_error(any()) ->  iolist().
 format_error(Reason) ->
-    io_lib:format("~p", [Reason]).
+    io_lib:format("Steamroll Error: ~p", [Reason]).
+
+%% ===================================================================
+%% Internal
+%% ===================================================================
+
+format_apps([App | Rest]) ->
+    AppDir = rebar_app_info:dir(App) ++ "/src",
+    Files = find_source_files(AppDir),
+    case format_files(Files) of
+        ok -> format_apps(Rest);
+        {error, _} = Err -> Err
+    end.
+
+find_source_files(Path) ->
+    [list_to_binary(filename:join(Path, Mod)) || Mod <- filelib:wildcard("*.erl", Path)].
+
+
+format_files([File | Rest]) ->
+    case steamroll:format_file(File) of
+         ok -> format_files(Rest);
+         {error, _} = Err -> Err
+    end.
+
