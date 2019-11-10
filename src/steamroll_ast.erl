@@ -1,21 +1,30 @@
 -module(steamroll_ast).
 
--export([ast/1, eq/2]).
+-export([ast/1, tokens/1, eq/2]).
 
 -include_lib("kernel/include/logger.hrl").
 
 -define(TEMP_FILE, "steamroll_temp.erl").
 
 -type ast() :: list(erl_parse:abstract_form()).
+-type tokens() :: list(erl_scan:token()).
 
 %% API
 
 -spec ast(binary()) -> ast().
-ast(Code0) ->
-    file:write_file(?TEMP_FILE, Code0),
+ast(Code) ->
+    file:write_file(?TEMP_FILE, Code),
     {ok, Ast} = epp:parse_file(?TEMP_FILE, []),
     file:delete(?TEMP_FILE),
     Ast.
+
+-spec tokens(binary()) -> tokens().
+tokens(Code) ->
+    % Comments are not included in the AST created by epp:parse_file.
+    % Neither are most of the attributes (things like `-define(BLAH, blah).`).
+    % We'll need them to generate formatted code.
+    {ok, Scanned, _} = erl_scan:string(binary_to_list(Code), 0, [return_comments]),
+    Scanned.
 
 -spec eq(ast(), ast()) -> boolean().
 eq(Ast0, Ast1) ->

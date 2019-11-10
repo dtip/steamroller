@@ -13,3 +13,11 @@ ast_test() ->
     ?assert(steamroll_ast:eq(Ast, steamroll_ast:ast(<<"-module(test).\n\n%% Comment\n-export([init/1]).\n%% Comment\n">>))),
     ?assert(steamroll_ast:eq(Ast, steamroll_ast:ast(<<"-module(test).\n\n-define(MACRO, macro).\n-export([init/1]).\n\n">>))),
     ?assert(steamroll_ast:eq(Ast, steamroll_ast:ast(<<"-module(test).\n\n-export([init/1]).">>))).
+
+comment_tokens_test() ->
+    [{comment, 0, "% Comment"}] = steamroll_ast:tokens(<<"% Comment\n">>),
+    [{comment, 0, "% Comment"}] = steamroll_ast:tokens(<<"% Comment">>),
+    [{comment, 0, "% Comment"},
+     {comment, 1, "%% API"}] = steamroll_ast:tokens(<<"% Comment\n%% API\n">>),
+    [{comment, 0, "% Comment"},
+     {comment, 1, "%% API"}] = steamroll_ast:tokens(<<"% Comment\n%% API">>).
