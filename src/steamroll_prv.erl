@@ -27,8 +27,9 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
+    rebar_api:info("Steamrolling code...", []),
     case format_apps(rebar_state:project_apps(State)) of
-        ok -> {ok, State};
+        ok -> rebar_api:info("Steamrolling done.", []), {ok, State};
         {error, Err} -> {error, format_error(Err)}
     end.
 
@@ -41,12 +42,14 @@ format_error(Reason) ->
 %% ===================================================================
 
 format_apps([App | Rest]) ->
-    AppDir = rebar_app_info:dir(App) ++ "/src",
-    Files = find_source_files(AppDir),
+    SrcDir = rebar_app_info:dir(App) ++ "/src",
+    TestDir = rebar_app_info:dir(App) ++ "/test",
+    Files = find_source_files(SrcDir) ++ find_source_files(TestDir),
     case format_files(Files) of
         ok -> format_apps(Rest);
         {error, _} = Err -> Err
-    end.
+    end;
+format_apps([]) -> ok.
 
 find_source_files(Path) ->
     [list_to_binary(filename:join(Path, Mod)) || Mod <- filelib:wildcard("*.erl", Path)].
@@ -56,5 +59,6 @@ format_files([File | Rest]) ->
     case steamroll:format_file(File) of
          ok -> format_files(Rest);
          {error, _} = Err -> Err
-    end.
+    end;
+format_files([]) -> ok.
 
