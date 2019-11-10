@@ -24,7 +24,6 @@ init(State) ->
     ]),
     {ok, rebar_state:add_provider(State, Provider)}.
 
-
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     rebar_api:info("Steamrolling code...", []),
@@ -54,11 +53,9 @@ format_apps([]) -> ok.
 find_source_files(Path) ->
     [list_to_binary(filename:join(Path, Mod)) || Mod <- filelib:wildcard("*.erl", Path)].
 
-
 format_files([File | Rest]) ->
     case steamroll:format_file(File) of
          ok -> format_files(Rest);
          {error, _} = Err -> Err
     end;
 format_files([]) -> ok.
-
