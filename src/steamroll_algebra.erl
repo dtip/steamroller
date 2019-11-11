@@ -7,7 +7,7 @@
 %%
 -module(steamroll_algebra).
 
--export([pretty/1, pretty/2]).
+-export([format_tokens/1, format_tokens/2, generate_doc/1, pretty/1, pretty/2]).
 % Testing
 -export([repeat/2, from_the_paper/2]).
 
@@ -29,6 +29,18 @@
 
 %% API
 
+-spec format_tokens(steamroll_ast:tokens()) -> binary().
+format_tokens(Tokens) -> format_tokens(Tokens, ?max_width).
+
+-spec format_tokens(steamroll_ast:tokens(), integer()) -> binary().
+format_tokens(Tokens, Width) ->
+    Doc = generate_doc(Tokens),
+    io:fwrite("Doc=~p", [Doc]),
+    pretty(Doc, Width).
+
+-spec generate_doc(steamroll_ast:tokens()) -> doc().
+generate_doc(Tokens) -> generate_doc_(Tokens, empty()).
+
 -spec pretty(doc()) -> binary().
 pretty(Doc) ->
     SDoc = format(?max_width, 0, [{0, flat, {doc_group, Doc}}]),
@@ -44,10 +56,10 @@ pretty(Doc, Width) ->
 % Used for testing.
 -spec from_the_paper(integer(), integer()) -> binary().
 from_the_paper(Width, Indent) ->
-    C = binop(<<"a">>, <<"==">>, <<"b">>, Indent),
-    E1 = binop(<<"a">>, <<"<<">>, <<"2">>, Indent),
-    E2 = binop(<<"a">>, <<"+">>, <<"b">>, Indent),
-    Doc = ifthen(C, E1, E2, Indent),
+    C = test_binop(<<"a">>, <<"==">>, <<"b">>, Indent),
+    E1 = test_binop(<<"a">>, <<"<<">>, <<"2">>, Indent),
+    E2 = test_binop(<<"a">>, <<"+">>, <<"b">>, Indent),
+    Doc = test_ifthen(C, E1, E2, Indent),
     pretty(Doc, Width).
 
 %% Constructor Functions
@@ -55,8 +67,8 @@ from_the_paper(Width, Indent) ->
 -spec cons(doc(), doc()) -> doc().
 cons(X, Y) -> {doc_cons, X, Y}.
 
-%-spec empty() -> doc().
-%empty() -> doc_nil.
+-spec empty() -> doc().
+empty() -> doc_nil.
 
 -spec text(binary()) -> doc().
 text(S) -> {doc_text, S}.
@@ -64,51 +76,70 @@ text(S) -> {doc_text, S}.
 -spec nest(integer(), doc()) -> doc().
 nest(I, X) -> {doc_nest, I, X}.
 
--spec break() -> doc().
-break() -> {doc_break, ?sp}.
+%-spec break() -> doc().
+%break() -> {doc_break, ?sp}.
 
-%-spec break(doc()) -> doc().
-%break(S) -> {doc_break, S}.
+-spec break(doc()) -> doc().
+break(S) -> {doc_break, S}.
 
 -spec group(doc()) -> doc().
 group(D) -> {doc_group, D}.
 
 %% Operators
 
-space(doc_nil, Y) -> Y;
-space(X, doc_nil) -> X;
-space(X, Y) -> cons(X, cons(break(), Y)).
+-spec space(doc(), doc()) -> doc().
+space(X, Y) -> concat(X, Y, ?sp).
 
-%binop(Left, Op, Right) -> binop(Left, Op, Right, ?indent).
+-spec space(list(doc())) -> doc().
+space([X, Y]) -> space(X, Y);
+space([X | Rest]) -> space(X, space(Rest)).
 
-binop(Left, Op, Right, Indent) ->
+
+-spec stick(doc(), doc()) -> doc().
+stick(X, Y) -> concat(X, Y, <<>>).
+
+%-spec stick(list(doc())) -> doc().
+%stick([X, Y]) -> stick(X, Y);
+%stick([X | Rest]) -> stick(X, stick(Rest)).
+
+-spec concat(doc(), doc(), binary()) -> doc().
+concat(doc_nil, Y, _) -> Y;
+concat(X, doc_nil, _) -> X;
+concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
+
+
+-spec brackets(list(tuple())) -> doc().
+brackets([]) ->
+    group(cons(text(<<"(">>), text(<<")">>)));
+brackets(BraketVars) ->
     group(
-      nest(
-        Indent,
-        space(
-          group(
+      stick(
+        nest(
+          ?indent,
+          stick(
+            text(<<"(">>),
             space(
-              text(Left),
-              text(Op)
+              list_elements(BraketVars)
             )
-          ),
-          text(Right)
-        )
-      )
-    ).
-
-%ifthen(C, E1, E2) -> ifthen(C, E1, E2, ?indent).
-
-ifthen(C, E1, E2, Indent) ->
-    group(
-      space(
-        space(
-          group(nest(Indent, space(text(<<"if">>), C))),
-          group(nest(Indent, space(text(<<"then">>), E1)))
+          )
         ),
-        group(nest(Indent, space(text(<<"else">>), E2)))
+      text(<<")">>)
       )
     ).
+
+-spec list_elements(list(tuple())) -> list(doc()).
+list_elements(Vars) -> list_elements(Vars, []).
+
+-spec list_elements(list(tuple()), list(doc())) -> list(doc()).
+list_elements([{var,_,Var}, {',',_} | Rest], Acc) ->
+    El = cons(text(a2b(Var)), text(<<",">>)),
+    list_elements(Rest, [El | Acc]);
+list_elements([{var,_,Var}], Acc) ->
+    % Comma at the end of a list is a syntax error.
+    El = text(a2b(Var)),
+    lists:reverse([El | Acc]).
+
+
 
 %% Internal
 
@@ -149,6 +180,16 @@ sdoc_to_string({s_line, Indent, Doc}) ->
     DocString = sdoc_to_string(Doc),
     <<"\n", Prefix/binary, DocString/binary>>.
 
+%% Token Consumption
+
+generate_doc_([], Doc) -> Doc;
+generate_doc_([{atom, _, Atom} | Rest], Doc) ->
+    generate_doc_(Rest, cons(Doc, text(a2b(Atom))));
+generate_doc_([{'(', _} | Rest0], Doc) ->
+    {Tokens, Rest1} = get_until(')', Rest0),
+    Group = brackets(Tokens),
+    generate_doc_(Rest1, cons(Doc, Group)).
+
 %% Utils
 
 -spec repeat(binary(), integer()) -> binary().
@@ -157,3 +198,44 @@ repeat(Bin, Times) when Times >= 0 -> repeat_(<<>>, Bin, Times).
 -spec repeat_(binary(), binary(), integer()) -> binary().
 repeat_(Acc, _, 0) -> Acc;
 repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
+
+-spec a2b(atom()) -> binary().
+a2b(Atom) -> list_to_binary(atom_to_list(Atom)).
+
+
+get_until(Char, Tokens) -> get_until(Char, Tokens, []).
+get_until(Char, [{Char, _} = _Token | Rest], Acc) ->
+    % No need to return the token because we already know what it is.
+    {lists:reverse(Acc), Rest};
+get_until(Char, [Token | Rest], Acc) ->
+    get_until(Char, Rest, [Token | Acc]).
+
+%% Testing
+
+test_binop(Left, Op, Right, Indent) ->
+    group(
+      nest(
+        Indent,
+        space(
+          group(
+            space(
+              text(Left),
+              text(Op)
+            )
+          ),
+          text(Right)
+        )
+      )
+    ).
+
+test_ifthen(C, E1, E2, Indent) ->
+    group(
+      space(
+        [
+          group(nest(Indent, space(text(<<"if">>), C))),
+          group(nest(Indent, space(text(<<"then">>), E1))),
+          group(nest(Indent, space(text(<<"else">>), E2)))
+        ]
+      )
+    ).
+

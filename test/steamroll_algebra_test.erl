@@ -26,3 +26,16 @@ repeat_test() ->
     ?assert(<<"\n\n">> == steamroll_algebra:repeat(?nl, 2)),
     ?assert(<<"\n\n\n">> == steamroll_algebra:repeat(?nl, 3)),
     ?assert(<<"\n\n\n\n">> == steamroll_algebra:repeat(?nl, 4)).
+
+brackets_test() ->
+    Tokens = steamroll_ast:tokens(<<"foo(Arg1, Arg2)">>),
+
+    Expect0 = <<"foo(Arg1, Arg2)\n">>,
+    Result0 = steamroll_algebra:format_tokens(Tokens, 100),
+    io:fwrite("\nResult0=~p", [Result0]),
+    ?assert(Expect0 == Result0),
+    Expect1 = <<"foo(\n    Arg1,\n    Arg2\n)\n">>,
+    Result1 = steamroll_algebra:format_tokens(Tokens, 1),
+    io:fwrite("\nResult1=~p", [Result1]),
+    ?assert(Expect1 == Result1).
+

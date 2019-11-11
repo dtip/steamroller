@@ -23,7 +23,8 @@ format_code(Code) -> format_code(Code, <<"no_file">>).
 -spec format_code(binary(), binary()) -> {ok, binary()} | {error, any()}.
 format_code(Code, File) ->
     OriginalAst = steamroll_ast:ast(Code),
-    {ok, FormattedCode} = squash_newlines(<<>>, Code),
+    Tokens = steamroll_ast:tokens(Code),
+    FormattedCode = steamroll_algebra:format_tokens(Tokens),
     NewAst = steamroll_ast:ast(FormattedCode),
     case steamroll_ast:eq(OriginalAst, NewAst) of
         true ->
@@ -31,19 +32,3 @@ format_code(Code, File) ->
         false ->
             {error, {formatter_broke_the_code, {file, File}, {code, Code}, {formatted, FormattedCode}}}
     end.
-
--spec squash_newlines(binary(), binary()) -> {ok, binary()}.
-squash_newlines(<<Code/binary>>, <<"\n\n\n", Rest/binary>>) ->
-    squash_newlines(<<Code/binary, "\n\n">>, trim_leading_newlines(Rest));
-squash_newlines(<<Code/binary>>, <<"\n\n">>) ->
-    {ok, <<Code/binary, "\n">>};
-squash_newlines(<<Code/binary>>, <<"\n">>) ->
-    {ok, <<Code/binary, "\n">>};
-squash_newlines(<<Code/binary>>, <<Char:1/binary, Rest/binary>>) ->
-    squash_newlines(<<Code/binary, Char/binary>>, Rest);
-squash_newlines(<<Code/binary>>, <<>>) ->
-    {ok, <<Code/binary, "\n">>}.
-
--spec trim_leading_newlines(binary()) -> binary().
-trim_leading_newlines(<<"\n", Rest/binary>>) -> trim_leading_newlines(Rest);
-trim_leading_newlines(<<Rest/binary>>) -> Rest.
