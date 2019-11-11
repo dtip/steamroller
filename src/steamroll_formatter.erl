@@ -10,6 +10,7 @@
 format(File) ->
     {ok, Code} = file:read_file(File),
     case format_code(Code, File) of
+        {ok, Code} -> ok;
         {ok, FormattedCode} -> file:write_file(File, FormattedCode);
         {error, _} = Err -> Err
     end.
