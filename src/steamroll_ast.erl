@@ -34,21 +34,24 @@ eq(Ast0, Ast1) ->
 
 % Second argument of the tuples is a line number which we want to ignore.
 eq_(_, false) -> false;
-eq_({{Type, _, Name, Value}, {Type, _, Name, Value}}, true) -> true;
-eq_({{Type, _, Name, LeftChild}, {Type, _, Name, RightChild}}, true)
-  when is_list(LeftChild) andalso is_list(RightChild) -> eq(LeftChild, RightChild);
-eq_({{function, _, Name, Arity, LeftChild}, {function, _, Name, Arity, RightChild}}, true) -> eq(LeftChild, RightChild);
-eq_({{clause, _, Arg, Guard, Value}, {clause, _, Arg, Guard, Value}}, true) -> true;
-eq_({{clause, _, Arg, Guard, LeftChild}, {clause, _, Arg, Guard, RightChild}}, true)
-  when is_list(LeftChild) andalso is_list(RightChild) -> eq(LeftChild, RightChild);
-eq_({{match, _, {var, _, Var}, {tuple, _, Value}}, {match, _, {var, _, Var}, {tuple, _, Value}}}, true) -> true;
-eq_({{match, _, {var, _, Var}, {tuple, _, LeftChild}}, {match, _, {var, _, Var}, {tuple, _, RightChild}}}, true)
-  when is_list(LeftChild) andalso is_list(RightChild) -> eq(LeftChild, RightChild);
-eq_({{match, _, {var, _, Var}, {call, _, {remote, _, {atom, _, M}, {atom, _, F}}, LeftA}}, {match, _, {var, _, Var}, {call, _, {remote, _, {atom, _, M}, {atom, _, F}}, RightA}}}, true)
-  when is_list(LeftA) andalso is_list(RightA) -> eq(LeftA, RightA);
-eq_({{Type, _, Value}, {Type, _, Value}}, true) -> true;
-eq_({{Type, _, LeftChild}, {Type, _, RightChild}}, true)
-  when is_list(LeftChild) andalso is_list(RightChild) -> eq(LeftChild, RightChild);
-eq_({{bin_element, _, {string, _, String}, default, default}, {bin_element, _, {string, _, String}, default, default}}, true) -> true;
-eq_({{eof, _}, {eof, _}}, true) -> true;
-eq_({_Left, _Right}, _) -> logger:error("ast_mismatch Left=~p\nRight=~p", [_Left, _Right]), false.
+eq_({Left, Right}, true) when is_list(Left) andalso is_list(Right) -> eq(Left, Right);
+eq_({Element, Element}, true) -> true;
+eq_({{Type, _, LeftName, LeftValue0, LeftValue1}, {Type, _, RightName, RightValue0, RightValue1}}, true) ->
+    % 5-tuples
+    R1 = eq_({LeftName, RightName}, true),
+    R2 = eq_({LeftValue0, RightValue0}, R1),
+    eq_({LeftValue1, RightValue1}, R2);
+eq_({{Type, _, LeftName, LeftValue}, {Type, _, RightName, RightValue}}, true) ->
+    % 4-tuples
+    R1 = eq_({LeftName, RightName}, true),
+    eq_({LeftValue, RightValue}, R1);
+eq_({{Type, _, LeftValue}, {Type, _, RightValue}}, true) ->
+    % 3-tuples
+    eq_({LeftValue, RightValue}, true);
+eq_({{Type, _}, {Type, _}}, true) ->
+    % 2-tuples
+    true;
+eq_({{{Type, _}, LeftValue}, {{Type, _}, RightValue}}, true) ->
+    % special 2-tuples
+    eq_(LeftValue, RightValue);
+eq_({_Left, _Right}, _) -> logger:error("ast_mismatch\nLeft=~p\nRight=~p", [_Left, _Right]), false.
