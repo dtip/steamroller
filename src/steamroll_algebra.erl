@@ -24,6 +24,7 @@
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
+-define(dot, <<".">>).
 -define(max_width, 100).
 -define(indent, 4).
 
@@ -94,7 +95,6 @@ space(X, Y) -> concat(X, Y, ?sp).
 space([X, Y]) -> space(X, Y);
 space([X | Rest]) -> space(X, space(Rest)).
 
-
 -spec stick(doc(), doc()) -> doc().
 stick(X, Y) -> concat(X, Y, <<>>).
 
@@ -102,13 +102,16 @@ stick(X, Y) -> concat(X, Y, <<>>).
 %stick([X, Y]) -> stick(X, Y);
 %stick([X | Rest]) -> stick(X, stick(Rest)).
 
+%-spec newline(doc(), doc()) -> doc().
+%newline(X, Y) -> concat(X, Y, ?nl).
+
 -spec concat(doc(), doc(), binary()) -> doc().
 concat(doc_nil, Y, _) -> Y;
 concat(X, doc_nil, _) -> X;
 concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
 
--spec brackets(list(tuple())) -> doc().
+-spec brackets(steamroll_ast:tokens()) -> doc().
 brackets([]) ->
     group(cons(text(<<"(">>), text(<<")">>)));
 brackets(BraketVars) ->
@@ -139,6 +142,12 @@ list_elements([{var,_,Var}], Acc) ->
     El = text(a2b(Var)),
     lists:reverse([El | Acc]).
 
+-spec clause(steamroll_ast:tokens()) -> {doc(), steamroll_ast:tokens()}.
+clause(Tokens) ->
+    clause(Tokens, group(empty())).
+
+clause([{Token, _, Var}, {dot, _} | Rest], Doc) when Token == var orelse Token == atom ->
+    {cons(Doc, cons(text(a2b(Var)), text(?dot))), Rest}.
 
 
 %% Internal
@@ -182,13 +191,17 @@ sdoc_to_string({s_line, Indent, Doc}) ->
 
 %% Token Consumption
 
+-spec generate_doc_(steamroll_ast:tokens(), doc()) -> doc().
 generate_doc_([], Doc) -> Doc;
 generate_doc_([{atom, _, Atom} | Rest], Doc) ->
     generate_doc_(Rest, cons(Doc, text(a2b(Atom))));
 generate_doc_([{'(', _} | Rest0], Doc) ->
     {Tokens, Rest1} = get_until(')', Rest0),
     Group = brackets(Tokens),
-    generate_doc_(Rest1, cons(Doc, Group)).
+    generate_doc_(Rest1, cons(Doc, Group));
+generate_doc_([{'->', _} | Rest0], Doc) ->
+    {Clause, Rest1} = clause(Rest0),
+    generate_doc_(Rest1, cons(Doc, space(text(<<" ->">>), Clause))).
 
 %% Utils
 
