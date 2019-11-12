@@ -16,11 +16,12 @@
             | {doc_text, binary()}
             | {doc_nest, integer(), doc()}
             | {doc_break, binary()}
-            | {doc_group, doc()}.
+            | {doc_group, doc(), inherit()}.
 
 -type sdoc() :: s_nil | {s_text, binary(), sdoc()} | {s_line, binary(), sdoc()}.
-
 -type mode() :: flat | break.
+-type inherit() :: self | inherit.
+-type tokens() :: steamroll_ast:tokens().
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
@@ -30,27 +31,26 @@
 
 %% API
 
--spec format_tokens(steamroll_ast:tokens()) -> binary().
+-spec format_tokens(tokens()) -> binary().
 format_tokens(Tokens) -> format_tokens(Tokens, ?max_width).
 
--spec format_tokens(steamroll_ast:tokens(), integer()) -> binary().
+-spec format_tokens(tokens(), integer()) -> binary().
 format_tokens(Tokens, Width) ->
     Doc = generate_doc(Tokens),
-    io:fwrite("Doc=~p", [Doc]),
     pretty(Doc, Width).
 
--spec generate_doc(steamroll_ast:tokens()) -> doc().
+-spec generate_doc(tokens()) -> doc().
 generate_doc(Tokens) -> generate_doc_(Tokens, empty()).
 
 -spec pretty(doc()) -> binary().
 pretty(Doc) ->
-    SDoc = format(?max_width, 0, [{0, flat, {doc_group, Doc}}]),
+    SDoc = format(?max_width, 0, [{0, flat, group(Doc)}]),
     String = sdoc_to_string(SDoc),
     <<String/binary, "\n">>.
 
 -spec pretty(doc(), integer()) -> binary().
 pretty(Doc, Width) ->
-    SDoc = format(Width, 0, [{0, flat, {doc_group, Doc}}]),
+    SDoc = format(Width, 0, [{0, flat, group(Doc)}]),
     String = sdoc_to_string(SDoc),
     <<String/binary, "\n">>.
 
@@ -80,11 +80,15 @@ nest(I, X) -> {doc_nest, I, X}.
 %-spec break() -> doc().
 %break() -> {doc_break, ?sp}.
 
--spec break(doc()) -> doc().
+-spec break(binary()) -> doc().
 break(S) -> {doc_break, S}.
 
 -spec group(doc()) -> doc().
-group(D) -> {doc_group, D}.
+group(D) -> {doc_group, D, self}.
+
+%% Group inheritance is lifted from the Elixir algebra implementation.
+-spec group(doc(), inherit()) -> doc().
+group(D, Inherit) -> {doc_group, D, Inherit}.
 
 %% Operators
 
@@ -105,13 +109,16 @@ stick(X, Y) -> concat(X, Y, <<>>).
 -spec newline(doc(), doc()) -> doc().
 newline(X, Y) -> concat(X, Y, ?nl).
 
+%-spec nested_newline(doc(), doc()) -> doc().
+%nested_newline(X, Y) -> concat(X, nest(?indent, Y), ?nl).
+
 -spec concat(doc(), doc(), binary()) -> doc().
 concat(doc_nil, Y, _) -> Y;
 concat(X, doc_nil, _) -> X;
 concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
 
--spec brackets(steamroll_ast:tokens()) -> doc().
+-spec brackets(tokens()) -> doc().
 brackets([]) ->
     group(cons(text(<<"(">>), text(<<")">>)));
 brackets(BraketVars) ->
@@ -142,16 +149,36 @@ list_elements([{var,_,Var}], Acc) ->
     El = text(a2b(Var)),
     lists:reverse([El | Acc]).
 
--spec clause(steamroll_ast:tokens()) -> {doc(), steamroll_ast:tokens()}.
+-spec clause(tokens()) -> {doc(), tokens()}.
 clause(Tokens) ->
-    clause(Tokens, group(empty())).
+    {Doc, Rest} = clause(Tokens, empty()),
+    {group(Doc, inherit), Rest}.
 
+clause([], Doc) -> {Doc, []};
+clause([{var, _, Var}, {'=', _} | Rest0], Doc0) ->
+    {Tokens, Rest1} = get_end_of_expr(Rest0),
+    Equals = group(space(text(a2b(Var)), text(<<"=">>))),
+    Expr = expr(Tokens),
+    Equation = group(nest(?indent, (space(Equals, Expr)))),
+    {Doc1, Rest2} = clause(Rest1),
+    {space(newline(Doc0, Equation), Doc1), Rest2};
 clause([{Token, _, Var}, {';', _} | Rest], Doc0) when Token == var orelse Token == atom ->
     Line = cons(text(a2b(Var)), text(<<";">>)),
-    Doc1 = cons(Doc0, newline(Line, generate_doc(Rest))),
-    {Doc1, []};
+    Doc1 = nest(?indent, space(Doc0, Line)),
+    {Doc1, Rest};
 clause([{Token, _, Var}, {dot, _} | Rest], Doc) when Token == var orelse Token == atom ->
-    {cons(Doc, cons(text(a2b(Var)), text(?dot))), Rest}.
+    {space(Doc, cons(text(a2b(Var)), text(?dot))), Rest}.
+
+-spec expr(tokens()) -> doc().
+expr(Tokens) -> group(expr(Tokens, empty())).
+
+expr([{var, _, Var}, {End, _}], Doc) when End == ',' orelse End == 'dot' ->
+    space(Doc, cons(text(a2b(Var)), text(a2b(End))));
+expr([{var, _, Var}, {Op, _} | Rest], Doc0) when Op == '+' orelse Op == '-' ->
+    Doc1 = space(Doc0, space(text(a2b(Var)), text(a2b(Op)))),
+    expr(Rest, Doc1).
+
+
 
 
 %% Internal
@@ -164,7 +191,8 @@ format(W, K, [{I, M, {doc_nest, J, X}} | Rest]) -> format(W, K, [{I + J, M, X} |
 format(W, K, [{_, _, {doc_text, S}} | Rest]) -> {s_text, S, format(W, K + byte_size(S), Rest)};
 format(W, K, [{_, flat, {doc_break, S}} | Rest]) -> {s_text, S, format(W, K + byte_size(S), Rest)};
 format(W, _, [{I, break, {doc_break, _}} | Rest]) -> {s_line, I, format(W, I, Rest)};
-format(W, K, [{I, _, {doc_group, X}} | Rest]) ->
+format(W, K, [{I, M, {doc_group, X, inherit}} | Rest]) -> format(W, K, [{I, M, X} | Rest]);
+format(W, K, [{I, _, {doc_group, X, self}} | Rest]) ->
     case fits(W - K, [{I, flat, X}]) of
         true ->
             format(W, K, [{I, flat, X} | Rest]);
@@ -180,8 +208,10 @@ fits(W, [{I, M, {doc_cons, X, Y}} | Rest]) -> fits(W, [{I, M, X}, {I, M, Y} | Re
 fits(W, [{I, M, {doc_nest, J, X}} | Rest]) -> fits(W, [{I + J, M, X} | Rest]);
 fits(W, [{_, _, {doc_text, S}} | Rest]) -> fits(W - byte_size(S), Rest);
 fits(W, [{_, flat, {doc_break, S}} | Rest]) -> fits(W - byte_size(S), Rest);
-fits(_, [{_, break, {doc_break, _}} | _Rest]) -> throw(impossible);
-fits(W, [{I, _, {doc_group, X}} | Rest]) -> fits(W, [{I, flat, X} | Rest]).
+% This clause is impossible according to the research paper and dialyzer agrees.
+%fits(_, [{_, break, {doc_break, _}} | _Rest]) -> throw(impossible);
+fits(W, [{I, M, {doc_group, X, inherit}} | Rest]) -> fits(W, [{I, M, X} | Rest]);
+fits(W, [{I, _, {doc_group, X, self}} | Rest]) -> fits(W, [{I, flat, X} | Rest]).
 
 -spec sdoc_to_string(sdoc()) -> binary().
 sdoc_to_string(s_nil) -> <<"">>;
@@ -195,17 +225,18 @@ sdoc_to_string({s_line, Indent, Doc}) ->
 
 %% Token Consumption
 
--spec generate_doc_(steamroll_ast:tokens(), doc()) -> doc().
+-spec generate_doc_(tokens(), doc()) -> doc().
 generate_doc_([], Doc) -> Doc;
 generate_doc_([{atom, _, Atom} | Rest], Doc) ->
-    generate_doc_(Rest, cons(Doc, text(a2b(Atom))));
+    % Function
+    generate_doc_(Rest, newline(Doc, text(a2b(Atom))));
 generate_doc_([{'(', _} | Rest0], Doc) ->
     {Tokens, Rest1} = get_until(')', Rest0),
     Group = brackets(Tokens),
     generate_doc_(Rest1, cons(Doc, Group));
 generate_doc_([{'->', _} | Rest0], Doc) ->
     {Clause, Rest1} = clause(Rest0),
-    generate_doc_(Rest1, cons(Doc, space(text(<<" ->">>), Clause))).
+    generate_doc_(Rest1, cons(Doc, nest(?indent, space(text(<<" ->">>), Clause)))).
 
 %% Utils
 
@@ -217,15 +248,34 @@ repeat_(Acc, _, 0) -> Acc;
 repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
 
 -spec a2b(atom()) -> binary().
+a2b(dot) -> <<".">>;
 a2b(Atom) -> list_to_binary(atom_to_list(Atom)).
 
 
+-spec get_until(atom(), tokens()) -> {tokens(), tokens()}.
 get_until(Char, Tokens) -> get_until(Char, Tokens, []).
 get_until(Char, [{Char, _} = _Token | Rest], Acc) ->
     % No need to return the token because we already know what it is.
     {lists:reverse(Acc), Rest};
 get_until(Char, [Token | Rest], Acc) ->
     get_until(Char, Rest, [Token | Acc]).
+
+-spec get_end_of_expr(tokens()) -> {tokens(), tokens()}.
+get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, []).
+
+get_end_of_expr([{End, _} = Token | Rest], Acc) when End == ',' orelse End == dot ->
+    {lists:reverse([Token | Acc]), Rest};
+get_end_of_expr([{'(', _} = Token | Rest0], Acc) ->
+    {Tokens, Rest1} = get_until(')', Rest0),
+    get_end_of_expr(Rest1, [{')', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
+get_end_of_expr([{'{', _} = Token | Rest0], Acc) ->
+    {Tokens, Rest1} = get_until('}', Rest0),
+    get_end_of_expr(Rest1, [{'}', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
+get_end_of_expr([{'[', _} = Token | Rest0], Acc) ->
+    {Tokens, Rest1} = get_until(']', Rest0),
+    get_end_of_expr(Rest1, [{']', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
+get_end_of_expr([Token | Rest], Acc) ->
+    get_end_of_expr(Rest, [Token | Acc]).
 
 %% Testing
 

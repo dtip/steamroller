@@ -9,6 +9,8 @@
 -type ast() :: list(erl_parse:abstract_form()).
 -type tokens() :: list(erl_scan:token()).
 
+-export_type([tokens/0]).
+
 %% API
 
 -spec ast(binary()) -> ast().

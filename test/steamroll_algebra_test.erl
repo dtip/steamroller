@@ -41,22 +41,31 @@ basic_function_test() ->
     Expect0 = <<"foo(Arg1, Arg2) -> ok.\n">>,
     Result0 = steamroll_algebra:format_tokens(Tokens, 100),
     ?assertEqual(Expect0, Result0),
-    Expect1 = <<"foo(Arg1, Arg2) ->\nok.\n">>,
+    Expect1 = <<"foo(Arg1, Arg2) ->\n    ok.\n">>,
     Result1 = steamroll_algebra:format_tokens(Tokens, 20),
     ?assertEqual(Expect1, Result1),
-    Expect2 = <<"foo(\n    Arg1,\n    Arg2\n) ->\nok.\n">>,
+    Expect2 = <<"foo(\n    Arg1,\n    Arg2\n) ->\n    ok.\n">>,
     Result2 = steamroll_algebra:format_tokens(Tokens, 1),
     ?assertEqual(Expect2, Result2).
+
+function_test() ->
+    Tokens = steamroll_ast:tokens(<<"foo(Arg1, Arg2) -> Arg3 = Arg1 + Arg2, Arg3.">>),
+    Expect0 = <<"foo(Arg1, Arg2) ->\n    Arg3 = Arg1 + Arg2,\n    Arg3.\n">>,
+    Result0 = steamroll_algebra:format_tokens(Tokens, 30),
+    ?assertEqual(Expect0, Result0),
+    Expect1 = <<"foo(Arg1, Arg2) ->\n    Arg3 =\n        Arg1 + Arg2,\n    Arg3.\n">>,
+    Result1 = steamroll_algebra:format_tokens(Tokens, 20),
+    ?assertEqual(Expect1, Result1).
 
 function_clause_test() ->
     Tokens = steamroll_ast:tokens(<<"foo(Arg1, Arg1) -> error; foo(Arg1, Arg2) -> ok.">>),
     Expect0 = <<"foo(Arg1, Arg1) -> error;\nfoo(Arg1, Arg2) -> ok.\n">>,
     Result0 = steamroll_algebra:format_tokens(Tokens, 100),
     ?assertEqual(Expect0, Result0),
-    Expect1 = <<"foo(Arg1, Arg1) ->\nerror;\nfoo(Arg1, Arg2) ->\nok.\n">>,
+    Expect1 = <<"foo(Arg1, Arg1) ->\n    error;\nfoo(Arg1, Arg2) ->\n    ok.\n">>,
     Result1 = steamroll_algebra:format_tokens(Tokens, 20),
     ?assertEqual(Expect1, Result1),
-    Expect2 = <<"foo(\n    Arg1,\n    Arg1\n) ->\nerror;\nfoo(\n    Arg1,\n    Arg2\n) ->\nok.\n">>,
+    Expect2 = <<"foo(\n    Arg1,\n    Arg1\n) ->\n    error;\nfoo(\n    Arg1,\n    Arg2\n) ->\n    ok.\n">>,
     Result2 = steamroll_algebra:format_tokens(Tokens, 1),
     ?assertEqual(Expect2, Result2).
 
