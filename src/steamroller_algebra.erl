@@ -5,7 +5,7 @@
 %%
 %% [0] https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.34.2200
 %%
--module(steamroll_algebra).
+-module(steamroller_algebra).
 
 -export([format_tokens/1, format_tokens/2, generate_doc/1, pretty/1, pretty/2]).
 % Testing
@@ -21,7 +21,7 @@
 -type sdoc() :: s_nil | {s_text, binary(), sdoc()} | {s_line, binary(), sdoc()}.
 -type mode() :: flat | break.
 -type inherit() :: self | inherit.
--type tokens() :: steamroll_ast:tokens().
+-type tokens() :: steamroller_ast:tokens().
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).

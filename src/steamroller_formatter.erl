@@ -1,4 +1,4 @@
--module(steamroll_formatter).
+-module(steamroller_formatter).
 
 -export([format/1, format_code/1]).
 
@@ -22,11 +22,11 @@ format_code(Code) -> format_code(Code, <<"no_file">>).
 
 -spec format_code(binary(), binary()) -> {ok, binary()} | {error, any()}.
 format_code(Code, File) ->
-    OriginalAst = steamroll_ast:ast(Code),
-    Tokens = steamroll_ast:tokens(Code),
-    FormattedCode = steamroll_algebra:format_tokens(Tokens),
-    NewAst = steamroll_ast:ast(FormattedCode),
-    case steamroll_ast:eq(OriginalAst, NewAst) of
+    OriginalAst = steamroller_ast:ast(Code),
+    Tokens = steamroller_ast:tokens(Code),
+    FormattedCode = steamroller_algebra:format_tokens(Tokens),
+    NewAst = steamroller_ast:ast(FormattedCode),
+    case steamroller_ast:eq(OriginalAst, NewAst) of
         true ->
             {ok, FormattedCode};
         false ->

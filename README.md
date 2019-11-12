@@ -1,4 +1,4 @@
-🚂 Steamroll
+🚂 Steamroller
 =====
 
 Upset your colleagues by autoformatting their Erlang code.
@@ -11,15 +11,15 @@ Build
 Use
 ---
 
-Add steamroll to your rebar config:
+Add steamroller to your rebar config:
 
     {plugins, [
-        {steamroll, {git, "https://github.com/old-reliable/steamroll.git", {branch, "master"}}}
+        {steamroller, {git, "https://github.com/old-reliable/steamroller.git", {branch, "master"}}}
     ]}.
 
-Then call it directly in an existing application:
+Then ask it to steamroll your code directly in an existing application:
 
     $ rebar3 steamroll
-    ===> Fetching steamroll
-    ===> Compiling steamroll
-    <Steamroll Output>
+    ===> Fetching steamroller
+    ===> Compiling steamroller
+    <Steamroller Output>

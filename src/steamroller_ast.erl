@@ -1,10 +1,10 @@
--module(steamroll_ast).
+-module(steamroller_ast).
 
 -export([ast/1, tokens/1, eq/2]).
 
 -include_lib("kernel/include/logger.hrl").
 
--define(TEMP_FILE, "steamroll_temp.erl").
+-define(TEMP_FILE, "steamroller_temp.erl").
 
 -type ast() :: list(erl_parse:abstract_form()).
 -type tokens() :: list(erl_scan:token()).

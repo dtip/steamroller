@@ -1,4 +1,4 @@
-{application, steamroll,
+{application, steamroller,
  [{description, "Format that Erlang."},
   {vsn, "0.1.0"},
   {registered, []},

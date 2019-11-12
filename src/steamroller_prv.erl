@@ -1,4 +1,4 @@
--module(steamroll_prv).
+-module(steamroller_prv).
 -behaviour(provider).
 
 -export([init/1, do/1, format_error/1]).
@@ -34,7 +34,7 @@ do(State) ->
 
 -spec format_error(any()) ->  iolist().
 format_error(Reason) ->
-    io_lib:format("Steamroll Error: ~p", [Reason]).
+    io_lib:format("Steamroller Error: ~p", [Reason]).
 
 %% ===================================================================
 %% Internal
@@ -54,7 +54,7 @@ find_source_files(Path) ->
     [list_to_binary(filename:join(Path, Mod)) || Mod <- filelib:wildcard("*.erl", Path)].
 
 format_files([File | Rest]) ->
-    case steamroll:format_file(File) of
+    case steamroller:format_file(File) of
          ok -> format_files(Rest);
          {error, _} = Err -> Err
     end;
