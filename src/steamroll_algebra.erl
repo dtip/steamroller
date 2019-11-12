@@ -96,6 +96,7 @@ group(D, Inherit) -> {doc_group, D, Inherit}.
 space(X, Y) -> concat(X, Y, ?sp).
 
 -spec space(list(doc())) -> doc().
+space([X]) -> X;
 space([X, Y]) -> space(X, Y);
 space([X | Rest]) -> space(X, space(Rest)).
 
@@ -141,10 +142,10 @@ brackets(BraketVars) ->
 list_elements(Vars) -> list_elements(Vars, []).
 
 -spec list_elements(list(tuple()), list(doc())) -> list(doc()).
-list_elements([{var,_,Var}, {',',_} | Rest], Acc) ->
+list_elements([{Token,_,Var}, {',',_} | Rest], Acc) when Token == var orelse Token == atom ->
     El = cons(text(a2b(Var)), text(<<",">>)),
     list_elements(Rest, [El | Acc]);
-list_elements([{var,_,Var}], Acc) ->
+list_elements([{Token,_,Var}], Acc) when Token == var orelse Token == atom ->
     % Comma at the end of a list is a syntax error.
     El = text(a2b(Var)),
     lists:reverse([El | Acc]).
@@ -227,6 +228,9 @@ sdoc_to_string({s_line, Indent, Doc}) ->
 
 -spec generate_doc_(tokens(), doc()) -> doc().
 generate_doc_([], Doc) -> Doc;
+generate_doc_([{'-', _}, {atom, _, Atom} | Rest], Doc) ->
+    % Module Attribute
+    generate_doc_(Rest, newline(Doc, cons(text(<<"-">>), text(a2b(Atom)))));
 generate_doc_([{atom, _, Atom} | Rest], Doc) ->
     % Function
     generate_doc_(Rest, newline(Doc, text(a2b(Atom))));
@@ -236,7 +240,9 @@ generate_doc_([{'(', _} | Rest0], Doc) ->
     generate_doc_(Rest1, cons(Doc, Group));
 generate_doc_([{'->', _} | Rest0], Doc) ->
     {Clause, Rest1} = clause(Rest0),
-    generate_doc_(Rest1, cons(Doc, nest(?indent, space(text(<<" ->">>), Clause)))).
+    generate_doc_(Rest1, cons(Doc, nest(?indent, space(text(<<" ->">>), Clause))));
+generate_doc_([{dot, _} | Rest], Doc) ->
+    generate_doc_(Rest, cons(Doc, text(?dot))).
 
 %% Utils
 
@@ -248,7 +254,7 @@ repeat_(Acc, _, 0) -> Acc;
 repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
 
 -spec a2b(atom()) -> binary().
-a2b(dot) -> <<".">>;
+a2b(dot) -> ?dot;
 a2b(Atom) -> list_to_binary(atom_to_list(Atom)).
 
 

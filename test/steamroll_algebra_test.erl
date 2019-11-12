@@ -69,3 +69,12 @@ function_clause_test() ->
     Result2 = steamroll_algebra:format_tokens(Tokens, 1),
     ?assertEqual(Expect2, Result2).
 
+basic_attribute_test() ->
+    Tokens = steamroll_ast:tokens(<<"-module(test).">>),
+    Expect0 = <<"-module(test).\n">>,
+    Result0 = steamroll_algebra:format_tokens(Tokens, 100),
+    ?assertEqual(Expect0, Result0),
+    Expect1 = <<"-module(\n    test\n).\n">>,
+    Result1 = steamroll_algebra:format_tokens(Tokens, 1),
+    ?assertEqual(Expect1, Result1).
+
