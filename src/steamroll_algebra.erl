@@ -102,8 +102,8 @@ stick(X, Y) -> concat(X, Y, <<>>).
 %stick([X, Y]) -> stick(X, Y);
 %stick([X | Rest]) -> stick(X, stick(Rest)).
 
-%-spec newline(doc(), doc()) -> doc().
-%newline(X, Y) -> concat(X, Y, ?nl).
+-spec newline(doc(), doc()) -> doc().
+newline(X, Y) -> concat(X, Y, ?nl).
 
 -spec concat(doc(), doc(), binary()) -> doc().
 concat(doc_nil, Y, _) -> Y;
@@ -146,6 +146,10 @@ list_elements([{var,_,Var}], Acc) ->
 clause(Tokens) ->
     clause(Tokens, group(empty())).
 
+clause([{Token, _, Var}, {';', _} | Rest], Doc0) when Token == var orelse Token == atom ->
+    Line = cons(text(a2b(Var)), text(<<";">>)),
+    Doc1 = cons(Doc0, newline(Line, generate_doc(Rest))),
+    {Doc1, []};
 clause([{Token, _, Var}, {dot, _} | Rest], Doc) when Token == var orelse Token == atom ->
     {cons(Doc, cons(text(a2b(Var)), text(?dot))), Rest}.
 
