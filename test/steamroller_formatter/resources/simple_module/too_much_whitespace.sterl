@@ -1,0 +1,43 @@
+-module(test).
+
+
+-export(
+   [foo/1]
+).
+
+
+
+-define(RET, ok).
+
+foo(hello) -> ?RET;
+
+
+
+
+
+
+
+
+
+foo(_) -> {error, oh_no}.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bar(X, Y) -> X + Y.
