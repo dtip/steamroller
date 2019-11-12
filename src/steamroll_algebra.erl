@@ -25,9 +25,12 @@
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
+-define(two_nl, <<"\n\n">>).
 -define(dot, <<".">>).
 -define(max_width, 100).
 -define(indent, 4).
+
+-define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[')).
 
 %% API
 
@@ -110,6 +113,9 @@ stick(X, Y) -> concat(X, Y, <<>>).
 -spec newline(doc(), doc()) -> doc().
 newline(X, Y) -> concat(X, Y, ?nl).
 
+-spec newlines(doc(), doc()) -> doc().
+newlines(X, Y) -> concat(X, Y, ?two_nl).
+
 %-spec nested_newline(doc(), doc()) -> doc().
 %nested_newline(X, Y) -> concat(X, nest(?indent, Y), ?nl).
 
@@ -118,37 +124,55 @@ concat(doc_nil, Y, _) -> Y;
 concat(X, doc_nil, _) -> X;
 concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
+%% Erlang Source Elements
 
--spec brackets(tokens()) -> doc().
-brackets([]) ->
-    group(cons(text(<<"(">>), text(<<")">>)));
-brackets(BraketVars) ->
+-spec attribute(atom(), tokens()) -> {doc(), tokens()}.
+attribute(Att, Tokens) ->
+    {Expr, [{dot, _} | Rest]} = list_group(Tokens),
+    {group(cons(text(<<"-">>), cons(text(a2b(Att)), cons(Expr, text(?dot))))), Rest}.
+
+-spec list_group(tokens()) -> {doc(), tokens()}.
+list_group([{'(', _} | Rest0]) ->
+    {Tokens, Rest1} = get_until(')', Rest0),
+    {brackets(Tokens, <<"(">>, <<")">>), Rest1};
+list_group([{'{', _} | Rest0]) ->
+    {Tokens, Rest1} = get_until('}', Rest0),
+    {brackets(Tokens, <<"{">>, <<"}">>), Rest1};
+list_group([{'[', _} | Rest0]) ->
+    {Tokens, Rest1} = get_until(']', Rest0),
+    {brackets(Tokens, <<"[">>, <<"]">>), Rest1}.
+
+
+-spec brackets(tokens(), binary(), binary()) -> doc().
+brackets([], Open, Close) ->
+    group(cons(text(Open), text(Close)));
+brackets(Tokens, Open, Close) ->
     group(
       stick(
         nest(
           ?indent,
           stick(
-            text(<<"(">>),
+            text(Open),
             space(
-              list_elements(BraketVars)
+              list_elements(Tokens)
             )
           )
         ),
-      text(<<")">>)
+      text(Close)
       )
     ).
 
--spec list_elements(list(tuple())) -> list(doc()).
-list_elements(Vars) -> list_elements(Vars, []).
+-spec list_elements(tokens()) -> list(doc()).
+list_elements(Tokens) -> list_elements(Tokens, []).
 
--spec list_elements(list(tuple()), list(doc())) -> list(doc()).
-list_elements([{Token,_,Var}, {',',_} | Rest], Acc) when Token == var orelse Token == atom ->
-    El = cons(text(a2b(Var)), text(<<",">>)),
-    list_elements(Rest, [El | Acc]);
-list_elements([{Token,_,Var}], Acc) when Token == var orelse Token == atom ->
-    % Comma at the end of a list is a syntax error.
-    El = text(a2b(Var)),
-    lists:reverse([El | Acc]).
+-spec list_elements(tokens(), list(doc())) -> list(doc()).
+list_elements([], Acc) -> lists:reverse(Acc);
+list_elements([{C, _} | _] = Tokens, Acc) when ?IS_LIST_CHAR(C) ->
+    {Group, Rest} = list_group(Tokens),
+    list_elements(Rest, [Group | Acc]);
+list_elements(Tokens, Acc) ->
+    {Expr, Rest} = expr(Tokens),
+    list_elements(Rest, [Expr | Acc]).
 
 -spec clause(tokens()) -> {doc(), tokens()}.
 clause(Tokens) ->
@@ -157,9 +181,8 @@ clause(Tokens) ->
 
 clause([], Doc) -> {Doc, []};
 clause([{var, _, Var}, {'=', _} | Rest0], Doc0) ->
-    {Tokens, Rest1} = get_end_of_expr(Rest0),
     Equals = group(space(text(a2b(Var)), text(<<"=">>))),
-    Expr = expr(Tokens),
+    {Expr, Rest1} = expr(Rest0),
     Equation = group(nest(?indent, (space(Equals, Expr)))),
     {Doc1, Rest2} = clause(Rest1),
     {space(newline(Doc0, Equation), Doc1), Rest2};
@@ -170,15 +193,22 @@ clause([{Token, _, Var}, {';', _} | Rest], Doc0) when Token == var orelse Token 
 clause([{Token, _, Var}, {dot, _} | Rest], Doc) when Token == var orelse Token == atom ->
     {space(Doc, cons(text(a2b(Var)), text(?dot))), Rest}.
 
--spec expr(tokens()) -> doc().
-expr(Tokens) -> group(expr(Tokens, empty())).
+-spec expr(tokens()) -> {doc(), tokens()}.
+expr(Tokens) ->
+    {ExprTokens, Rest} = get_end_of_expr(Tokens),
+    {group(expr(ExprTokens, empty())), Rest}.
 
-expr([{var, _, Var}, {End, _}], Doc) when End == ',' orelse End == 'dot' ->
-    space(Doc, cons(text(a2b(Var)), text(a2b(End))));
+expr([], Doc) -> Doc;
+expr([{End, _}], Doc) when End == ',' orelse End == 'dot' ->
+    cons(Doc, text(a2b(End)));
 expr([{var, _, Var}, {Op, _} | Rest], Doc0) when Op == '+' orelse Op == '-' ->
     Doc1 = space(Doc0, space(text(a2b(Var)), text(a2b(Op)))),
-    expr(Rest, Doc1).
-
+    expr(Rest, Doc1);
+expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc) ->
+    FunctionDoc = cons(text(a2b(Atom)), cons(text(<<"/">>), text(i2b(Int)))),
+    expr(Rest, space(Doc, FunctionDoc));
+expr([{Token, _, Var} | Rest], Doc) when Token == var orelse Token == atom ->
+    expr(Rest, space(Doc, text(a2b(Var)))).
 
 
 
@@ -191,6 +221,7 @@ format(W, K, [{I, M, {doc_cons, X, Y}} | Rest]) -> format(W, K, [{I, M, X}, {I, 
 format(W, K, [{I, M, {doc_nest, J, X}} | Rest]) -> format(W, K, [{I + J, M, X} | Rest]);
 format(W, K, [{_, _, {doc_text, S}} | Rest]) -> {s_text, S, format(W, K + byte_size(S), Rest)};
 format(W, K, [{_, flat, {doc_break, S}} | Rest]) -> {s_text, S, format(W, K + byte_size(S), Rest)};
+format(W, _, [{I, break, {doc_break, ?two_nl}} | Rest]) -> {s_line, 0, {s_line, I, format(W, I, Rest)}};
 format(W, _, [{I, break, {doc_break, _}} | Rest]) -> {s_line, I, format(W, I, Rest)};
 format(W, K, [{I, M, {doc_group, X, inherit}} | Rest]) -> format(W, K, [{I, M, X} | Rest]);
 format(W, K, [{I, _, {doc_group, X, self}} | Rest]) ->
@@ -228,21 +259,20 @@ sdoc_to_string({s_line, Indent, Doc}) ->
 
 -spec generate_doc_(tokens(), doc()) -> doc().
 generate_doc_([], Doc) -> Doc;
-generate_doc_([{'-', _}, {atom, _, Atom} | Rest], Doc) ->
+generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc) ->
     % Module Attribute
-    generate_doc_(Rest, newline(Doc, cons(text(<<"-">>), text(a2b(Atom)))));
+    {Group, Rest} = attribute(Atom, Tokens),
+    % Put a line gap between module attributes.
+    generate_doc_(Rest, newlines(Doc, Group));
 generate_doc_([{atom, _, Atom} | Rest], Doc) ->
     % Function
     generate_doc_(Rest, newline(Doc, text(a2b(Atom))));
-generate_doc_([{'(', _} | Rest0], Doc) ->
-    {Tokens, Rest1} = get_until(')', Rest0),
-    Group = brackets(Tokens),
-    generate_doc_(Rest1, cons(Doc, Group));
+generate_doc_([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
+    {Group, Rest} = list_group(Tokens),
+    generate_doc_(Rest, cons(Doc, Group));
 generate_doc_([{'->', _} | Rest0], Doc) ->
     {Clause, Rest1} = clause(Rest0),
-    generate_doc_(Rest1, cons(Doc, nest(?indent, space(text(<<" ->">>), Clause))));
-generate_doc_([{dot, _} | Rest], Doc) ->
-    generate_doc_(Rest, cons(Doc, text(?dot))).
+    generate_doc_(Rest1, cons(Doc, nest(?indent, space(text(<<" ->">>), Clause)))).
 
 %% Utils
 
@@ -257,6 +287,8 @@ repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
 a2b(dot) -> ?dot;
 a2b(Atom) -> list_to_binary(atom_to_list(Atom)).
 
+-spec i2b(integer()) -> binary().
+i2b(Integer) -> integer_to_binary(Integer).
 
 -spec get_until(atom(), tokens()) -> {tokens(), tokens()}.
 get_until(Char, Tokens) -> get_until(Char, Tokens, []).
@@ -269,6 +301,8 @@ get_until(Char, [Token | Rest], Acc) ->
 -spec get_end_of_expr(tokens()) -> {tokens(), tokens()}.
 get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, []).
 
+get_end_of_expr([], Acc) ->
+    {lists:reverse(Acc), []};
 get_end_of_expr([{End, _} = Token | Rest], Acc) when End == ',' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};
 get_end_of_expr([{'(', _} = Token | Rest0], Acc) ->

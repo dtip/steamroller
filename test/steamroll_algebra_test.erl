@@ -78,3 +78,26 @@ basic_attribute_test() ->
     Result1 = steamroll_algebra:format_tokens(Tokens, 1),
     ?assertEqual(Expect1, Result1).
 
+attribute_test() ->
+    Tokens = steamroll_ast:tokens(<<"-module(test).\n\n-export([start_link/0, init/1]).">>),
+    Expect0 = <<"-module(test).\n\n-export([start_link/0, init/1]).\n">>,
+    Result0 = steamroll_algebra:format_tokens(Tokens, 100),
+    ?assertEqual(Expect0, Result0),
+    Expect1 = <<"-module(test).\n\n-export(\n    [start_link/0, init/1]\n).\n">>,
+    Result1 = steamroll_algebra:format_tokens(Tokens, 30),
+    ?assertEqual(Expect1, Result1),
+    Expect2 = <<"-module(test).\n\n-export(\n    [\n        start_link/0,\n        init/1\n    ]\n).\n">>,
+    Result2 = steamroll_algebra:format_tokens(Tokens, 20),
+    ?assertEqual(Expect2, Result2).
+
+
+
+
+
+
+
+
+
+
+
+
