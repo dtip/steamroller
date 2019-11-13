@@ -206,6 +206,24 @@ function_comment_test_() ->
      ?_assertEqual(Expect1, Result1)
     ].
 
+function_comment_list_test_() ->
+    Tokens0 = steamroller_ast:tokens(<<"foo() ->\n    {error,\n % TODO improve\noh_no}.">>),
+    Expect0 = <<"foo() ->\n    {\n        error,\n        % TODO improve\n        oh_no\n    }.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Expect1 = <<"foo() ->\n    {\n        error,\n        % TODO improve\n        oh_no\n    }.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens0, 1),
+    Tokens1 = steamroller_ast:tokens(<<"foo() ->\n    Error = 1 + 2,\n    {error, % TODO improve\nError}.">>),
+    Expect2 = <<"foo() ->\n    Error = 1 + 2,\n    {\n        error,\n        % TODO improve\n        Error\n    }.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens1, 100),
+    Expect3 = <<"foo() ->\n    Error =\n        1 + 2,\n    {\n        error,\n        % TODO improve\n        Error\n    }.\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens1, 15),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2),
+     ?_assertEqual(Expect3, Result3)
+    ].
+
 functions_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> Arg1 + Arg2.\nbar() -> baz.">>),
     Expect0 = <<"foo(Arg1, Arg2) -> Arg1 + Arg2.\n\nbar() -> baz.\n">>,
