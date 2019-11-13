@@ -1,0 +1,29 @@
+%%
+%% @doc Writing a descriptive comment.
+%%
+%% Documenting code to help everyone.
+%%
+%% Following best practice.
+%%
+-module(test).
+
+-export(
+    [
+        foo/1,
+        % for testing
+        bar/2
+    ]
+).
+
+% What a great macro!
+-define(RET, ok).
+
+-spec foo(atom()) -> ok | {error, atom()}.
+foo(hello) -> ?RET;
+% This clause is particularly tricky.
+foo(_) -> {error, oh_no}.
+
+% There's a comment here.
+-spec bar(integer(), integer()) -> integer().
+% Any one here too.
+bar(X, Y) -> X + Y.

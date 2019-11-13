@@ -180,7 +180,7 @@ generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
     Doc1 =
         case PrevTerm of
             new_file -> cons(Doc0, Comment);
-            comment -> newline(Doc0, Comment);
+            PrevTerm when PrevTerm == comment orelse PrevTerm == spec -> newline(Doc0, Comment);
             _ -> newlines(Doc0, Comment)
         end,
     generate_doc_(Rest, Doc1, comment).

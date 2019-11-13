@@ -43,3 +43,11 @@ specced_module_test_() ->
      ?_assertEqual(Expect, steamroller_formatter:format_code(Grim1)),
      ?_assertEqual(Expect, steamroller_formatter:format_code(Grim2))
     ].
+
+commented_module_test_() ->
+    Expect = {ok, Correct} = file:read_file(?FILE_DIR ++ "commented_module/correct.sterl"),
+    {ok, Grim1} = file:read_file(?FILE_DIR ++ "commented_module/grim1.sterl"),
+    [
+     ?_assertEqual(Expect, steamroller_formatter:format_code(Correct)),
+     ?_assertEqual(Expect, steamroller_formatter:format_code(Grim1))
+    ].
