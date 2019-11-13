@@ -264,6 +264,43 @@ attribute_test_() ->
      ?_assertEqual(Expect2, Result2)
     ].
 
+%%
+%% TODO change this behaviour. We currently have
+%%
+%% ```erlang
+%% -export(
+%%     [
+%%         start_link/0,
+%%         % Some comment
+%%         init/1
+%%     ]
+%% ).
+%% ```
+%%
+%% which is "fine" by some definition of the word.
+%%
+%% But really those brackets should be squashed:
+%%
+%% ```erlang
+%% -export([
+%%     start_link/0,
+%%     % Some comment
+%%     init/1
+%% ]).
+%% ```
+%%
+attribute_commment_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-module(test).\n\n-export([start_link/0,\n    % comment\n    init/1]).">>),
+    Expect = <<"-module(test).\n\n-export(\n    [\n        start_link/0,\n        % comment\n        init/1\n    ]\n).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    Result2 = steamroller_algebra:format_tokens(Tokens, 20),
+    [
+     ?_assertEqual(Expect, Result0),
+     ?_assertEqual(Expect, Result1),
+     ?_assertEqual(Expect, Result2)
+    ].
+
 comment_test_() ->
     Expect0 = <<"% Hello I am a comment and I don't change length\n">>,
     Tokens0 = steamroller_ast:tokens(Expect0),
