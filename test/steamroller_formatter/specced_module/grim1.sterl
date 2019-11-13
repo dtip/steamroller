@@ -1,0 +1,11 @@
+-module(test).
+-export([
+         foo/1
+        ]).
+-define(RET, ok).
+-spec(foo(atom()) -> ok
+                     | {error, atom()}).
+foo(hello) -> ?RET;foo(_) -> {error, oh_no}.
+-spec bar(integer(), integer()) -> integer().
+bar(X, Y) ->
+    X + Y.

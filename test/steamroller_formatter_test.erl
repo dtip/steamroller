@@ -2,7 +2,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--define(RES_DIR, "./test/steamroller_formatter/resources/").
+-define(FILE_DIR, "./test/steamroller_formatter/").
 
 basic_boilerplate_test_() ->
     Expect = {ok, <<"-module(test).\n\n-export([init/1]).\n">>},
@@ -25,12 +25,21 @@ define_test_() ->
     ].
 
 simple_module_test_() ->
-    Expect = {ok, Correct} = file:read_file(?RES_DIR ++ "simple_module/correct.sterl"),
-    {ok, NotEnoughWhitespace} = file:read_file(?RES_DIR ++ "simple_module/not_enough_whitespace.sterl"),
-    {ok, TooMuchWhitespace} = file:read_file(?RES_DIR ++ "simple_module/too_much_whitespace.sterl"),
+    Expect = {ok, Correct} = file:read_file(?FILE_DIR ++ "simple_module/correct.sterl"),
+    {ok, NotEnoughWhitespace} = file:read_file(?FILE_DIR ++ "simple_module/not_enough_whitespace.sterl"),
+    {ok, TooMuchWhitespace} = file:read_file(?FILE_DIR ++ "simple_module/too_much_whitespace.sterl"),
     [
      ?_assertEqual(Expect, steamroller_formatter:format_code(Correct)),
      ?_assertEqual(Expect, steamroller_formatter:format_code(NotEnoughWhitespace)),
      ?_assertEqual(Expect, steamroller_formatter:format_code(TooMuchWhitespace))
     ].
 
+specced_module_test_() ->
+    Expect = {ok, Correct} = file:read_file(?FILE_DIR ++ "specced_module/correct.sterl"),
+    {ok, Grim1} = file:read_file(?FILE_DIR ++ "specced_module/grim1.sterl"),
+    {ok, Grim2} = file:read_file(?FILE_DIR ++ "specced_module/grim2.sterl"),
+    [
+     ?_assertEqual(Expect, steamroller_formatter:format_code(Correct)),
+     ?_assertEqual(Expect, steamroller_formatter:format_code(Grim1)),
+     ?_assertEqual(Expect, steamroller_formatter:format_code(Grim2))
+    ].
