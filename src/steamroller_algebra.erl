@@ -26,6 +26,7 @@
 -type force_break() :: force_break | no_force_break.
 -type token() :: steamroller_ast:token().
 -type tokens() :: steamroller_ast:tokens().
+-type previous_term() :: new_file | attribute | spec | list | function | comment.
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
@@ -47,7 +48,7 @@ format_tokens(Tokens, Width) ->
     pretty(Doc, Width).
 
 -spec generate_doc(tokens()) -> doc().
-generate_doc(Tokens) -> generate_doc_(Tokens, empty()).
+generate_doc(Tokens) -> generate_doc_(Tokens, empty(), new_file).
 
 -spec pretty(doc()) -> binary().
 pretty(Doc) -> pretty(Doc, ?max_width).
@@ -131,30 +132,38 @@ concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
 %% Token Consumption
 
--spec generate_doc_(tokens(), doc()) -> doc().
-generate_doc_([], Doc) -> Doc;
-generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc) ->
+-spec generate_doc_(tokens(), doc(), previous_term()) -> doc().
+generate_doc_([], Doc, _) -> Doc;
+generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc, _PrevTerm) ->
     % Spec
     % Re-use the function code because the syntax is identical.
     {Group, Rest} = function(Tokens),
     Spec = cons(text(<<"-spec ">>), Group),
-    generate_doc_(Rest, newlines(Doc, Spec));
-generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc) ->
+    generate_doc_(Rest, newlines(Doc, Spec), spec);
+generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc, _PrevTerm) ->
     % Module Attribute
     {Group, Rest} = attribute(Atom, Tokens),
     % Put a line gap between module attributes.
-    generate_doc_(Rest, newlines(Doc, Group));
-generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc) ->
+    generate_doc_(Rest, newlines(Doc, Group), attribute);
+generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
     % Function
     {Group, Rest} = function(Tokens),
-    generate_doc_(Rest, newlines(Doc, Group));
-generate_doc_([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
+    Doc1 =
+        case PrevTerm of
+            PrevTerm when PrevTerm == comment orelse PrevTerm == spec ->
+                newline(Doc0, Group);
+            _ ->
+                newlines(Doc0, Group)
+        end,
+    generate_doc_(Rest, Doc1, function);
+generate_doc_([{C, _} | _] = Tokens, Doc, _PrevTerm) when ?IS_LIST_CHAR(C) ->
     % List -> if this is at the top level this is probably a config file
     {ForceBreak, Group, Rest} = list_group(Tokens),
-    generate_doc_(Rest, cons(Doc, force_break(ForceBreak, Group)));
-generate_doc_([{comment, _, Comment} | Rest], Doc) ->
+    generate_doc_(Rest, cons(Doc, force_break(ForceBreak, Group)), list);
+generate_doc_([{comment, _, Comment} | Rest], Doc, _PrevTerm) ->
     % Comment
-    generate_doc_(Rest, newline(Doc, comment(Comment))).
+    % TODO: newlines?
+    generate_doc_(Rest, newline(Doc, comment(Comment)), comment).
 
 %% Erlang Source Elements
 
