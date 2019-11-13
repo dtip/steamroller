@@ -7,9 +7,10 @@
 -define(TEMP_FILE, "steamroller_temp.erl").
 
 -type ast() :: list(erl_parse:abstract_form()).
--type tokens() :: list(erl_scan:token()).
+-type token() :: erl_scan:token().
+-type tokens() :: list(token()).
 
--export_type([tokens/0]).
+-export_type([token/0, tokens/0]).
 
 %% API
 

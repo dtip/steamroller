@@ -54,6 +54,18 @@ brakets_comment_test_() ->
      ?_assertEqual(Expect, Result2)
     ].
 
+brakets_inline_comment_test_() ->
+    Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  thing/0 % test\n)">>),
+    Expect = <<"(\n    init/1,\n    % test\n    thing/0\n)\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Result2 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+     ?_assertEqual(Expect, Result0),
+     ?_assertEqual(Expect, Result1),
+     ?_assertEqual(Expect, Result2)
+    ].
+
 basic_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> ok.">>),
     Expect0 = <<"foo(Arg1, Arg2) -> ok.\n">>,
@@ -206,13 +218,24 @@ function_comment_test_() ->
      ?_assertEqual(Expect1, Result1)
     ].
 
+function_inline_comment_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() ->\n    X + Y, % Temporary workaround (2010-01-11)\n    {error, oh_no}.">>),
+    Expect0 = <<"foo() ->\n    % Temporary workaround (2010-01-11)\n    X + Y,\n    {error, oh_no}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    % Temporary workaround (2010-01-11)\n    X + Y,\n    {\n        error,\n        oh_no\n    }.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].
+
 function_comment_list_test_() ->
     Tokens0 = steamroller_ast:tokens(<<"foo() ->\n    {error,\n % TODO improve\noh_no}.">>),
     Expect0 = <<"foo() ->\n    {\n        error,\n        % TODO improve\n        oh_no\n    }.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     Expect1 = <<"foo() ->\n    {\n        error,\n        % TODO improve\n        oh_no\n    }.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens0, 1),
-    Tokens1 = steamroller_ast:tokens(<<"foo() ->\n    Error = 1 + 2,\n    {error, % TODO improve\nError}.">>),
+    Tokens1 = steamroller_ast:tokens(<<"foo() ->\n    Error = 1 + 2,\n    {error, \n% TODO improve\nError}.">>),
     Expect2 = <<"foo() ->\n    Error = 1 + 2,\n    {\n        error,\n        % TODO improve\n        Error\n    }.\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens1, 100),
     Expect3 = <<"foo() ->\n    Error =\n        1 + 2,\n    {\n        error,\n        % TODO improve\n        Error\n    }.\n">>,

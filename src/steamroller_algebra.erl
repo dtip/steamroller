@@ -24,6 +24,7 @@
 -type inherit() :: self | inherit.
 -type continue() :: continue | done.
 -type force_break() :: force_break | no_force_break.
+-type token() :: steamroller_ast:token().
 -type tokens() :: steamroller_ast:tokens().
 
 -define(sp, <<" ">>).
@@ -174,19 +175,19 @@ function(Tokens) ->
 
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{'(', _} | Rest0]) ->
-    {Tokens, Rest1} = get_until(')', Rest0),
+    {Tokens, Rest1, _} = get_until(')', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"(">>, <<")">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'{', _} | Rest0]) ->
-    {Tokens, Rest1} = get_until('}', Rest0),
+    {Tokens, Rest1, _} = get_until('}', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"{">>, <<"}">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'[', _} | Rest0]) ->
-    {Tokens, Rest1} = get_until(']', Rest0),
+    {Tokens, Rest1, _} = get_until(']', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"[">>, <<"]">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'<<', _} | Rest0]) ->
-    {Tokens, Rest1} = get_until('>>', Rest0),
+    {Tokens, Rest1, _} = get_until('>>', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"<<">>, <<">>">>),
     {ForceBreak, ListGroup, Rest1}.
 
@@ -227,7 +228,6 @@ list_elements([{C, _} | _] = Tokens, Acc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
     list_elements(Rest, [Group | Acc], ForceBreak1);
 list_elements(Tokens, Acc, ForceBreak0) ->
     {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0),
-    %ForceBreak1 = case End of comment -> force_break; _ -> ForceBreak0 end,
     list_elements(Rest, [Expr | Acc], ForceBreak1).
 
 -spec clauses(tokens()) -> {list(doc()), tokens()}.
@@ -422,39 +422,52 @@ i2b(Integer) -> integer_to_binary(Integer).
 -spec s2b(string()) -> binary().
 s2b(String) -> list_to_binary("\"" ++ String ++ "\"").
 
--spec get_until(atom(), tokens()) -> {tokens(), tokens()}.
+-spec get_until(atom(), tokens()) -> {tokens(), tokens(), token()}.
 get_until(Char, Tokens) -> get_until(Char, Tokens, []).
-get_until(Char, [{Char, _} = _Token | Rest], Acc) ->
-    % No need to return the token because we already know what it is.
-    {lists:reverse(Acc), Rest};
+get_until(Char, [{Char, _} = Token | Rest], Acc) ->
+    {lists:reverse(Acc), Rest, Token};
 get_until(Char, [Token | Rest], Acc) ->
     get_until(Char, Rest, [Token | Acc]).
 
 -spec get_end_of_expr(tokens()) -> {tokens(), tokens()}.
-get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, []).
+get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0).
 
-get_end_of_expr([], Acc) ->
+
+% Dialyzer gets upset if we use integer() for the third arg here but that's what it is.
+-spec get_end_of_expr(tokens(), tokens(), any()) -> {tokens(), tokens()}.
+get_end_of_expr([], Acc, _LineNum) ->
     {lists:reverse(Acc), []};
-get_end_of_expr([{comment, _, _} = Comment | Rest], []) ->
+get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum) ->
     {[Comment], Rest};
-get_end_of_expr([{comment, _, _} | _] = Rest, Acc) ->
+get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum) ->
+    % Inline comment - naughty naughty
+    % Return the comment and put the acc back.
+    {[Comment], lists:reverse(Acc) ++ Rest};
+get_end_of_expr([{comment, _, _} | _] = Rest, Acc, _LineNum) ->
     {lists:reverse(Acc), Rest};
-get_end_of_expr([{End, _} = Token | Rest], Acc) when End == ',' orelse End == ';' orelse End == dot ->
+get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _)
+  when End == ',' orelse End == ';' orelse End == dot ->
+    % Inline comment - naughty naughty
+    % Return the comment and put the acc back.
+    {[Comment], lists:reverse([Token | Acc]) ++ Rest};
+get_end_of_expr([{End, _} = Token | Rest], Acc, _) when End == ',' orelse End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};
-get_end_of_expr([{'(', _} = Token | Rest0], Acc) ->
-    {Tokens, Rest1} = get_until(')', Rest0),
-    get_end_of_expr(Rest1, [{')', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
-get_end_of_expr([{'{', _} = Token | Rest0], Acc) ->
-    {Tokens, Rest1} = get_until('}', Rest0),
-    get_end_of_expr(Rest1, [{'}', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
-get_end_of_expr([{'[', _} = Token | Rest0], Acc) ->
-    {Tokens, Rest1} = get_until(']', Rest0),
-    get_end_of_expr(Rest1, [{']', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
-get_end_of_expr([{'<<', _} = Token | Rest0], Acc) ->
-    {Tokens, Rest1} = get_until('>>', Rest0),
-    get_end_of_expr(Rest1, [{'>>', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
-get_end_of_expr([Token | Rest], Acc) ->
-    get_end_of_expr(Rest, [Token | Acc]).
+get_end_of_expr([{'(', _} = Token | Rest0], Acc, _) ->
+    {Tokens, Rest1, {')', LineNum} = EndToken} = get_until(')', Rest0),
+    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
+get_end_of_expr([{'{', _} = Token | Rest0], Acc, _) ->
+    {Tokens, Rest1, {'}', LineNum} = EndToken} = get_until('}', Rest0),
+    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
+get_end_of_expr([{'[', _} = Token | Rest0], Acc, _) ->
+    {Tokens, Rest1, {']', LineNum} = EndToken} = get_until(']', Rest0),
+    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
+get_end_of_expr([{'<<', _} = Token | Rest0], Acc, _) ->
+    {Tokens, Rest1, {'>>', LineNum} = EndToken} = get_until('>>', Rest0),
+    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
+get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum);
+get_end_of_expr([{_, LineNum, _} = Token | Rest], Acc, _) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum).
 
 -spec resolve_force_break(list(force_break())) -> force_break().
 resolve_force_break(Args) ->
