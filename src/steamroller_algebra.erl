@@ -33,7 +33,7 @@
 -define(max_width, 100).
 -define(indent, 4).
 
--define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[')).
+-define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
 
 %% API
 
@@ -71,6 +71,11 @@ from_the_paper(Width, Indent) ->
 
 -spec cons(doc(), doc()) -> doc().
 cons(X, Y) -> {doc_cons, X, Y}.
+
+-spec cons(list(doc())) -> doc().
+cons([X]) -> X;
+cons([X, Y]) -> cons(X, Y);
+cons([X | Rest]) -> cons(X, cons(Rest)).
 
 -spec empty() -> doc().
 empty() -> doc_nil.
@@ -162,7 +167,10 @@ list_group([{'{', _} | Rest0]) ->
     {brackets(Tokens, <<"{">>, <<"}">>), Rest1};
 list_group([{'[', _} | Rest0]) ->
     {Tokens, Rest1} = get_until(']', Rest0),
-    {brackets(Tokens, <<"[">>, <<"]">>), Rest1}.
+    {brackets(Tokens, <<"[">>, <<"]">>), Rest1};
+list_group([{'<<', _} | Rest0]) ->
+    {Tokens, Rest1} = get_until('>>', Rest0),
+    {brackets(Tokens, <<"<<">>, <<">>">>), Rest1}.
 
 -spec brackets(tokens(), binary(), binary()) -> doc().
 brackets([], Open, Close) ->
@@ -284,15 +292,37 @@ expr([{var, _, Var}, {Op, _} | Rest], Doc0) when Op == '+' orelse Op == '-' orel
     Doc1 = space(Doc0, space(text(a2b(Var)), text(a2b(Op)))),
     expr(Rest, Doc1);
 expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc) ->
-    FunctionDoc = cons(text(a2b(Atom)), cons(text(<<"/">>), text(i2b(Int)))),
+    FunctionDoc = cons(
+                    [
+                    text(a2b(Atom)),
+                    text(<<"/">>),
+                    text(i2b(Int))
+                    ]
+                   ),
     expr(Rest, space(Doc, FunctionDoc));
+expr([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc) ->
+    TermDoc = cons([
+                    text(a2b(Var)),
+                    text(<<"/">>),
+                    text(a2b(Atom))
+                   ]),
+    expr(Rest, space(Doc, TermDoc));
+expr([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} | Rest], Doc) ->
+    TermDoc =
+        cons(
+          [
+           text(a2b(Var)),
+           text(<<":">>),
+           text(i2b(Integer)),
+           text(<<"/">>),
+           text(a2b(Atom))
+          ]
+        ),
+    expr(Rest, space(Doc, TermDoc));
 expr([{Token, _, Var} | Rest], Doc) when Token == var orelse Token == atom ->
     expr(Rest, space(Doc, text(a2b(Var))));
-expr([{'<<', _}, {string, _, Var}, {'>>', _} | Rest], Doc) ->
-    expr(Rest, space(Doc, text(binary(Var))));
 expr([{string, _, Var} | Rest], Doc) ->
     expr(Rest, space(Doc, text(s2b(Var)))).
-
 
 %% Internal
 
@@ -358,9 +388,6 @@ i2b(Integer) -> integer_to_binary(Integer).
 -spec s2b(string()) -> binary().
 s2b(String) -> list_to_binary("\"" ++ String ++ "\"").
 
--spec binary(string()) -> binary().
-binary(String) -> list_to_binary("<<\"" ++ String ++ "\">>").
-
 -spec get_until(atom(), tokens()) -> {tokens(), tokens()}.
 get_until(Char, Tokens) -> get_until(Char, Tokens, []).
 get_until(Char, [{Char, _} = _Token | Rest], Acc) ->
@@ -385,6 +412,9 @@ get_end_of_expr([{'{', _} = Token | Rest0], Acc) ->
 get_end_of_expr([{'[', _} = Token | Rest0], Acc) ->
     {Tokens, Rest1} = get_until(']', Rest0),
     get_end_of_expr(Rest1, [{']', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
+get_end_of_expr([{'<<', _} = Token | Rest0], Acc) ->
+    {Tokens, Rest1} = get_until('>>', Rest0),
+    get_end_of_expr(Rest1, [{'>>', 0}] ++ lists:reverse(Tokens) ++ [Token | Acc]);
 get_end_of_expr([Token | Rest], Acc) ->
     get_end_of_expr(Rest, [Token | Acc]).
 

@@ -129,10 +129,58 @@ function_basic_binary_test_() ->
     Expect0 = <<"foo() -> <<\"binary\">>.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    <<\"binary\">>.\n">>,
-    Result1 = steamroller_algebra:format_tokens(Tokens, 10),
+    Result1 = steamroller_algebra:format_tokens(Tokens, 20),
+    Expect2 = <<"foo() ->\n    <<\n        \"binary\"\n    >>.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 10),
     [
      ?_assertEqual(Expect0, Result0),
-     ?_assertEqual(Expect1, Result1)
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
+function_binary_construction_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(A, B) -> <<A/binary, B/binary>>.">>),
+    Expect0 = <<"foo(A, B) -> <<A/binary, B/binary>>.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(A, B) ->\n    <<A/binary, B/binary>>.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    Expect2 = <<"foo(A, B) ->\n    <<\n        A/binary,\n        B/binary\n    >>.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 20),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
+function_binary_arg_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(<<A/binary>>) -> A.">>),
+    Expect0 = <<"foo(<<A/binary>>) -> A.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(<<A/binary>>) ->\n    A.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 20),
+    Expect2 = <<"foo(\n    <<A/binary>>\n) ->\n    A.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 16),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
+function_complex_binary_arg_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foooooo(<<H,B:1/binary, C/binary>>) -> <<B/binary, H/binary,C/binary>>.">>),
+    Expect0 = <<"foooooo(<<H, B:1/binary, C/binary>>) -> <<B/binary, H/binary, C/binary>>.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foooooo(<<H, B:1/binary, C/binary>>) ->\n    <<B/binary, H/binary, C/binary>>.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 40),
+    Expect2 = <<"foooooo(\n    <<H, B:1/binary, C/binary>>\n) ->\n    <<\n        B/binary,\n        H/binary,\n        C/binary\n    >>.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 35),
+    Expect3 = <<"foooooo(\n    <<\n        H,\n        B:1/binary,\n        C/binary\n    >>\n) ->\n    <<\n        B/binary,\n        H/binary,\n        C/binary\n    >>.\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens, 20),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2),
+     ?_assertEqual(Expect3, Result3)
     ].
 
 functions_test_() ->
