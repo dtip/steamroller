@@ -160,10 +160,15 @@ generate_doc_([{C, _} | _] = Tokens, Doc, _PrevTerm) when ?IS_LIST_CHAR(C) ->
     % List -> if this is at the top level this is probably a config file
     {ForceBreak, Group, Rest} = list_group(Tokens),
     generate_doc_(Rest, cons(Doc, force_break(ForceBreak, Group)), list);
-generate_doc_([{comment, _, Comment} | Rest], Doc, _PrevTerm) ->
+generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
     % Comment
-    % TODO: newlines?
-    generate_doc_(Rest, newline(Doc, comment(Comment)), comment).
+    Comment = comment(CommentText),
+    Doc1 =
+        case PrevTerm of
+            comment -> newline(Doc0, Comment);
+            _ -> newlines(Doc0, Comment)
+        end,
+    generate_doc_(Rest, Doc1, comment).
 
 %% Erlang Source Elements
 
