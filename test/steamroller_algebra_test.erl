@@ -113,7 +113,7 @@ function_tuple_test_() ->
      ?_assertEqual(Expect2, Result2)
     ].
 
-function_string_test_() ->
+function_basic_string_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> \"string\".">>),
     Expect0 = <<"foo() -> \"string\".\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -124,6 +124,16 @@ function_string_test_() ->
      ?_assertEqual(Expect1, Result1)
     ].
 
+function_basic_binary_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> <<\"binary\">>.">>),
+    Expect0 = <<"foo() -> <<\"binary\">>.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    <<\"binary\">>.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].
 
 functions_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> Arg1 + Arg2.\nbar() -> baz.">>),

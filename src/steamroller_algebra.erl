@@ -288,6 +288,8 @@ expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc) ->
     expr(Rest, space(Doc, FunctionDoc));
 expr([{Token, _, Var} | Rest], Doc) when Token == var orelse Token == atom ->
     expr(Rest, space(Doc, text(a2b(Var))));
+expr([{'<<', _}, {string, _, Var}, {'>>', _} | Rest], Doc) ->
+    expr(Rest, space(Doc, text(binary(Var))));
 expr([{string, _, Var} | Rest], Doc) ->
     expr(Rest, space(Doc, text(s2b(Var)))).
 
@@ -355,6 +357,9 @@ i2b(Integer) -> integer_to_binary(Integer).
 
 -spec s2b(string()) -> binary().
 s2b(String) -> list_to_binary("\"" ++ String ++ "\"").
+
+-spec binary(string()) -> binary().
+binary(String) -> list_to_binary("<<\"" ++ String ++ "\">>").
 
 -spec get_until(atom(), tokens()) -> {tokens(), tokens()}.
 get_until(Char, Tokens) -> get_until(Char, Tokens, []).
