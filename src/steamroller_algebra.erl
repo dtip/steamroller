@@ -294,6 +294,20 @@ expr([{'?', _} | Rest0], Doc, ForceBreak0) ->
     % Handle macros
     {End, ForceBreak1, Expr, []} = expr(Rest0, ForceBreak0),
     {End, ForceBreak1, space(Doc, cons(text(<<"?">>), Expr))};
+expr([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle function calls
+    Tokens1 = tl(Tokens0),
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Function =
+        space(
+          Doc,
+          cons(
+            text(a2b(FunctionName)),
+            ListGroup
+          )
+        ),
+    expr(Rest, Function, ForceBreak1);
 expr([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
