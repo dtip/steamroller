@@ -42,6 +42,18 @@ basic_brackets_test_() ->
      ?_assertEqual(Expect1, Result1)
     ].
 
+brakets_comment_test_() ->
+    Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  % test\n  thing/0\n)">>),
+    Expect = <<"(\n    init/1,\n    % test\n    thing/0\n)\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Result2 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+     ?_assertEqual(Expect, Result0),
+     ?_assertEqual(Expect, Result1),
+     ?_assertEqual(Expect, Result2)
+    ].
+
 basic_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> ok.">>),
     Expect0 = <<"foo(Arg1, Arg2) -> ok.\n">>,

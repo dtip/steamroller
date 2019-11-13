@@ -95,7 +95,7 @@ force_break(no_force_break, X) -> X.
 -spec group(doc()) -> doc().
 group(D) -> {doc_group, D, self}.
 
-%% Group inheritance is lifted from the Elixir algebra implementation.
+% Group inheritance is lifted from the Elixir algebra implementation.
 -spec group(doc(), inherit()) -> doc().
 group(D, Inherit) -> {doc_group, D, Inherit}.
 
@@ -154,7 +154,18 @@ generate_doc_([{comment, _, Comment} | Rest], Doc) ->
 -spec attribute(atom(), tokens()) -> {doc(), tokens()}.
 attribute(Att, Tokens) ->
     {Expr, [{dot, _} | Rest]} = list_group(Tokens),
-    {group(cons(text(<<"-">>), cons(text(a2b(Att)), cons(Expr, text(?dot))))), Rest}.
+    Attribute =
+          group(
+            cons(
+              [
+               text(<<"-">>),
+               text(a2b(Att)),
+               Expr,
+               text(?dot)
+              ]
+             )
+           ),
+    {Attribute, Rest}.
 
 -spec function(tokens()) -> {doc(), tokens()}.
 function(Tokens) ->
@@ -179,32 +190,38 @@ list_group([{'<<', _} | Rest0]) ->
 brackets([], Open, Close) ->
     group(cons(text(Open), text(Close)));
 brackets(Tokens, Open, Close) ->
+    {ForceBreak, ListElements} = list_elements(Tokens),
+
     group(
-      stick(
-        nest(
-          ?indent,
-          stick(
-            text(Open),
-            space(
-              list_elements(Tokens)
-            )
-          )
-        ),
-      text(Close)
-      )
-    ).
+      force_break(
+        ForceBreak,
+        stick(
+          nest(
+            ?indent,
+            stick(
+              text(Open),
+              space(
+                ListElements
+               )
+             )
+           ),
+          text(Close)
+         )
+       )
+     ).
 
--spec list_elements(tokens()) -> list(doc()).
-list_elements(Tokens) -> list_elements(Tokens, []).
+-spec list_elements(tokens()) -> {force_break(), list(doc())}.
+list_elements(Tokens) -> list_elements(Tokens, [], no_force_break).
 
--spec list_elements(tokens(), list(doc())) -> list(doc()).
-list_elements([], Acc) -> lists:reverse(Acc);
-list_elements([{C, _} | _] = Tokens, Acc) when ?IS_LIST_CHAR(C) ->
+-spec list_elements(tokens(), list(doc()), force_break()) -> {force_break(), list(doc())}.
+list_elements([], Acc, ForceBreak) -> {ForceBreak, lists:reverse(Acc)};
+list_elements([{C, _} | _] = Tokens, Acc, ForceBreak) when ?IS_LIST_CHAR(C) ->
     {Group, Rest} = list_group(Tokens),
-    list_elements(Rest, [Group | Acc]);
-list_elements(Tokens, Acc) ->
-    {_, Expr, Rest} = expr(Tokens),
-    list_elements(Rest, [Expr | Acc]).
+    list_elements(Rest, [Group | Acc], ForceBreak);
+list_elements(Tokens, Acc, ForceBreak0) ->
+    {End, Expr, Rest} = expr(Tokens),
+    ForceBreak1 = case End of comment -> force_break; _ -> ForceBreak0 end,
+    list_elements(Rest, [Expr | Acc], ForceBreak1).
 
 -spec clauses(tokens()) -> {list(doc()), tokens()}.
 clauses(Tokens) -> clauses(Tokens, []).
@@ -236,14 +253,7 @@ function_head_and_clause([{'->', _} | Rest0], Doc) ->
 
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 clause(Tokens) ->
-    {Continue, ForceBreak, Doc, Rest} = clause_(Tokens),
-    io:fwrite("\nRest=~p", [Rest]),
-    {Continue, ForceBreak, Doc, Rest}.
-
--spec clause_(tokens()) -> {continue(), force_break(), doc(), tokens()}.
-clause_(Tokens) ->
     {End, Exprs, Rest} = exprs(Tokens),
-    io:fwrite("\nNUM_EXPRS=~p", [length(Exprs)]),
     Continue = case End of dot -> done; ';' -> continue end,
     if length(Exprs) > 1 ->
            % Force indentation for multi-line clauses
@@ -283,15 +293,14 @@ expr([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
 expr([{var, _, Var}, {'=', _} | Rest0], Doc) ->
     % Handle equations
     % Arg3 =
-    %     Arg1 + Arg2
+    %     Arg1 + Arg2,
     Equals = group(space(text(a2b(Var)), text(<<"=">>))),
     {End, Expr} = expr(Rest0, empty()),
     Equation = group(nest(?indent, space(Equals, group(Expr)))),
-    io:fwrite("\nover_here", []),
     {End, space(Doc, Equation)};
 expr([{End, _}], Doc) ->
     {End, cons(Doc, text(a2b(End)))};
-expr([{var, _, Var}, {Op, _} | Rest], Doc0) when Op == '+' orelse Op == '-' orelse Op == '=' ->
+expr([{var, _, Var}, {Op, _} | Rest], Doc0) when Op == '+' orelse Op == '-' ->
     Doc1 = space(Doc0, space(text(a2b(Var)), text(a2b(Op)))),
     expr(Rest, Doc1);
 expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc) ->
@@ -304,6 +313,8 @@ expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc) ->
                    ),
     expr(Rest, space(Doc, FunctionDoc));
 expr([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc) ->
+    % Handle binary matching
+    % <<Thing/binary>>
     TermDoc = cons([
                     text(a2b(Var)),
                     text(<<"/">>),
@@ -311,6 +322,8 @@ expr([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc) ->
                    ]),
     expr(Rest, space(Doc, TermDoc));
 expr([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} | Rest], Doc) ->
+    % Handle more binary matching
+    % <<Thing:1/binary, Rest/binary>>
     TermDoc =
         cons(
           [
