@@ -66,6 +66,23 @@ brackets_inline_comment_test_() ->
      ?_assertEqual(Expect, Result2)
     ].
 
+nested_brackets_test_() ->
+    Tokens = steamroller_ast:tokens(<<"{foo(), {error, {oh_no, \"problem\"}}}">>),
+    Expect0 = <<"{foo(), {error, {oh_no, \"problem\"}}}\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"{\n    foo(),\n    {error, {oh_no, \"problem\"}}\n}\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 35),
+    Expect2 = <<"{\n    foo(),\n    {\n        error,\n        {oh_no, \"problem\"}\n    }\n}\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    Expect3 = <<"{\n    foo(),\n    {\n        error,\n        {\n            oh_no,\n            \"problem\"\n        }\n    }\n}\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2),
+     ?_assertEqual(Expect3, Result3)
+    ].
+
 basic_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> ok.">>),
     Expect0 = <<"foo(Arg1, Arg2) -> ok.\n">>,
