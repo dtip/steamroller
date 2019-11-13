@@ -36,6 +36,7 @@
 -define(indent, 4).
 
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
+-define(IS_OPERATOR(C), (C == '+' orelse C == '-' orelse C == '*' orelse C == '/' orelse C == 'div')).
 
 %% API
 
@@ -165,6 +166,7 @@ generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
     Comment = comment(CommentText),
     Doc1 =
         case PrevTerm of
+            new_file -> cons(Doc0, Comment);
             comment -> newline(Doc0, Comment);
             _ -> newlines(Doc0, Comment)
         end,
@@ -332,23 +334,19 @@ expr([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     expr(Rest, space(Doc, ListGroup), ForceBreak1);
-expr([{var, _, Var}, {'=', _} | Rest0], Doc, ForceBreak0) ->
+expr([{var, _, Var}, {'=', _} | Rest], Doc, ForceBreak0) ->
     % Handle equations
     % Arg3 =
     %     Arg1 + Arg2,
     Equals = group(space(text(a2b(Var)), text(<<"=">>))),
-    {End, ForceBreak1, Expr} = expr(Rest0, empty(), ForceBreak0),
+    {End, ForceBreak1, Expr} = expr(Rest, empty(), ForceBreak0),
     Equation = group(nest(?indent, space(Equals, group(Expr)))),
     {End, ForceBreak1, space(Doc, Equation)};
 expr([{End, _}], Doc, ForceBreak) ->
     {End, ForceBreak, cons(Doc, text(a2b(End)))};
-expr([{var, _, Var}, {Op, _} | Rest], Doc0, ForceBreak) when Op == '+' orelse Op == '-' ->
-    Doc1 = space(Doc0, space(text(a2b(Var)), text(a2b(Op)))),
-    expr(Rest, Doc1, ForceBreak);
-expr([{integer, _, Integer}, {Op, _} | Rest], Doc0, ForceBreak) when Op == '+' orelse Op == '-' ->
-    Doc1 = space(Doc0, space(text(i2b(Integer)), text(a2b(Op)))),
-    expr(Rest, Doc1, ForceBreak);
 expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
+    % Handle function arity expressions
+    % some_fun/1
     FunctionDoc = cons(
                     [
                     text(a2b(Atom)),
@@ -380,6 +378,12 @@ expr([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} 
           ]
         ),
     expr(Rest, space(Doc, TermDoc), ForceBreak);
+expr([{var, _, Var}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
+    Doc1 = space(Doc0, space(text(a2b(Var)), text(a2b(Op)))),
+    expr(Rest, Doc1, ForceBreak);
+expr([{integer, _, Integer}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
+    Doc1 = space(Doc0, space(text(i2b(Integer)), text(a2b(Op)))),
+    expr(Rest, Doc1, ForceBreak);
 expr([{Token, _, Var} | Rest], Doc, ForceBreak) when Token == var orelse Token == atom ->
     expr(Rest, space(Doc, text(a2b(Var))), ForceBreak);
 expr([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
@@ -387,7 +391,11 @@ expr([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
 expr([{string, _, Var} | Rest], Doc, ForceBreak) ->
     expr(Rest, space(Doc, text(s2b(Var))), ForceBreak);
 expr([{comment, _, Comment}], Doc, _ForceBreak) ->
-    {comment, force_break, space(Doc, comment(Comment))}.
+    {comment, force_break, space(Doc, comment(Comment))};
+expr([{'|', _} | Rest0], Doc, ForceBreak0) ->
+    {End, ForceBreak1, Expr} = expr(Rest0, empty(), ForceBreak0),
+    Group = group(cons(text(<<"| ">>), group(Expr))),
+    {End, ForceBreak1, space(Doc, Group)}.
 
 -spec comment(string()) -> doc().
 comment(Comment) -> text(list_to_binary(Comment)).

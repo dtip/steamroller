@@ -388,6 +388,20 @@ basic_spec_test_() ->
      ?_assertEqual(Expect2, Result2)
     ].
 
+spec_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-spec test(some_type()) -> other_type() | {error, atom()}.\n">>),
+    Expect0 = <<"-spec test(some_type()) -> other_type() | {error, atom()}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-spec test(some_type()) ->\n    other_type() | {error, atom()}.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"-spec test(some_type()) ->\n    other_type()\n    | {error, atom()}.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
 specced_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"-spec test(some_type()) -> other_type().\ntest(A) -> A + 1.\n">>),
     Expect0 = <<"-spec test(some_type()) -> other_type().\ntest(A) -> A + 1.\n">>,
