@@ -279,6 +279,18 @@ function_head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
     % Args
     {_ForceBreak, Group, Rest} = list_group(Tokens),
     function_head_and_clause(Rest, cons(Doc, Group));
+function_head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
+    % Handle any comments between function clauses.
+    {Continue, Doc1, Tokens} = function_head_and_clause(Rest),
+    Doc2 =
+        newline(
+              [
+               Doc0,
+               comment(Comment),
+               Doc1
+              ]
+             ),
+    {Continue, Doc2, Tokens};
 function_head_and_clause([{'->', _} | Rest0], Doc) ->
     % End
     {Continue, ForceBreak, Body, Rest1} = clause(Rest0),

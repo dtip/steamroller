@@ -264,6 +264,20 @@ function_comment_list_test_() ->
      ?_assertEqual(Expect3, Result3)
     ].
 
+function_clause_comment_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg1) -> error;\n% Hello World\nfoo(Arg1, Arg2) -> ok.">>),
+    Expect0 = <<"foo(Arg1, Arg1) -> error;\n% Hello World\nfoo(Arg1, Arg2) -> ok.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(Arg1, Arg1) ->\n    error;\n% Hello World\nfoo(Arg1, Arg2) ->\n    ok.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 20),
+    Expect2 = <<"foo(\n    Arg1,\n    Arg1\n) ->\n    error;\n% Hello World\nfoo(\n    Arg1,\n    Arg2\n) ->\n    ok.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 1),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
 multi_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(X) -> Y = bar(X), baz(Y).">>),
     Expect0 = <<"foo(X) ->\n    Y = bar(X),\n    baz(Y).\n">>,
