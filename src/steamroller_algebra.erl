@@ -133,6 +133,12 @@ concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
 -spec generate_doc_(tokens(), doc()) -> doc().
 generate_doc_([], Doc) -> Doc;
+generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc) ->
+    % Spec
+    % Re-use the function code because the syntax is identical.
+    {Group, Rest} = function(Tokens),
+    Spec = cons(text(<<"-spec ">>), Group),
+    generate_doc_(Rest, newlines(Doc, Spec));
 generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc) ->
     % Module Attribute
     {Group, Rest} = attribute(Atom, Tokens),
@@ -175,19 +181,19 @@ function(Tokens) ->
 
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{'(', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_until(')', Rest0),
+    {Tokens, Rest1, _} = get_until('(', ')', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"(">>, <<")">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'{', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_until('}', Rest0),
+    {Tokens, Rest1, _} = get_until('{', '}', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"{">>, <<"}">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'[', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_until(']', Rest0),
+    {Tokens, Rest1, _} = get_until('[', ']', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"[">>, <<"]">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'<<', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_until('>>', Rest0),
+    {Tokens, Rest1, _} = get_until('<<', '>>', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"<<">>, <<">>">>),
     {ForceBreak, ListGroup, Rest1}.
 
@@ -436,12 +442,18 @@ i2b(Integer) -> integer_to_binary(Integer).
 -spec s2b(string()) -> binary().
 s2b(String) -> list_to_binary("\"" ++ String ++ "\"").
 
--spec get_until(atom(), tokens()) -> {tokens(), tokens(), token()}.
-get_until(Char, Tokens) -> get_until(Char, Tokens, []).
-get_until(Char, [{Char, _} = Token | Rest], Acc) ->
+-spec get_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
+get_until(Start, End, Tokens) -> get_until(Start, End, Tokens, [], 0).
+
+-spec get_until(atom(), atom(), tokens(), tokens(), integer()) -> {tokens(), tokens(), token()}.
+get_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
+    get_until(Start, End, Rest, [Token | Acc], Stack + 1);
+get_until(_Start, End, [{End, _} = Token | Rest], Acc, 0) ->
     {lists:reverse(Acc), Rest, Token};
-get_until(Char, [Token | Rest], Acc) ->
-    get_until(Char, Rest, [Token | Acc]).
+get_until(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
+    get_until(Start, End, Rest, [Token | Acc], Stack - 1);
+get_until(Start, End, [Token | Rest], Acc, Stack) ->
+    get_until(Start, End, Rest, [Token | Acc], Stack).
 
 -spec get_end_of_expr(tokens()) -> {tokens(), tokens()}.
 get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0).
@@ -467,16 +479,16 @@ get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest]
 get_end_of_expr([{End, _} = Token | Rest], Acc, _) when End == ',' orelse End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};
 get_end_of_expr([{'(', _} = Token | Rest0], Acc, _) ->
-    {Tokens, Rest1, {')', LineNum} = EndToken} = get_until(')', Rest0),
+    {Tokens, Rest1, {')', LineNum} = EndToken} = get_until('(', ')', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
 get_end_of_expr([{'{', _} = Token | Rest0], Acc, _) ->
-    {Tokens, Rest1, {'}', LineNum} = EndToken} = get_until('}', Rest0),
+    {Tokens, Rest1, {'}', LineNum} = EndToken} = get_until('{', '}', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
 get_end_of_expr([{'[', _} = Token | Rest0], Acc, _) ->
-    {Tokens, Rest1, {']', LineNum} = EndToken} = get_until(']', Rest0),
+    {Tokens, Rest1, {']', LineNum} = EndToken} = get_until('[', ']', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
 get_end_of_expr([{'<<', _} = Token | Rest0], Acc, _) ->
-    {Tokens, Rest1, {'>>', LineNum} = EndToken} = get_until('>>', Rest0),
+    {Tokens, Rest1, {'>>', LineNum} = EndToken} = get_until('<<', '>>', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
 get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum);

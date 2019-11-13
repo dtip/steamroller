@@ -42,7 +42,7 @@ basic_brackets_test_() ->
      ?_assertEqual(Expect1, Result1)
     ].
 
-brakets_comment_test_() ->
+brackets_comment_test_() ->
     Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  % test\n  thing/0\n)">>),
     Expect = <<"(\n    init/1,\n    % test\n    thing/0\n)\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -54,7 +54,7 @@ brakets_comment_test_() ->
      ?_assertEqual(Expect, Result2)
     ].
 
-brakets_inline_comment_test_() ->
+brackets_inline_comment_test_() ->
     Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  thing/0 % test\n)">>),
     Expect = <<"(\n    init/1,\n    % test\n    thing/0\n)\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -355,4 +355,18 @@ comment_test_() ->
      ?_assertEqual(Expect1, Result3),
      ?_assertEqual(Expect1, Result4),
      ?_assertEqual(Expect1, Result5)
+    ].
+
+basic_spec_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-spec test(some_type()) -> other_type().\n">>),
+    Expect0 = <<"-spec test(some_type()) -> other_type().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-spec test(some_type()) -> other_type().\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"-spec test(some_type()) ->\n    other_type().\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
     ].
