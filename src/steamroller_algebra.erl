@@ -135,6 +135,10 @@ concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
 -spec generate_doc_(tokens(), doc(), previous_term()) -> doc().
 generate_doc_([], Doc, _) -> Doc;
+generate_doc_([{'-', _} = H0, {atom, _, spec} = H1, {'(', _} | Rest0], Doc, PrevTerm) ->
+    % Remove brackets from Specs
+    Rest1 = remove_matching('(', ')', Rest0),
+    generate_doc_([H0, H1 | Rest1], Doc, PrevTerm);
 generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc, _PrevTerm) ->
     % Spec
     % Re-use the function code because the syntax is identical.
@@ -477,9 +481,21 @@ get_until(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
 get_until(Start, End, [Token | Rest], Acc, Stack) ->
     get_until(Start, End, Rest, [Token | Acc], Stack).
 
+-spec remove_matching(atom(), atom(), tokens()) -> tokens().
+remove_matching(Start, End, Tokens) -> remove_matching(Start, End, Tokens, [], 0).
+
+-spec remove_matching(atom(), atom(), tokens(), tokens(), integer()) -> tokens().
+remove_matching(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
+    remove_matching(Start, End, Rest, [Token | Acc], Stack + 1);
+remove_matching(_Start, End, [{End, _} | Rest], Acc, 0) ->
+    lists:reverse(Acc) ++ Rest;
+remove_matching(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
+    remove_matching(Start, End, Rest, [Token | Acc], Stack - 1);
+remove_matching(Start, End, [Token | Rest], Acc, Stack) ->
+    remove_matching(Start, End, Rest, [Token | Acc], Stack).
+
 -spec get_end_of_expr(tokens()) -> {tokens(), tokens()}.
 get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0).
-
 
 % Dialyzer gets upset if we use integer() for the third arg here but that's what it is.
 -spec get_end_of_expr(tokens(), tokens(), any()) -> {tokens(), tokens()}.
