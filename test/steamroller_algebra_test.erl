@@ -331,6 +331,20 @@ attribute_test_() ->
      ?_assertEqual(Expect2, Result2)
     ].
 
+attribute_comment_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-module(test).\n\n% Comment\n-export([start_link/0, init/1]).">>),
+    Expect0 = <<"-module(test).\n\n% Comment\n-export([start_link/0, init/1]).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-module(test).\n\n% Comment\n-export(\n    [start_link/0, init/1]\n).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    Expect2 = <<"-module(test).\n\n% Comment\n-export(\n    [\n        start_link/0,\n        init/1\n    ]\n).\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 20),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
 %%
 %% TODO change this behaviour. We currently have
 %%
@@ -415,6 +429,21 @@ spec_test_() ->
      ?_assertEqual(Expect1, Result1),
      ?_assertEqual(Expect2, Result2)
     ].
+
+spec_comment_test_() ->
+    Tokens = steamroller_ast:tokens(<<"% My first spec\n\n\n-spec test(some_type()) -> other_type().\n">>),
+    Expect0 = <<"% My first spec\n-spec test(some_type()) -> other_type().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"% My first spec\n-spec test(some_type()) -> other_type().\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"% My first spec\n-spec test(some_type()) ->\n    other_type().\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
 
 spec_bracket_removal_test_() ->
     Tokens = steamroller_ast:tokens(<<"-spec(test(some_type()) -> other_type() | {error, atom()}).\n">>),

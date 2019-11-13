@@ -139,17 +139,26 @@ generate_doc_([{'-', _} = H0, {atom, _, spec} = H1, {'(', _} | Rest0], Doc, Prev
     % Remove brackets from Specs
     Rest1 = remove_matching('(', ')', Rest0),
     generate_doc_([H0, H1 | Rest1], Doc, PrevTerm);
-generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc, _PrevTerm) ->
+generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc0, PrevTerm) ->
     % Spec
     % Re-use the function code because the syntax is identical.
     {Group, Rest} = function(Tokens),
     Spec = cons(text(<<"-spec ">>), Group),
-    generate_doc_(Rest, newlines(Doc, Spec), spec);
-generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc, _PrevTerm) ->
+    Doc1 =
+        case PrevTerm of
+            comment -> newline(Doc0, Spec);
+            _ -> newlines(Doc0, Spec)
+        end,
+    generate_doc_(Rest, Doc1, spec);
+generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
     % Module Attribute
     {Group, Rest} = attribute(Atom, Tokens),
-    % Put a line gap between module attributes.
-    generate_doc_(Rest, newlines(Doc, Group), attribute);
+    Doc1 =
+        case PrevTerm of
+            comment -> newline(Doc0, Group);
+            _ -> newlines(Doc0, Group)
+        end,
+    generate_doc_(Rest, Doc1, attribute);
 generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
     % Function
     {Group, Rest} = function(Tokens),
