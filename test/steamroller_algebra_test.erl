@@ -183,6 +183,17 @@ function_complex_binary_arg_test_() ->
      ?_assertEqual(Expect3, Result3)
     ].
 
+function_comment_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() ->\n    % Temporary workaround (2010-01-11)\n    {error, oh_no}.">>),
+    Expect0 = <<"foo() ->\n    % Temporary workaround (2010-01-11)\n    {error, oh_no}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    % Temporary workaround (2010-01-11)\n    {\n        error,\n        oh_no\n    }.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].
+
 functions_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> Arg1 + Arg2.\nbar() -> baz.">>),
     Expect0 = <<"foo(Arg1, Arg2) -> Arg1 + Arg2.\n\nbar() -> baz.\n">>,
@@ -221,4 +232,24 @@ attribute_test_() ->
      ?_assertEqual(Expect0, Result0),
      ?_assertEqual(Expect1, Result1),
      ?_assertEqual(Expect2, Result2)
+    ].
+
+comment_test_() ->
+    Expect0 = <<"% Hello I am a comment and I don't change length\n">>,
+    Tokens0 = steamroller_ast:tokens(Expect0),
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Result1 = steamroller_algebra:format_tokens(Tokens0, 50),
+    Result2 = steamroller_algebra:format_tokens(Tokens0, 10),
+    Expect1 = <<"% Hello\n% World\n">>,
+    Tokens1 = steamroller_ast:tokens(Expect1),
+    Result3 = steamroller_algebra:format_tokens(Tokens1, 100),
+    Result4 = steamroller_algebra:format_tokens(Tokens1, 20),
+    Result5 = steamroller_algebra:format_tokens(Tokens1, 1),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect0, Result1),
+     ?_assertEqual(Expect0, Result2),
+     ?_assertEqual(Expect1, Result3),
+     ?_assertEqual(Expect1, Result4),
+     ?_assertEqual(Expect1, Result5)
     ].

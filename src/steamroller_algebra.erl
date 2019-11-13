@@ -43,7 +43,6 @@ format_tokens(Tokens) -> format_tokens(Tokens, ?max_width).
 -spec format_tokens(tokens(), integer()) -> binary().
 format_tokens(Tokens, Width) ->
     Doc = generate_doc(Tokens),
-    %io:fwrite("\nDoc=~p", [Doc]),
     pretty(Doc, Width).
 
 -spec generate_doc(tokens()) -> doc().
@@ -143,8 +142,12 @@ generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc) ->
     {Group, Rest} = function(Tokens),
     generate_doc_(Rest, newlines(Doc, Group));
 generate_doc_([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
+    % List -> if this is at the top level this is probably a config file
     {Group, Rest} = list_group(Tokens),
-    generate_doc_(Rest, cons(Doc, Group)).
+    generate_doc_(Rest, cons(Doc, Group));
+generate_doc_([{comment, _, Comment} | Rest], Doc) ->
+    % Comment
+    generate_doc_(Rest, newline(Doc, comment(Comment))).
 
 %% Erlang Source Elements
 
@@ -258,17 +261,17 @@ exprs(Tokens, Acc0) ->
     {End, Expr, Rest} = expr(Tokens),
     Acc1 = [Expr | Acc0],
     case End of
-        ',' -> exprs(Rest, Acc1);
+        End when End == ',' orelse End == comment -> exprs(Rest, Acc1);
         _ -> {End, lists:reverse(Acc1), Rest}
     end.
 
--spec expr(tokens()) -> {dot | ';' | ',' | empty, doc(), tokens()}.
+-spec expr(tokens()) -> {dot | ';' | ',' | empty | comment, doc(), tokens()}.
 expr(Tokens) ->
     {ExprTokens, Rest} = get_end_of_expr(Tokens),
     {End, Expr} = expr(ExprTokens, empty()),
     {End, group(Expr), Rest}.
 
--spec expr(tokens(), doc()) -> {dot | ';' | ',' | empty, doc()}.
+-spec expr(tokens(), doc()) -> {dot | ';' | ',' | empty | comment, doc()}.
 expr([], Doc) -> {empty, Doc};
 expr([{'?', _} | Rest0], Doc) ->
     % Handle macros
@@ -322,7 +325,12 @@ expr([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} 
 expr([{Token, _, Var} | Rest], Doc) when Token == var orelse Token == atom ->
     expr(Rest, space(Doc, text(a2b(Var))));
 expr([{string, _, Var} | Rest], Doc) ->
-    expr(Rest, space(Doc, text(s2b(Var)))).
+    expr(Rest, space(Doc, text(s2b(Var))));
+expr([{comment, _, Comment}], Doc) ->
+    {comment, space(Doc, comment(Comment))}.
+
+-spec comment(string()) -> doc().
+comment(Comment) -> text(list_to_binary(Comment)).
 
 %% Internal
 
@@ -401,6 +409,10 @@ get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, []).
 
 get_end_of_expr([], Acc) ->
     {lists:reverse(Acc), []};
+get_end_of_expr([{comment, _, _} = Comment | Rest], []) ->
+    {[Comment], Rest};
+get_end_of_expr([{comment, _, _} | _] = Rest, Acc) ->
+    {lists:reverse(Acc), Rest};
 get_end_of_expr([{End, _} = Token | Rest], Acc) when End == ',' orelse End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};
 get_end_of_expr([{'(', _} = Token | Rest0], Acc) ->
