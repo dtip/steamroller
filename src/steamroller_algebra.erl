@@ -229,9 +229,9 @@ function(Tokens) ->
 
 -spec case_(tokens()) -> {force_break(), doc(), tokens()}.
 case_([{'case', _} | Tokens]) ->
-    {CaseArgTokens, Rest0, _} = get_until('case', 'of', Tokens),
+    {CaseArgTokens, Rest0, _} = get_from_until('case', 'of', Tokens),
     {empty, _ForceBreak, CaseArg, []} = expr(CaseArgTokens, no_force_break),
-    {CaseClauseTokens, Rest1, _} = get_until('case', 'end', Rest0),
+    {CaseClauseTokens, Rest1, _} = get_from_until('case', 'end', Rest0),
     {ForceBreak, Clauses, []} = clauses(CaseClauseTokens),
 
     Doc =
@@ -260,23 +260,23 @@ case_([{'case', _} | Tokens]) ->
 
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{'(', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_until('(', ')', Rest0),
+    {Tokens, Rest1, _} = get_from_until('(', ')', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"(">>, <<")">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'{', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_until('{', '}', Rest0),
+    {Tokens, Rest1, _} = get_from_until('{', '}', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"{">>, <<"}">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'[', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_until('[', ']', Rest0),
+    {Tokens, Rest1, _} = get_from_until('[', ']', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"[">>, <<"]">>),
     {ForceBreak, ListGroup, Rest1};
 list_group([{'<<', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_until('<<', '>>', Rest0),
+    {Tokens, Rest1, _} = get_from_until('<<', '>>', Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, <<"<<">>, <<">>">>),
     {ForceBreak, ListGroup, Rest1}.
 
--spec brackets(tokens(), binary(), binary()) -> {force_break, doc()}.
+-spec brackets(tokens(), binary(), binary()) -> {force_break(), doc()}.
 brackets([], Open, Close) ->
     {no_force_break, group(cons(text(Open), text(Close)))};
 brackets(Tokens, Open, Close) ->
@@ -291,9 +291,7 @@ brackets(Tokens, Open, Close) ->
                 ?indent,
                 stick(
                   text(Open),
-                  space(
-                    ListElements
-                   )
+                  ListElements
                  )
                ),
               text(Close)
@@ -302,12 +300,12 @@ brackets(Tokens, Open, Close) ->
          ),
     {ForceBreak, Doc}.
 
--spec list_elements(tokens()) -> {force_break(), list(doc())}.
-list_elements(Tokens) -> list_elements(Tokens, [], no_force_break).
+-spec list_elements(tokens()) -> {force_break(), doc()}.
+list_elements(Tokens) -> list_elements(Tokens, empty(), no_force_break).
 
--spec list_elements(tokens(), list(doc()), force_break()) -> {force_break(), list(doc())}.
-list_elements([], Acc, ForceBreak) -> {ForceBreak, lists:reverse(Acc)};
-list_elements([{C, _} | _] = Tokens, Acc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
+-spec list_elements(tokens(), doc(), force_break()) -> {force_break(), doc()}.
+list_elements([], Doc, ForceBreak) -> {ForceBreak, Doc};
+list_elements([{C, _} | _] = Tokens, Doc0, ForceBreak0) when ?IS_LIST_CHAR(C) ->
     {ListGroupForceBreak, Group0, Rest0} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListGroupForceBreak]),
     {Group1, Rest1} =
@@ -318,10 +316,11 @@ list_elements([{C, _} | _] = Tokens, Acc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
                 {cons(Group0, text(a2b(End))), Rest};
             _ -> {Group0, Rest0}
         end,
-    list_elements(Rest1, [Group1 | Acc], ForceBreak1);
-list_elements(Tokens, Acc, ForceBreak0) ->
-    {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0),
-    list_elements(Rest, [Expr | Acc], ForceBreak1).
+    Doc1 = space(Doc0, Group1),
+    list_elements(Rest1, Doc1, ForceBreak1);
+list_elements(Tokens, Doc0, ForceBreak0) ->
+    {_End, ForceBreak1, Doc1, Rest} = expr(Tokens, ForceBreak0, Doc0),
+    list_elements(Rest, Doc1, ForceBreak1).
 
 -spec clauses(tokens()) -> {force_break(), list(doc()), tokens()}.
 clauses(Tokens) -> clauses(Tokens, [], []).
@@ -362,7 +361,12 @@ function_head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
 function_head_and_clause([{'->', _} | Rest0], Doc) ->
     % End
     {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
-    {Continue, ForceBreak, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), Rest1}.
+    {Continue, ForceBreak, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), Rest1};
+function_head_and_clause([{_Op, _} | _] = Rest0, Doc0) ->
+    % Pattern Match Operators
+    {Tokens, Rest1, Token} = get_until('->', Rest0),
+    {empty, _ForceBreak, Doc1, []} = expr(Tokens, no_force_break, Doc0),
+    function_head_and_clause([Token | Rest1], Doc1).
 
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 clause(Tokens) ->
@@ -391,20 +395,26 @@ exprs(Tokens, Acc0, ForceBreak0) ->
 -spec expr(tokens(), force_break()) -> {dot | ';' | ',' | empty | comment, force_break(), doc(), tokens()}.
 expr(Tokens, ForceBreak0) ->
     {ExprTokens, Rest} = get_end_of_expr(Tokens),
-    {End, ForceBreak1, Expr} = expr(ExprTokens, empty(), ForceBreak0),
+    {End, ForceBreak1, Expr} = expr_(ExprTokens, empty(), ForceBreak0),
     {End, ForceBreak1, group(Expr), Rest}.
 
--spec expr(tokens(), doc(), force_break()) -> {dot | ';' | ',' | empty | comment, force_break(), doc()}.
-expr([], Doc, ForceBreak) -> {empty, ForceBreak, Doc};
-expr([{'?', _} | Rest0], Doc, ForceBreak0) ->
+-spec expr(tokens(), force_break(), doc()) -> {dot | ';' | ',' | empty | comment, force_break(), doc(), tokens()}.
+expr(Tokens, ForceBreak0, Doc) ->
+    {ExprTokens, Rest} = get_end_of_expr(Tokens),
+    {End, ForceBreak1, Expr} = expr_(ExprTokens, Doc, ForceBreak0),
+    {End, ForceBreak1, group(Expr, inherit), Rest}.
+
+-spec expr_(tokens(), doc(), force_break()) -> {dot | ';' | ',' | empty | comment, force_break(), doc()}.
+expr_([], Doc, ForceBreak) -> {empty, ForceBreak, Doc};
+expr_([{'?', _} | Rest0], Doc, ForceBreak0) ->
     % Handle macros
     {End, ForceBreak1, Expr, []} = expr(Rest0, ForceBreak0),
     {End, ForceBreak1, space(Doc, cons(text(<<"?">>), Expr))};
-expr([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
+expr_([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
     {CaseForceBreak, CaseGroup, Rest} = case_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, CaseForceBreak]),
-    expr(Rest, space(Doc, CaseGroup), ForceBreak1);
-expr([{atom, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    expr_(Rest, space(Doc, CaseGroup), ForceBreak1);
+expr_([{atom, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle function calls to other modules
     [_, _, _ | Tokens1] = Tokens0,
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
@@ -421,8 +431,8 @@ expr([{atom, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}
             ]
            )
         ),
-    expr(Rest, Function, ForceBreak1);
-expr([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    expr_(Rest, Function, ForceBreak1);
+expr_([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle local function calls
     Tokens1 = tl(Tokens0),
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
@@ -435,22 +445,30 @@ expr([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBr
             ListGroup
           )
         ),
-    expr(Rest, Function, ForceBreak1);
-expr([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
+    expr_(Rest, Function, ForceBreak1);
+expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
-    expr(Rest, space(Doc, ListGroup), ForceBreak1);
-expr([{var, _, Var}, {'=', _} | Rest], Doc, ForceBreak0) ->
+    expr_(Rest, space(Doc, ListGroup), ForceBreak1);
+%%%expr_([{'=', _} | Rest], Doc0, ForceBreak) ->
+expr_([{'=', _} | Rest], Doc0, ForceBreak0) ->
+    % Handle pattern matching in e.g. function heads
+    % foo({X, _} = Y) -> ...
+    Equals = group(space(Doc0, text(<<"=">>))),
+    {End, ForceBreak1, Expr} = expr_(Rest, empty(), ForceBreak0),
+    Equation = group(nest(?indent, space(Equals, group(Expr)))),
+    {End, ForceBreak1, Equation};
+expr_([{var, _, Var}, {'=', _} | Rest], Doc, ForceBreak0) ->
     % Handle equations
     % Arg3 =
     %     Arg1 + Arg2,
     Equals = group(space(text(a2b(Var)), text(<<"=">>))),
-    {End, ForceBreak1, Expr} = expr(Rest, empty(), ForceBreak0),
+    {End, ForceBreak1, Expr} = expr_(Rest, empty(), ForceBreak0),
     Equation = group(nest(?indent, space(Equals, group(Expr)))),
     {End, ForceBreak1, space(Doc, Equation)};
-expr([{End, _}], Doc, ForceBreak) ->
+expr_([{End, _}], Doc, ForceBreak) ->
     {End, ForceBreak, cons(Doc, text(a2b(End)))};
-expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
+expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
     % Handle function arity expressions
     % some_fun/1
     FunctionDoc = cons(
@@ -460,8 +478,8 @@ expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
                     text(i2b(Int))
                     ]
                    ),
-    expr(Rest, space(Doc, FunctionDoc), ForceBreak);
-expr([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
+    expr_(Rest, space(Doc, FunctionDoc), ForceBreak);
+expr_([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
     % Handle binary matching
     % <<Thing/binary>>
     TermDoc = cons([
@@ -469,8 +487,8 @@ expr([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
                     text(<<"/">>),
                     text(a2b(Atom))
                    ]),
-    expr(Rest, space(Doc, TermDoc), ForceBreak);
-expr([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
+    expr_(Rest, space(Doc, TermDoc), ForceBreak);
+expr_([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
     % Handle more binary matching
     % <<Thing:1/binary, Rest/binary>>
     TermDoc =
@@ -483,23 +501,23 @@ expr([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} 
            text(a2b(Atom))
           ]
         ),
-    expr(Rest, space(Doc, TermDoc), ForceBreak);
-expr([{var, _, Var}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
+    expr_(Rest, space(Doc, TermDoc), ForceBreak);
+expr_([{var, _, Var}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
     Doc1 = space(Doc0, space(text(a2b(Var)), text(a2b(Op)))),
-    expr(Rest, Doc1, ForceBreak);
-expr([{integer, _, Integer}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
+    expr_(Rest, Doc1, ForceBreak);
+expr_([{integer, _, Integer}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
     Doc1 = space(Doc0, space(text(i2b(Integer)), text(a2b(Op)))),
-    expr(Rest, Doc1, ForceBreak);
-expr([{Token, _, Var} | Rest], Doc, ForceBreak) when Token == var orelse Token == atom ->
-    expr(Rest, space(Doc, text(a2b(Var))), ForceBreak);
-expr([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
-    expr(Rest, space(Doc, text(i2b(Integer))), ForceBreak);
-expr([{string, _, Var} | Rest], Doc, ForceBreak) ->
-    expr(Rest, space(Doc, text(s2b(Var))), ForceBreak);
-expr([{comment, _, Comment}], Doc, _ForceBreak) ->
+    expr_(Rest, Doc1, ForceBreak);
+expr_([{Token, _, Var} | Rest], Doc, ForceBreak) when Token == var orelse Token == atom ->
+    expr_(Rest, space(Doc, text(a2b(Var))), ForceBreak);
+expr_([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
+    expr_(Rest, space(Doc, text(i2b(Integer))), ForceBreak);
+expr_([{string, _, Var} | Rest], Doc, ForceBreak) ->
+    expr_(Rest, space(Doc, text(s2b(Var))), ForceBreak);
+expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
     {comment, force_break, space(Doc, comment(Comment))};
-expr([{'|', _} | Rest0], Doc, ForceBreak0) ->
-    {End, ForceBreak1, Expr} = expr(Rest0, empty(), ForceBreak0),
+expr_([{'|', _} | Rest0], Doc, ForceBreak0) ->
+    {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
     Group = group(cons(text(<<"| ">>), group(Expr))),
     {End, ForceBreak1, space(Doc, Group)}.
 
@@ -570,18 +588,27 @@ i2b(Integer) -> integer_to_binary(Integer).
 -spec s2b(string()) -> binary().
 s2b(String) -> list_to_binary("\"" ++ String ++ "\"").
 
--spec get_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
-get_until(Start, End, Tokens) -> get_until(Start, End, Tokens, [], 0).
+-spec get_from_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
+get_from_until(Start, End, Tokens) -> get_from_until(Start, End, Tokens, [], 0).
 
--spec get_until(atom(), atom(), tokens(), tokens(), integer()) -> {tokens(), tokens(), token()}.
-get_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
-    get_until(Start, End, Rest, [Token | Acc], Stack + 1);
-get_until(_Start, End, [{End, _} = Token | Rest], Acc, 0) ->
+-spec get_from_until(atom(), atom(), tokens(), tokens(), integer()) -> {tokens(), tokens(), token()}.
+get_from_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
+    get_from_until(Start, End, Rest, [Token | Acc], Stack + 1);
+get_from_until(_Start, End, [{End, _} = Token | Rest], Acc, 0) ->
     {lists:reverse(Acc), Rest, Token};
-get_until(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
-    get_until(Start, End, Rest, [Token | Acc], Stack - 1);
-get_until(Start, End, [Token | Rest], Acc, Stack) ->
-    get_until(Start, End, Rest, [Token | Acc], Stack).
+get_from_until(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
+    get_from_until(Start, End, Rest, [Token | Acc], Stack - 1);
+get_from_until(Start, End, [Token | Rest], Acc, Stack) ->
+    get_from_until(Start, End, Rest, [Token | Acc], Stack).
+
+-spec get_until(atom(), tokens()) -> {tokens(), tokens(), token()}.
+get_until(End, Tokens) -> get_until(End, Tokens, []).
+
+-spec get_until(atom(), tokens(), tokens()) -> {tokens(), tokens(), token()}.
+get_until(End, [{End, _} = Token | Rest], Acc) ->
+    {lists:reverse(Acc), Rest, Token};
+get_until(End, [Token | Rest], Acc) ->
+    get_until(End, Rest, [Token | Acc]).
 
 -spec remove_matching(atom(), atom(), tokens()) -> tokens().
 remove_matching(Start, End, Tokens) -> remove_matching(Start, End, Tokens, [], 0).
@@ -625,16 +652,16 @@ get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
 get_end_of_expr([{'case', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, ['case' | KeywordStack]);
 get_end_of_expr([{'(', _} = Token | Rest0], Acc, _, KeywordStack) ->
-    {Tokens, Rest1, {')', LineNum} = EndToken} = get_until('(', ')', Rest0),
+    {Tokens, Rest1, {')', LineNum} = EndToken} = get_from_until('(', ')', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
 get_end_of_expr([{'{', _} = Token | Rest0], Acc, _, KeywordStack) ->
-    {Tokens, Rest1, {'}', LineNum} = EndToken} = get_until('{', '}', Rest0),
+    {Tokens, Rest1, {'}', LineNum} = EndToken} = get_from_until('{', '}', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
 get_end_of_expr([{'[', _} = Token | Rest0], Acc, _, KeywordStack) ->
-    {Tokens, Rest1, {']', LineNum} = EndToken} = get_until('[', ']', Rest0),
+    {Tokens, Rest1, {']', LineNum} = EndToken} = get_from_until('[', ']', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
 get_end_of_expr([{'<<', _} = Token | Rest0], Acc, _, KeywordStack) ->
-    {Tokens, Rest1, {'>>', LineNum} = EndToken} = get_until('<<', '>>', Rest0),
+    {Tokens, Rest1, {'>>', LineNum} = EndToken} = get_from_until('<<', '>>', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
 get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack);

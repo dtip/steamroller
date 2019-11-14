@@ -517,3 +517,27 @@ simple_module_function_test_() ->
      ?_assertEqual(Expect1, Result1)
     ].
 
+function_head_pattern_match_test_() ->
+    Tokens = steamroller_ast:tokens(<<"long_foo({X, _} = Y) -> {bar(X), baz(Y)}.">>),
+    Expect0 = <<"long_foo({X, _} = Y) -> {bar(X), baz(Y)}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"long_foo(\n    {X, _} = Y\n) ->\n    {\n        bar(X),\n        baz(Y)\n    }.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 15),
+    Expect2 = <<"long_foo(\n    {X, _} =\n        Y\n) ->\n    {\n        bar(\n            X\n        ),\n        baz(\n            Y\n        )\n    }.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 12),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
+case_pattern_match_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> case bar() of ok -> ok; {error, _} = Err -> Err end.">>),
+    Expect0 = <<"foo() -> case bar() of ok -> ok; {error, _} = Err -> Err end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    case bar() of\n        ok ->\n            ok;\n        {error, _} = Err ->\n            Err\n    end.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].
