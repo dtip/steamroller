@@ -55,7 +55,7 @@ format_error(Reason) ->
 format_apps([App | Rest]) ->
     SrcDir = rebar_app_info:dir(App) ++ "/src",
     TestDir = rebar_app_info:dir(App) ++ "/test",
-    Files = [<<"rebar.config">>, find_source_files(SrcDir) ++ find_source_files(TestDir)],
+    Files = [<<"rebar.config">> | find_source_files(SrcDir) ++ find_source_files(TestDir)],
     case format_files(Files) of
         ok -> format_apps(Rest);
         {error, _} = Err -> Err
