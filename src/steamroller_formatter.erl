@@ -11,13 +11,19 @@ format(File) ->
     case file:read_file(File) of
         {ok, Code} ->
             case format_code(Code, File) of
-                {ok, Code} -> ok;
-                {ok, FormattedCode} -> file:write_file(File, FormattedCode);
-                {error, _} = Err -> Err
+                {ok, Code} ->
+                    ok;
+                {ok, FormattedCode} ->
+                    file:write_file(File, FormattedCode);
+                {error, _} = Err ->
+                    Err
             end;
-        {error, enoent} -> {error, <<"file does not exist">>};
-        {error, eisdir} -> {error, <<"that's a directory">>};
-        {error, _} = Err -> Err
+        {error, enoent} ->
+            {error, <<"file does not exist">>};
+        {error, eisdir} ->
+            {error, <<"that's a directory">>};
+        {error, _} = Err ->
+            Err
     end.
 
 -spec format_code(binary()) -> ok | {error, any()}.
@@ -39,7 +45,16 @@ format_code(Code, File) ->
                 true ->
                     {ok, FormattedCode};
                 false ->
-                    {error, {formatter_broke_the_code, {file, File}, {code, Code}, {formatted, FormattedCode}}}
+                    {
+                        error,
+                        {
+                            formatter_broke_the_code,
+                            {file, File},
+                            {code, Code},
+                            {formatted, FormattedCode}
+                        }
+                    }
             end;
-        {error, _} = Err -> Err
+        {error, _} = Err ->
+            Err
     end.
