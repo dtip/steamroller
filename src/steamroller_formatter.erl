@@ -27,13 +27,16 @@ format_code(Code) -> format_code(Code, <<"no_file">>).
 
 -spec format_code(binary(), binary()) -> {ok, binary()} | {error, any()}.
 format_code(Code, File) ->
-    OriginalAst = steamroller_ast:ast(Code),
-    Tokens = steamroller_ast:tokens(Code),
-    FormattedCode = steamroller_algebra:format_tokens(Tokens),
-    NewAst = steamroller_ast:ast(FormattedCode),
-    case steamroller_ast:eq(OriginalAst, NewAst) of
-        true ->
-            {ok, FormattedCode};
-        false ->
-            {error, {formatter_broke_the_code, {file, File}, {code, Code}, {formatted, FormattedCode}}}
+    case steamroller_ast:ast(Code, File) of
+        {ok, OriginalAst} ->
+            Tokens = steamroller_ast:tokens(Code),
+            FormattedCode = steamroller_algebra:format_tokens(Tokens),
+            {ok, NewAst} = steamroller_ast:ast(FormattedCode),
+            case steamroller_ast:eq(OriginalAst, NewAst) of
+                true ->
+                    {ok, FormattedCode};
+                false ->
+                    {error, {formatter_broke_the_code, {file, File}, {code, Code}, {formatted, FormattedCode}}}
+            end;
+        {error, _} = Err -> Err
     end.

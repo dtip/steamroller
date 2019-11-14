@@ -3,17 +3,26 @@
 -include_lib("eunit/include/eunit.hrl").
 
 ast_test_() ->
-    Ast = steamroller_ast:ast(<<"-module(test).\n\n-export([init/1]).\n">>),
+    {ok, Expect} = steamroller_ast:ast(<<"-module(test).\n\n-export([init/1]).\n">>),
+    {ok, Result1} = steamroller_ast:ast(<<"-module(test).\n\n-export([init/1]).\n\n">>),
+    {ok, Result2} = steamroller_ast:ast(<<"-module(test).\n\n%% Comment\n-export([init/1]).\n\n">>),
+    {ok, Result3} = steamroller_ast:ast(<<"-module(test).\n\n% Comment\n-export([init/1]).\n\n">>),
+    {ok, Result4} = steamroller_ast:ast(<<"-module(test).\n\n%%% Comment\n-export([init/1]).\n\n">>),
+    {ok, Result5} = steamroller_ast:ast(<<"-module(test).\n\n%% Comment %%\n-export([init/1]).\n\n">>),
+    {ok, Result6} = steamroller_ast:ast(<<"-module(test).\n\n%% === Comment === %%\n-export([init/1]).\n\n">>),
+    {ok, Result7} = steamroller_ast:ast(<<"-module(test).\n\n%% Comment\n-export([init/1]).\n%% Comment\n">>),
+    {ok, Result8} = steamroller_ast:ast(<<"-module(test).\n\n-define(MACRO, macro).\n-export([init/1]).\n\n">>),
+    {ok, Result9} = steamroller_ast:ast(<<"-module(test).\n\n-export([init/1]).">>),
     [
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n-export([init/1]).\n\n">>))),
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n%% Comment\n-export([init/1]).\n\n">>))),
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n% Comment\n-export([init/1]).\n\n">>))),
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n%%% Comment\n-export([init/1]).\n\n">>))),
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n%% Comment %%\n-export([init/1]).\n\n">>))),
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n%% === Comment === %%\n-export([init/1]).\n\n">>))),
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n%% Comment\n-export([init/1]).\n%% Comment\n">>))),
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n-define(MACRO, macro).\n-export([init/1]).\n\n">>))),
-     ?_assert(steamroller_ast:eq(Ast, steamroller_ast:ast(<<"-module(test).\n\n-export([init/1]).">>)))
+     ?_assert(steamroller_ast:eq(Expect, Result1)),
+     ?_assert(steamroller_ast:eq(Expect, Result2)),
+     ?_assert(steamroller_ast:eq(Expect, Result3)),
+     ?_assert(steamroller_ast:eq(Expect, Result4)),
+     ?_assert(steamroller_ast:eq(Expect, Result5)),
+     ?_assert(steamroller_ast:eq(Expect, Result6)),
+     ?_assert(steamroller_ast:eq(Expect, Result7)),
+     ?_assert(steamroller_ast:eq(Expect, Result8)),
+     ?_assert(steamroller_ast:eq(Expect, Result9))
     ].
 
 comment_tokens_test_() ->
