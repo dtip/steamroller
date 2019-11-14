@@ -549,3 +549,18 @@ slash_test_() ->
     [
      ?_assertEqual(Expect0, Result0)
     ].
+
+if_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(A, B) -> if A == B -> great; true -> oh_no end.">>),
+    Expect0 = <<"foo(A, B) -> if A == B -> great; true -> oh_no end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(A, B) ->\n    if A == B -> great; true -> oh_no end.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"foo(A, B) ->\n    if\n        A == B ->\n            great;\n        true ->\n            oh_no\n    end.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 20),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+

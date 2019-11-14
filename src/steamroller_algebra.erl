@@ -37,6 +37,7 @@
 
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
 -define(IS_OPERATOR(C), (C == '+' orelse C == '-' orelse C == '*' orelse C == '/' orelse C == 'div')).
+-define(IS_EQUALS(C), (C == '=' orelse C == '==')).
 
 %% API
 
@@ -233,29 +234,48 @@ case_([{'case', _} | Tokens]) ->
     {empty, _ForceBreak, CaseArg, []} = expr(CaseArgTokens, no_force_break),
     {CaseClauseTokens, Rest1, _} = get_from_until('case', 'end', Rest0),
     {ForceBreak, Clauses, []} = clauses(CaseClauseTokens),
-
     Doc =
-    force_break(
-      ForceBreak,
-      group(
-        space(
-          cons(
-            group(
-              space(
-                text(<<"case">>),
-                CaseArg
-               )
+        force_break(
+          ForceBreak,
+          group(
+            space(
+              cons(
+                group(
+                  space(
+                    text(<<"case">>),
+                    CaseArg
+                   )
+                 ),
+                nest(
+                  ?indent,
+                  space([text(<<" of">>) | Clauses])
+                 )
+               ),
+              text(<<"end">>)
              ),
-            nest(
-              ?indent,
-              space([text(<<" of">>) | Clauses])
-             )
-           ),
-          text(<<"end">>)
+            inherit
+           )
          ),
-        inherit
-       )
-     ),
+    {ForceBreak, Doc, Rest1}.
+
+-spec if_(tokens()) -> {force_break(), doc(), tokens()}.
+if_([{'if', _} | Tokens]) ->
+    {IfClauseTokens, Rest1, _} = get_from_until('if', 'end', Tokens),
+    {ForceBreak, Clauses, []} = clauses(IfClauseTokens),
+    Doc =
+        force_break(
+          ForceBreak,
+          group(
+            space(
+              nest(
+                ?indent,
+                space([text(<<"if">>) | Clauses])
+               ),
+              text(<<"end">>)
+             ),
+            inherit
+           )
+         ),
     {ForceBreak, Doc, Rest1}.
 
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
@@ -362,8 +382,7 @@ head_and_clause([{'->', _} | Rest0], Doc) ->
     % End
     {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
     {Continue, ForceBreak, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), Rest1};
-head_and_clause([{_Op, _} | _] = Rest0, Doc0) ->
-    % Pattern Match Operators
+head_and_clause(Rest0, Doc0) ->
     {Tokens, Rest1, Token} = get_until('->', Rest0),
     {empty, _ForceBreak, Doc1, []} = expr(Tokens, no_force_break, Doc0),
     head_and_clause([Token | Rest1], Doc1).
@@ -414,6 +433,11 @@ expr_([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
     {CaseForceBreak, CaseGroup, Rest} = case_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, CaseForceBreak]),
     expr_(Rest, space(Doc, CaseGroup), ForceBreak1);
+expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
+    io:fwrite("\nTokens=~p", [Tokens]),
+    {IfForceBreak, CaseGroup, Rest} = if_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, IfForceBreak]),
+    expr_(Rest, space(Doc, CaseGroup), ForceBreak1);
 expr_([{atom, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle function calls to other modules
     [_, _, _ | Tokens1] = Tokens0,
@@ -450,19 +474,18 @@ expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     expr_(Rest, space(Doc, ListGroup), ForceBreak1);
-%%%expr_([{'=', _} | Rest], Doc0, ForceBreak) ->
-expr_([{'=', _} | Rest], Doc0, ForceBreak0) ->
+expr_([{C, _} | Rest], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
     % Handle pattern matching in e.g. function heads
     % foo({X, _} = Y) -> ...
-    Equals = group(space(Doc0, text(<<"=">>))),
+    Equals = group(space(Doc0, text(a2b(C)))),
     {End, ForceBreak1, Expr} = expr_(Rest, empty(), ForceBreak0),
     Equation = group(nest(?indent, space(Equals, group(Expr)))),
     {End, ForceBreak1, Equation};
-expr_([{var, _, Var}, {'=', _} | Rest], Doc, ForceBreak0) ->
+expr_([{var, _, Var}, {C, _} | Rest], Doc, ForceBreak0) when ?IS_EQUALS(C) ->
     % Handle equations
     % Arg3 =
     %     Arg1 + Arg2,
-    Equals = group(space(text(a2b(Var)), text(<<"=">>))),
+    Equals = group(space(text(a2b(Var)), text(a2b(C)))),
     {End, ForceBreak1, Expr} = expr_(Rest, empty(), ForceBreak0),
     Equation = group(nest(?indent, space(Equals, group(Expr)))),
     {End, ForceBreak1, space(Doc, Equation)};
@@ -654,6 +677,8 @@ get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack));
 get_end_of_expr([{'case', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, ['case' | KeywordStack]);
+get_end_of_expr([{'if', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, ['if' | KeywordStack]);
 get_end_of_expr([{'(', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {')', LineNum} = EndToken} = get_from_until('(', ')', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
