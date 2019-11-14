@@ -541,3 +541,11 @@ case_pattern_match_test_() ->
      ?_assertEqual(Expect0, Result0),
      ?_assertEqual(Expect1, Result1)
     ].
+
+slash_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> \"\\\"some string\\\"\".">>),
+    Expect0 = <<"foo() -> \"\\\"some string\\\"\".\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [
+     ?_assertEqual(Expect0, Result0)
+    ].

@@ -586,7 +586,10 @@ a2b(Atom) -> list_to_binary(atom_to_list(Atom)).
 i2b(Integer) -> integer_to_binary(Integer).
 
 -spec s2b(string()) -> binary().
-s2b(String) -> list_to_binary("\"" ++ String ++ "\"").
+s2b(String) -> list_to_binary(escape(String)).
+
+-spec escape(string()) -> string().
+escape(String) -> io_lib:format("~p", [String]).
 
 -spec get_from_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
 get_from_until(Start, End, Tokens) -> get_from_until(Start, End, Tokens, [], 0).
