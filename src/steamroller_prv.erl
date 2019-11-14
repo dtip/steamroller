@@ -5,7 +5,8 @@
 
 -define(PROVIDER, steamroll).
 -define(DEPS, [app_discovery]).
--define(KEY, steamroll_file).
+-define(FILE_KEY, steamroll_file).
+-define(DIR_KEY, steamroll_dir).
 
 %% ===================================================================
 %% Public API
@@ -19,7 +20,10 @@ init(State) ->
             {bare, true},
             {deps, ?DEPS},
             {example, "rebar3 steamroll"},
-            {opts, [{?KEY, $f, "file", binary, "File name to format."}]},
+            {opts, [
+                    {?FILE_KEY, $f, "file", binary, "File name to format."},
+                    {?DIR_KEY, $d, "dir", string, "Dir name to format."}
+                   ]},
             {short_desc, "Format that Erlang."},
             {desc, "Format that Erlang."}
     ]),
@@ -33,9 +37,13 @@ do(State) ->
             {[], _} ->
                 rebar_api:info("Steamrolling code...", []),
                 format_apps(rebar_state:project_apps(State));
-            {[{?KEY, File}], _} ->
+            {[{?FILE_KEY, File}], _} ->
                 rebar_api:info("Steamrolling file: ~s", [File]),
-                steamroller:format_file(File)
+                steamroller:format_file(File);
+            {[{?DIR_KEY, Dir}], _} ->
+                rebar_api:info("Steamrolling dir: ~s", [Dir]),
+                Files = find_source_files(Dir),
+                format_files(Files)
         end,
     case Result of
         ok -> rebar_api:info("Steamrolling done.", []), {ok, State};
