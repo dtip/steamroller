@@ -404,8 +404,26 @@ expr([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
     {CaseForceBreak, CaseGroup, Rest} = case_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, CaseForceBreak]),
     expr(Rest, space(Doc, CaseGroup), ForceBreak1);
+expr([{atom, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle function calls to other modules
+    [_, _, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Function =
+        space(
+          Doc,
+          cons(
+            [
+             text(a2b(ModuleName)),
+             text(<<":">>),
+             text(a2b(FunctionName)),
+             ListGroup
+            ]
+           )
+        ),
+    expr(Rest, Function, ForceBreak1);
 expr([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
-    % Handle function calls
+    % Handle local function calls
     Tokens1 = tl(Tokens0),
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
