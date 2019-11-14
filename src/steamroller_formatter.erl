@@ -4,6 +4,8 @@
 
 -include_lib("kernel/include/logger.hrl").
 
+-define(CRASHDUMP, "steamroller.crashdump").
+
 %% API
 
 -spec format(binary()) -> ok | {error, any()}.
@@ -45,13 +47,13 @@ format_code(Code, File) ->
                 true ->
                     {ok, FormattedCode};
                 false ->
+                    file:write_file(?CRASHDUMP, FormattedCode),
                     {
                         error,
                         {
                             formatter_broke_the_code,
                             {file, File},
-                            {code, Code},
-                            {formatted, FormattedCode}
+                            {crashdump, ?CRASHDUMP}
                         }
                     }
             end;
