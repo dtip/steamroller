@@ -8,10 +8,15 @@
 
 -spec format(binary()) -> ok | {error, any()}.
 format(File) ->
-    {ok, Code} = file:read_file(File),
-    case format_code(Code, File) of
-        {ok, Code} -> ok;
-        {ok, FormattedCode} -> file:write_file(File, FormattedCode);
+    case file:read_file(File) of
+        {ok, Code} ->
+            case format_code(Code, File) of
+                {ok, Code} -> ok;
+                {ok, FormattedCode} -> file:write_file(File, FormattedCode);
+                {error, _} = Err -> Err
+            end;
+        {error, enoent} -> {error, <<"file does not exist">>};
+        {error, eisdir} -> {error, <<"that's a directory">>};
         {error, _} = Err -> Err
     end.
 

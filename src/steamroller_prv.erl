@@ -5,6 +5,7 @@
 
 -define(PROVIDER, steamroll).
 -define(DEPS, [app_discovery]).
+-define(KEY, steamroll_file).
 
 %% ===================================================================
 %% Public API
@@ -18,7 +19,7 @@ init(State) ->
             {bare, true},
             {deps, ?DEPS},
             {example, "rebar3 steamroll"},
-            {opts, []},
+            {opts, [{?KEY, $f, "file", binary, "File name to format."}]},
             {short_desc, "Format that Erlang."},
             {desc, "Format that Erlang."}
     ]),
@@ -26,13 +27,24 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    rebar_api:info("Steamrolling code...", []),
-    case format_apps(rebar_state:project_apps(State)) of
+    Result =
+        case rebar_state:command_parsed_args(State) of
+            % No idea why a two-element tuple is returned here.
+            {[], _} ->
+                rebar_api:info("Steamrolling code...", []),
+                format_apps(rebar_state:project_apps(State));
+            {[{?KEY, File}], _} ->
+                rebar_api:info("Steamrolling file: ~s", [File]),
+                steamroller:format_file(File)
+        end,
+    case Result of
         ok -> rebar_api:info("Steamrolling done.", []), {ok, State};
         {error, Err} -> {error, format_error(Err)}
     end.
 
 -spec format_error(any()) ->  iolist().
+format_error(Reason) when is_binary(Reason) ->
+    io_lib:format("Steamroller Error: ~s", [Reason]);
 format_error(Reason) ->
     io_lib:format("Steamroller Error: ~p", [Reason]).
 
