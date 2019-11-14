@@ -327,7 +327,7 @@ clauses(Tokens) -> clauses(Tokens, [], []).
 
 -spec clauses(tokens(), list(doc()), list(force_break())) -> {force_break(), list(doc()), tokens()}.
 clauses(Tokens, Acc0, ForceBreaks0) ->
-    {Continue, ForceBreak, Clause, Rest0} = function_head_and_clause(Tokens),
+    {Continue, ForceBreak, Clause, Rest0} = head_and_clause(Tokens),
     Acc1 = [Clause | Acc0],
     ForceBreaks1 = [ForceBreak | ForceBreaks0],
     case Continue of
@@ -335,20 +335,20 @@ clauses(Tokens, Acc0, ForceBreaks0) ->
         done -> {resolve_force_break(ForceBreaks1), lists:reverse(Acc1), Rest0}
     end.
 
--spec function_head_and_clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
-function_head_and_clause(Tokens) -> function_head_and_clause(Tokens, empty()).
+-spec head_and_clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
+head_and_clause(Tokens) -> head_and_clause(Tokens, empty()).
 
--spec function_head_and_clause(tokens(), doc()) -> {continue(), force_break(), doc(), tokens()}.
-function_head_and_clause([{atom, _, Name} | Rest], Doc) ->
+-spec head_and_clause(tokens(), doc()) -> {continue(), force_break(), doc(), tokens()}.
+head_and_clause([{atom, _, Name} | Rest], Doc) ->
     % Name
-    function_head_and_clause(Rest, cons(Doc, text(a2b(Name))));
-function_head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
+    head_and_clause(Rest, cons(Doc, text(a2b(Name))));
+head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
     % Args
     {_ForceBreak, Group, Rest} = list_group(Tokens),
-    function_head_and_clause(Rest, cons(Doc, Group));
-function_head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
+    head_and_clause(Rest, cons(Doc, Group));
+head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
     % Handle any comments between function clauses.
-    {Continue, ForceBreak, Doc1, Tokens} = function_head_and_clause(Rest),
+    {Continue, ForceBreak, Doc1, Tokens} = head_and_clause(Rest),
     Doc2 =
         newline(
               [
@@ -358,15 +358,15 @@ function_head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
               ]
              ),
     {Continue, ForceBreak, Doc2, Tokens};
-function_head_and_clause([{'->', _} | Rest0], Doc) ->
+head_and_clause([{'->', _} | Rest0], Doc) ->
     % End
     {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
     {Continue, ForceBreak, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), Rest1};
-function_head_and_clause([{_Op, _} | _] = Rest0, Doc0) ->
+head_and_clause([{_Op, _} | _] = Rest0, Doc0) ->
     % Pattern Match Operators
     {Tokens, Rest1, Token} = get_until('->', Rest0),
     {empty, _ForceBreak, Doc1, []} = expr(Tokens, no_force_break, Doc0),
-    function_head_and_clause([Token | Rest1], Doc1).
+    head_and_clause([Token | Rest1], Doc1).
 
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 clause(Tokens) ->
