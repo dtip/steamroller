@@ -227,6 +227,33 @@ function(Tokens) ->
     {Clauses, Rest} = clauses(Tokens),
     {group(newline(Clauses)), Rest}.
 
+-spec case_(tokens()) -> {doc(), tokens()}.
+case_([{'case', _} | Tokens]) ->
+    {CaseArgTokens, Rest0, _} = get_until('case', {atom, '_', do}, Tokens),
+    {empty, _ForceBreak, CaseArg, []} = expr(CaseArgTokens, no_force_break),
+    {CaseClauseTokens, Rest1, _} = get_until('case', 'end', Rest0),
+    {Clauses, []} = clauses(CaseClauseTokens),
+
+    Doc =
+        group(
+          space(
+            cons(
+              group(
+                space(
+                  text(<<"case">>),
+                  CaseArg
+                 )
+               ),
+              nest(
+                ?indent,
+                space([text(<<" do">>) | Clauses])
+               )
+             ),
+            text(<<"end">>)
+           )
+         ),
+    {Doc, Rest1}.
+
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{'(', _} | Rest0]) ->
     {Tokens, Rest1, _} = get_until('(', ')', Rest0),
@@ -335,7 +362,7 @@ function_head_and_clause([{'->', _} | Rest0], Doc) ->
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 clause(Tokens) ->
     {End, ForceBreak, Exprs, Rest} = exprs(Tokens),
-    Continue = case End of dot -> done; ';' -> continue end,
+    Continue = case End of dot -> done; 'end' -> done; empty -> done; ';' -> continue end,
     if length(Exprs) > 1 ->
            % Force indentation for multi-line clauses
            {Continue, force_break, space(Exprs), Rest};
@@ -368,6 +395,9 @@ expr([{'?', _} | Rest0], Doc, ForceBreak0) ->
     % Handle macros
     {End, ForceBreak1, Expr, []} = expr(Rest0, ForceBreak0),
     {End, ForceBreak1, space(Doc, cons(text(<<"?">>), Expr))};
+expr([{'case', _} | _] = Tokens, Doc, ForceBreak) ->
+    {CaseGroup, Rest} = case_(Tokens),
+    expr(Rest, space(Doc, CaseGroup), ForceBreak);
 expr([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle function calls
     Tokens1 = tl(Tokens0),
@@ -394,6 +424,10 @@ expr([{var, _, Var}, {'=', _} | Rest], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr} = expr(Rest, empty(), ForceBreak0),
     Equation = group(nest(?indent, space(Equals, group(Expr)))),
     {End, ForceBreak1, space(Doc, Equation)};
+expr([{'end' = End, _}], Doc, ForceBreak) ->
+    % TODO fix gross hacks.
+    % This is definitely wrong.
+    {End, ForceBreak, nest(-2 * ?indent, space(Doc, text(a2b(End))))};
 expr([{End, _}], Doc, ForceBreak) ->
     {End, ForceBreak, cons(Doc, text(a2b(End)))};
 expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
@@ -522,9 +556,13 @@ get_until(Start, End, Tokens) -> get_until(Start, End, Tokens, [], 0).
 -spec get_until(atom(), atom(), tokens(), tokens(), integer()) -> {tokens(), tokens(), token()}.
 get_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
     get_until(Start, End, Rest, [Token | Acc], Stack + 1);
+get_until(_Start, {atom, _, End}, [{atom, _, End} = Token | Rest], Acc, 0) ->
+    {lists:reverse(Acc), Rest, Token};
 get_until(_Start, End, [{End, _} = Token | Rest], Acc, 0) ->
     {lists:reverse(Acc), Rest, Token};
 get_until(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
+    get_until(Start, End, Rest, [Token | Acc], Stack - 1);
+get_until(Start, {atom, _, End}, [{atom, _, End} = Token | Rest], Acc, Stack) ->
     get_until(Start, End, Rest, [Token | Acc], Stack - 1);
 get_until(Start, End, [Token | Rest], Acc, Stack) ->
     get_until(Start, End, Rest, [Token | Acc], Stack).
@@ -543,43 +581,49 @@ remove_matching(Start, End, [Token | Rest], Acc, Stack) ->
     remove_matching(Start, End, Rest, [Token | Acc], Stack).
 
 -spec get_end_of_expr(tokens()) -> {tokens(), tokens()}.
-get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0).
+get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, []).
 
 % Dialyzer gets upset if we use integer() for the third arg here but that's what it is.
--spec get_end_of_expr(tokens(), tokens(), any()) -> {tokens(), tokens()}.
-get_end_of_expr([], Acc, _LineNum) ->
+-spec get_end_of_expr(tokens(), tokens(), any(), list(atom())) -> {tokens(), tokens()}.
+get_end_of_expr([], Acc, _LineNum, _KeywordStack) ->
     {lists:reverse(Acc), []};
-get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum) ->
+get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack) ->
     {[Comment], Rest};
-get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum) ->
+get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, _KeywordStack) ->
     % Inline comment - naughty naughty
     % Return the comment and put the acc back.
     {[Comment], lists:reverse(Acc) ++ Rest};
-get_end_of_expr([{comment, _, _} | _] = Rest, Acc, _LineNum) ->
+get_end_of_expr([{comment, _, _} | _] = Rest, Acc, _LineNum, _KeywordStack) ->
     {lists:reverse(Acc), Rest};
-get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _)
+get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _, _)
   when End == ',' orelse End == ';' orelse End == dot ->
     % Inline comment - naughty naughty
     % Return the comment and put the acc back.
     {[Comment], lists:reverse([Token | Acc]) ++ Rest};
-get_end_of_expr([{End, _} = Token | Rest], Acc, _) when End == ',' orelse End == ';' orelse End == dot ->
+get_end_of_expr([{End, _} = Token | Rest], Acc, _, []) when End == ',' orelse End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};
-get_end_of_expr([{'(', _} = Token | Rest0], Acc, _) ->
+get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, []) ->
+    {lists:reverse([Token | Acc]), Rest};
+get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack));
+get_end_of_expr([{'case', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, ['case' | KeywordStack]);
+get_end_of_expr([{'(', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {')', LineNum} = EndToken} = get_until('(', ')', Rest0),
-    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
-get_end_of_expr([{'{', _} = Token | Rest0], Acc, _) ->
+    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
+get_end_of_expr([{'{', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {'}', LineNum} = EndToken} = get_until('{', '}', Rest0),
-    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
-get_end_of_expr([{'[', _} = Token | Rest0], Acc, _) ->
+    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
+get_end_of_expr([{'[', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {']', LineNum} = EndToken} = get_until('[', ']', Rest0),
-    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
-get_end_of_expr([{'<<', _} = Token | Rest0], Acc, _) ->
+    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
+get_end_of_expr([{'<<', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {'>>', LineNum} = EndToken} = get_until('<<', '>>', Rest0),
-    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum);
-get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum);
-get_end_of_expr([{_, LineNum, _} = Token | Rest], Acc, _) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum).
+    get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
+get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _, KeywordStack) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack);
+get_end_of_expr([{_, LineNum, _} = Token | Rest], Acc, _, KeywordStack) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack).
 
 -spec resolve_force_break(list(force_break())) -> force_break().
 resolve_force_break(Args) ->
