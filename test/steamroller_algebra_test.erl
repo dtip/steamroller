@@ -488,10 +488,10 @@ specced_function_test_() ->
     ].
 
 basic_case_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> case bar(X) do {ok, Something} -> Something; {error, _} -> oh_no end.">>),
-    Expect0 = <<"foo(X) -> case bar(X) do {ok, Something} -> Something; {error, _} -> oh_no end.\n">>,
+    Tokens = steamroller_ast:tokens(<<"foo(X) -> case bar(X) of {ok, Something} -> Something; {error, _} -> oh_no end.">>),
+    Expect0 = <<"foo(X) -> case bar(X) of {ok, Something} -> Something; {error, _} -> oh_no end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"foo(X) ->\n    case bar(X) do\n        {ok, Something} ->\n            Something;\n        {error, _} ->\n            oh_no\n    end.\n">>,
+    Expect1 = <<"foo(X) ->\n    case bar(X) of\n        {ok, Something} ->\n            Something;\n        {error, _} ->\n            oh_no\n    end.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
 
     [
@@ -500,8 +500,8 @@ basic_case_test_() ->
     ].
 
 case_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> case bar(X) do {ok, Y} -> Z = baz(Y), foo(Z); {error, oops} -> oops; {error, _} -> oh_no end.">>),
-    Expect0 = <<"foo(X) ->\n    case bar(X) do\n        {ok, Y} ->\n            Z = baz(Y),\n            foo(Z);\n        {error, oops} ->\n            oops;\n        {error, _} ->\n            oh_no\n    end.\n">>,
+    Tokens = steamroller_ast:tokens(<<"foo(X) -> case bar(X) of {ok, Y} -> Z = baz(Y), foo(Z); {error, oops} -> oops; {error, _} -> oh_no end.">>),
+    Expect0 = <<"foo(X) ->\n    case bar(X) of\n        {ok, Y} ->\n            Z = baz(Y),\n            foo(Z);\n        {error, oops} ->\n            oops;\n        {error, _} ->\n            oh_no\n    end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [
      ?_assertEqual(Expect0, Result0)

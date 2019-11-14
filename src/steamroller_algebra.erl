@@ -229,7 +229,7 @@ function(Tokens) ->
 
 -spec case_(tokens()) -> {force_break(), doc(), tokens()}.
 case_([{'case', _} | Tokens]) ->
-    {CaseArgTokens, Rest0, _} = get_until('case', {atom, '_', do}, Tokens),
+    {CaseArgTokens, Rest0, _} = get_until('case', 'of', Tokens),
     {empty, _ForceBreak, CaseArg, []} = expr(CaseArgTokens, no_force_break),
     {CaseClauseTokens, Rest1, _} = get_until('case', 'end', Rest0),
     {ForceBreak, Clauses, []} = clauses(CaseClauseTokens),
@@ -248,7 +248,7 @@ case_([{'case', _} | Tokens]) ->
              ),
             nest(
               ?indent,
-              space([text(<<" do">>) | Clauses])
+              space([text(<<" of">>) | Clauses])
              )
            ),
           text(<<"end">>)
@@ -430,10 +430,6 @@ expr([{var, _, Var}, {'=', _} | Rest], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr} = expr(Rest, empty(), ForceBreak0),
     Equation = group(nest(?indent, space(Equals, group(Expr)))),
     {End, ForceBreak1, space(Doc, Equation)};
-expr([{'end' = End, _}], Doc, ForceBreak) ->
-    % TODO fix gross hacks.
-    % This is definitely wrong.
-    {End, ForceBreak, nest(-2 * ?indent, space(Doc, text(a2b(End))))};
 expr([{End, _}], Doc, ForceBreak) ->
     {End, ForceBreak, cons(Doc, text(a2b(End)))};
 expr([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
@@ -556,19 +552,15 @@ i2b(Integer) -> integer_to_binary(Integer).
 -spec s2b(string()) -> binary().
 s2b(String) -> list_to_binary("\"" ++ String ++ "\"").
 
--spec get_until(atom(), atom() | {atom, any(), atom()}, tokens()) -> {tokens(), tokens(), token()}.
+-spec get_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
 get_until(Start, End, Tokens) -> get_until(Start, End, Tokens, [], 0).
 
--spec get_until(atom(), atom() | {atom, any(), atom()}, tokens(), tokens(), integer()) -> {tokens(), tokens(), token()}.
+-spec get_until(atom(), atom(), tokens(), tokens(), integer()) -> {tokens(), tokens(), token()}.
 get_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
     get_until(Start, End, Rest, [Token | Acc], Stack + 1);
-get_until(_Start, {atom, _, End}, [{atom, _, End} = Token | Rest], Acc, 0) ->
-    {lists:reverse(Acc), Rest, Token};
 get_until(_Start, End, [{End, _} = Token | Rest], Acc, 0) ->
     {lists:reverse(Acc), Rest, Token};
 get_until(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
-    get_until(Start, End, Rest, [Token | Acc], Stack - 1);
-get_until(Start, {atom, _, End}, [{atom, _, End} = Token | Rest], Acc, Stack) ->
     get_until(Start, End, Rest, [Token | Acc], Stack - 1);
 get_until(Start, End, [Token | Rest], Acc, Stack) ->
     get_until(Start, End, Rest, [Token | Acc], Stack).
