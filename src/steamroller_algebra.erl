@@ -26,7 +26,7 @@
 -type force_break() :: force_break | no_force_break.
 -type token() :: steamroller_ast:token().
 -type tokens() :: steamroller_ast:tokens().
--type previous_term() :: new_file | attribute | spec | list | function | comment.
+-type previous_term() :: new_file | attribute | spec | list | function | module_comment | function_comment | dot.
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
@@ -146,7 +146,7 @@ generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc0, PrevTerm) ->
     Spec = cons(text(<<"-spec ">>), Group),
     Doc1 =
         case PrevTerm of
-            comment -> newline(Doc0, Spec);
+            function_comment -> newline(Doc0, Spec);
             _ -> newlines(Doc0, Spec)
         end,
     generate_doc_(Rest, Doc1, spec);
@@ -155,7 +155,7 @@ generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
     {Group, Rest} = attribute(Atom, Tokens),
     Doc1 =
         case PrevTerm of
-            comment -> newline(Doc0, Group);
+            function_comment -> newline(Doc0, Group);
             _ -> newlines(Doc0, Group)
         end,
     generate_doc_(Rest, Doc1, attribute);
@@ -164,26 +164,45 @@ generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
     {Group, Rest} = function(Tokens),
     Doc1 =
         case PrevTerm of
-            PrevTerm when PrevTerm == comment orelse PrevTerm == spec ->
+            PrevTerm when PrevTerm == function_comment orelse PrevTerm == spec ->
                 newline(Doc0, Group);
             _ ->
                 newlines(Doc0, Group)
         end,
     generate_doc_(Rest, Doc1, function);
-generate_doc_([{C, _} | _] = Tokens, Doc, _PrevTerm) when ?IS_LIST_CHAR(C) ->
+generate_doc_([{C, _} | _] = Tokens, Doc0, PrevTerm) when ?IS_LIST_CHAR(C) ->
     % List -> if this is at the top level this is probably a config file
-    {ForceBreak, Group, Rest} = list_group(Tokens),
-    generate_doc_(Rest, cons(Doc, force_break(ForceBreak, Group)), list);
-generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
-    % Comment
+    {ForceBreak, Group0, Rest} = list_group(Tokens),
+    Group1 = force_break(ForceBreak, Group0),
+    Doc1 =
+        case PrevTerm of
+            function_comment -> newline(Doc0, Group1);
+            _ -> newlines(Doc0, Group1)
+        end,
+    generate_doc_(Rest, Doc1, list);
+generate_doc_([{comment, _, "%%" ++ _ = CommentText} | Rest], Doc0, PrevTerm) ->
+    % Module Comment
     Comment = comment(CommentText),
     Doc1 =
         case PrevTerm of
             new_file -> cons(Doc0, Comment);
-            PrevTerm when PrevTerm == comment orelse PrevTerm == spec -> newline(Doc0, Comment);
+            PrevTerm when PrevTerm == module_comment -> newline(Doc0, Comment);
             _ -> newlines(Doc0, Comment)
         end,
-    generate_doc_(Rest, Doc1, comment).
+    generate_doc_(Rest, Doc1, module_comment);
+generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
+    % Function Comment
+    Comment = comment(CommentText),
+    Doc1 =
+        case PrevTerm of
+            new_file -> cons(Doc0, Comment);
+            PrevTerm when PrevTerm == function_comment orelse PrevTerm == spec -> newline(Doc0, Comment);
+            _ -> newlines(Doc0, Comment)
+        end,
+    generate_doc_(Rest, Doc1, function_comment);
+generate_doc_([{dot, _} | Rest], Doc, _PrevTerm) ->
+    % Any undhandled dots, for example at the end of terms in config files.
+    generate_doc_(Rest, cons(Doc, text(?dot)), dot).
 
 %% Erlang Source Elements
 
@@ -258,9 +277,17 @@ list_elements(Tokens) -> list_elements(Tokens, [], no_force_break).
 -spec list_elements(tokens(), list(doc()), force_break()) -> {force_break(), list(doc())}.
 list_elements([], Acc, ForceBreak) -> {ForceBreak, lists:reverse(Acc)};
 list_elements([{C, _} | _] = Tokens, Acc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
-    {ListGroupForceBreak, Group, Rest} = list_group(Tokens),
+    {ListGroupForceBreak, Group0, Rest0} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListGroupForceBreak]),
-    list_elements(Rest, [Group | Acc], ForceBreak1);
+    {Group1, Rest1} =
+        case Rest0 of
+            [{End, _} | Rest] when End == ',' ->
+                % If a list element is a list followed by a comma we want to capture the
+                % comma and attach it to the list group.
+                {cons(Group0, text(a2b(End))), Rest};
+            _ -> {Group0, Rest0}
+        end,
+    list_elements(Rest1, [Group1 | Acc], ForceBreak1);
 list_elements(Tokens, Acc, ForceBreak0) ->
     {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0),
     list_elements(Rest, [Expr | Acc], ForceBreak1).

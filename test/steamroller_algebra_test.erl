@@ -66,6 +66,20 @@ brackets_inline_comment_test_() ->
      ?_assertEqual(Expect, Result2)
     ].
 
+config_test_() ->
+    Tokens = steamroller_ast:tokens(<<"{erl_opts, [debug_info, {warn_format, 1}, warn_export_all]}.">>),
+    Expect0 = <<"{erl_opts, [debug_info, {warn_format, 1}, warn_export_all]}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"{\n    erl_opts,\n    [\n        debug_info,\n        {warn_format, 1},\n        warn_export_all\n    ]\n}.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"{\n    erl_opts,\n    [\n        debug_info,\n        {\n            warn_format,\n            1\n        },\n        warn_export_all\n    ]\n}.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
 nested_brackets_test_() ->
     Tokens = steamroller_ast:tokens(<<"{foo(), {error, {oh_no, \"problem\"}}}">>),
     Expect0 = <<"{foo(), {error, {oh_no, \"problem\"}}}\n">>,

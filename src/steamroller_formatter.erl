@@ -26,6 +26,9 @@ format_code(Code) -> format_code(Code, <<"no_file">>).
 %% Internal
 
 -spec format_code(binary(), binary()) -> {ok, binary()} | {error, any()}.
+format_code(Code, <<"rebar.config">>) ->
+    Tokens = steamroller_ast:tokens(Code),
+    {ok, steamroller_algebra:format_tokens(Tokens)};
 format_code(Code, File) ->
     case steamroller_ast:ast(Code, File) of
         {ok, OriginalAst} ->
