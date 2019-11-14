@@ -224,35 +224,39 @@ attribute(Att, Tokens) ->
 
 -spec function(tokens()) -> {doc(), tokens()}.
 function(Tokens) ->
-    {Clauses, Rest} = clauses(Tokens),
+    {_ForceBreak, Clauses, Rest} = clauses(Tokens),
     {group(newline(Clauses)), Rest}.
 
--spec case_(tokens()) -> {doc(), tokens()}.
+-spec case_(tokens()) -> {force_break(), doc(), tokens()}.
 case_([{'case', _} | Tokens]) ->
     {CaseArgTokens, Rest0, _} = get_until('case', {atom, '_', do}, Tokens),
     {empty, _ForceBreak, CaseArg, []} = expr(CaseArgTokens, no_force_break),
     {CaseClauseTokens, Rest1, _} = get_until('case', 'end', Rest0),
-    {Clauses, []} = clauses(CaseClauseTokens),
+    {ForceBreak, Clauses, []} = clauses(CaseClauseTokens),
 
     Doc =
-        group(
-          space(
-            cons(
-              group(
-                space(
-                  text(<<"case">>),
-                  CaseArg
-                 )
-               ),
-              nest(
-                ?indent,
-                space([text(<<" do">>) | Clauses])
+    force_break(
+      ForceBreak,
+      group(
+        space(
+          cons(
+            group(
+              space(
+                text(<<"case">>),
+                CaseArg
                )
              ),
-            text(<<"end">>)
-           )
+            nest(
+              ?indent,
+              space([text(<<" do">>) | Clauses])
+             )
+           ),
+          text(<<"end">>)
          ),
-    {Doc, Rest1}.
+        inherit
+       )
+     ),
+    {ForceBreak, Doc, Rest1}.
 
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{'(', _} | Rest0]) ->
@@ -319,22 +323,23 @@ list_elements(Tokens, Acc, ForceBreak0) ->
     {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0),
     list_elements(Rest, [Expr | Acc], ForceBreak1).
 
--spec clauses(tokens()) -> {list(doc()), tokens()}.
-clauses(Tokens) -> clauses(Tokens, []).
+-spec clauses(tokens()) -> {force_break(), list(doc()), tokens()}.
+clauses(Tokens) -> clauses(Tokens, [], []).
 
--spec clauses(tokens(), list(doc())) -> {list(doc()), tokens()}.
-clauses(Tokens, Acc0) ->
-    {Continue, Clause, Rest0} = function_head_and_clause(Tokens),
+-spec clauses(tokens(), list(doc()), list(force_break())) -> {force_break(), list(doc()), tokens()}.
+clauses(Tokens, Acc0, ForceBreaks0) ->
+    {Continue, ForceBreak, Clause, Rest0} = function_head_and_clause(Tokens),
     Acc1 = [Clause | Acc0],
+    ForceBreaks1 = [ForceBreak | ForceBreaks0],
     case Continue of
-        continue -> clauses(Rest0, Acc1);
-        done -> {lists:reverse(Acc1), Rest0}
+        continue -> clauses(Rest0, Acc1, ForceBreaks1);
+        done -> {resolve_force_break(ForceBreaks1), lists:reverse(Acc1), Rest0}
     end.
 
--spec function_head_and_clause(tokens()) -> {continue(), doc(), tokens()}.
+-spec function_head_and_clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 function_head_and_clause(Tokens) -> function_head_and_clause(Tokens, empty()).
 
--spec function_head_and_clause(tokens(), doc()) -> {continue(), doc(), tokens()}.
+-spec function_head_and_clause(tokens(), doc()) -> {continue(), force_break(), doc(), tokens()}.
 function_head_and_clause([{atom, _, Name} | Rest], Doc) ->
     % Name
     function_head_and_clause(Rest, cons(Doc, text(a2b(Name))));
@@ -344,7 +349,7 @@ function_head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
     function_head_and_clause(Rest, cons(Doc, Group));
 function_head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
     % Handle any comments between function clauses.
-    {Continue, Doc1, Tokens} = function_head_and_clause(Rest),
+    {Continue, ForceBreak, Doc1, Tokens} = function_head_and_clause(Rest),
     Doc2 =
         newline(
               [
@@ -353,16 +358,16 @@ function_head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
                Doc1
               ]
              ),
-    {Continue, Doc2, Tokens};
+    {Continue, ForceBreak, Doc2, Tokens};
 function_head_and_clause([{'->', _} | Rest0], Doc) ->
     % End
     {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
-    {Continue, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), Rest1}.
+    {Continue, ForceBreak, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), Rest1}.
 
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 clause(Tokens) ->
     {End, ForceBreak, Exprs, Rest} = exprs(Tokens),
-    Continue = case End of dot -> done; 'end' -> done; empty -> done; ';' -> continue end,
+    Continue = case End of dot -> done; empty -> done; ';' -> continue end,
     if length(Exprs) > 1 ->
            % Force indentation for multi-line clauses
            {Continue, force_break, space(Exprs), Rest};
@@ -371,10 +376,10 @@ clause(Tokens) ->
            {Continue, ForceBreak, Expr, Rest}
     end.
 
--spec exprs(tokens()) -> {dot | ';', force_break(), list(doc()), tokens()}.
+-spec exprs(tokens()) -> {dot | ';' | empty, force_break(), list(doc()), tokens()}.
 exprs(Tokens) -> exprs(Tokens, [], no_force_break).
 
--spec exprs(tokens(), list(doc()), force_break()) -> {dot | ';', force_break(), list(doc()), tokens()}.
+-spec exprs(tokens(), list(doc()), force_break()) -> {dot | ';' | empty, force_break(), list(doc()), tokens()}.
 exprs(Tokens, Acc0, ForceBreak0) ->
     {End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0),
     Acc1 = [Expr | Acc0],
@@ -395,9 +400,10 @@ expr([{'?', _} | Rest0], Doc, ForceBreak0) ->
     % Handle macros
     {End, ForceBreak1, Expr, []} = expr(Rest0, ForceBreak0),
     {End, ForceBreak1, space(Doc, cons(text(<<"?">>), Expr))};
-expr([{'case', _} | _] = Tokens, Doc, ForceBreak) ->
-    {CaseGroup, Rest} = case_(Tokens),
-    expr(Rest, space(Doc, CaseGroup), ForceBreak);
+expr([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
+    {CaseForceBreak, CaseGroup, Rest} = case_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, CaseForceBreak]),
+    expr(Rest, space(Doc, CaseGroup), ForceBreak1);
 expr([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle function calls
     Tokens1 = tl(Tokens0),
@@ -550,10 +556,10 @@ i2b(Integer) -> integer_to_binary(Integer).
 -spec s2b(string()) -> binary().
 s2b(String) -> list_to_binary("\"" ++ String ++ "\"").
 
--spec get_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
+-spec get_until(atom(), atom() | {atom, any(), atom()}, tokens()) -> {tokens(), tokens(), token()}.
 get_until(Start, End, Tokens) -> get_until(Start, End, Tokens, [], 0).
 
--spec get_until(atom(), atom(), tokens(), tokens(), integer()) -> {tokens(), tokens(), token()}.
+-spec get_until(atom(), atom() | {atom, any(), atom()}, tokens(), tokens(), integer()) -> {tokens(), tokens(), token()}.
 get_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
     get_until(Start, End, Rest, [Token | Acc], Stack + 1);
 get_until(_Start, {atom, _, End}, [{atom, _, End} = Token | Rest], Acc, 0) ->

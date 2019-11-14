@@ -498,3 +498,11 @@ basic_case_test_() ->
      ?_assertEqual(Expect0, Result0),
      ?_assertEqual(Expect1, Result1)
     ].
+
+case_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) -> case bar(X) do {ok, Y} -> Z = baz(Y), foo(Z); {error, oops} -> oops; {error, _} -> oh_no end.">>),
+    Expect0 = <<"foo(X) ->\n    case bar(X) do\n        {ok, Y} ->\n            Z = baz(Y),\n            foo(Z);\n        {error, oops} ->\n            oops;\n        {error, _} ->\n            oh_no\n    end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [
+     ?_assertEqual(Expect0, Result0)
+    ].
