@@ -564,3 +564,36 @@ if_test_() ->
      ?_assertEqual(Expect2, Result2)
     ].
 
+nested_case_if_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(A, B) -> case A of test -> if B == 5 -> great end end.">>),
+    Expect0 = <<"foo(A, B) -> case A of test -> if B == 5 -> great end end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(A, B) ->\n    case A of test -> if B == 5 -> great end end.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"foo(A, B) ->\n    case A of\n        test ->\n            if B == 5 -> great end\n    end.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    Expect3 = <<"foo(A, B) ->\n    case A of\n        test ->\n            if\n                B == 5 ->\n                    great\n            end\n    end.\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2),
+     ?_assertEqual(Expect3, Result3)
+    ].
+
+nested_if_case_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(A, B) -> if B == 5 -> case A of test -> great end end.">>),
+    Expect0 = <<"foo(A, B) -> if B == 5 -> case A of test -> great end end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(A, B) ->\n    if B == 5 -> case A of test -> great end end.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"foo(A, B) ->\n    if\n        B == 5 ->\n            case A of test -> great end\n    end.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    Expect3 = <<"foo(A, B) ->\n    if\n        B == 5 ->\n            case A of\n                test ->\n                    great\n            end\n    end.\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2),
+     ?_assertEqual(Expect3, Result3)
+    ].

@@ -232,7 +232,7 @@ function(Tokens) ->
 case_([{'case', _} | Tokens]) ->
     {CaseArgTokens, Rest0, _} = get_from_until('case', 'of', Tokens),
     {empty, _ForceBreak, CaseArg, []} = expr(CaseArgTokens, no_force_break),
-    {CaseClauseTokens, Rest1, _} = get_from_until('case', 'end', Rest0),
+    {CaseClauseTokens, Rest1, _} = get_until_end(Rest0),
     {ForceBreak, Clauses, []} = clauses(CaseClauseTokens),
     Doc =
         force_break(
@@ -260,7 +260,7 @@ case_([{'case', _} | Tokens]) ->
 
 -spec if_(tokens()) -> {force_break(), doc(), tokens()}.
 if_([{'if', _} | Tokens]) ->
-    {IfClauseTokens, Rest1, _} = get_from_until('if', 'end', Tokens),
+    {IfClauseTokens, Rest1, _} = get_until_end(Tokens),
     {ForceBreak, Clauses, []} = clauses(IfClauseTokens),
     Doc =
         force_break(
@@ -635,6 +635,19 @@ get_until(End, [{End, _} = Token | Rest], Acc) ->
     {lists:reverse(Acc), Rest, Token};
 get_until(End, [Token | Rest], Acc) ->
     get_until(End, Rest, [Token | Acc]).
+
+-spec get_until_end(tokens()) -> {tokens(), tokens(), token()}.
+get_until_end(Tokens) -> get_until_end(Tokens, [], []).
+
+-spec get_until_end(tokens(), tokens(), list(atom())) -> {tokens(), tokens(), token()}.
+get_until_end([{'end', _} = Token | Rest], Acc, []) ->
+    {lists:reverse(Acc), Rest, Token};
+get_until_end([{'end', _} = Token | Rest], Acc, Stack) ->
+    get_until_end(Rest, [Token | Acc], tl(Stack));
+get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when Keyword == 'case' orelse Keyword == 'if' orelse Keyword == 'fun' ->
+    get_until_end(Rest, [Token | Acc], [Keyword | Stack]);
+get_until_end([Token | Rest], Acc, Stack) ->
+    get_until_end(Rest, [Token | Acc], Stack).
 
 -spec remove_matching(atom(), atom(), tokens()) -> tokens().
 remove_matching(Start, End, Tokens) -> remove_matching(Start, End, Tokens, [], 0).
