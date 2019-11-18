@@ -3,6 +3,8 @@
 %%
 %% Inspired by the Elixir implementation of the same paper in Inspect.Algebra. Thanks to the core team for their hard work!
 %%
+%% Includes plenty of Erlang-specific additions.
+%%
 %% [0] https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.34.2200
 %%
 -module(steamroller_algebra).
