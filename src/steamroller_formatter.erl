@@ -42,21 +42,30 @@ format_code(Code, File) ->
         {ok, OriginalAst} ->
             Tokens = steamroller_ast:tokens(Code),
             FormattedCode = steamroller_algebra:format_tokens(Tokens),
-            {ok, NewAst} = steamroller_ast:ast(FormattedCode),
-            case steamroller_ast:eq(OriginalAst, NewAst) of
-                true ->
-                    {ok, FormattedCode};
-                false ->
-                    file:write_file(?CRASHDUMP, FormattedCode),
-                    {
-                        error,
-                        {
-                            formatter_broke_the_code,
-                            {file, File},
-                            {crashdump, ?CRASHDUMP}
-                        }
-                    }
+            case steamroller_ast:ast(FormattedCode) of
+                {ok, NewAst} ->
+                    case steamroller_ast:eq(OriginalAst, NewAst) of
+                        true ->
+                            {ok, FormattedCode};
+                        false ->
+                            handle_formatting_error({error, ast_mismatch}, File, FormattedCode)
+                    end;
+                {error, _} = Err ->
+                    handle_formatting_error(Err, File, FormattedCode)
             end;
+
         {error, _} = Err ->
             Err
     end.
+
+handle_formatting_error({error, Msg}, File, FormattedCode) ->
+    file:write_file(?CRASHDUMP, FormattedCode),
+    {
+     error,
+     {
+      formatter_broke_the_code,
+      {file, File},
+      {msg, Msg},
+      {crashdump, ?CRASHDUMP}
+     }
+    }.
