@@ -152,6 +152,21 @@ generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc0, PrevTerm) ->
             _ -> newlines(Doc0, Spec)
         end,
     generate_doc_(Rest, Doc1, spec);
+generate_doc_([{'-', _} = H0, {atom, _, type} = H1, {'(', _} | Rest0], Doc, PrevTerm) ->
+    % Remove brackets from Types
+    Rest1 = remove_matching('(', ')', Rest0),
+    generate_doc_([H0, H1 | Rest1], Doc, PrevTerm);
+generate_doc_([{'-', _}, {atom, _, type} | Tokens], Doc0, PrevTerm) ->
+    % Type
+    % Re-use the function code because the syntax is identical.
+    {Group, Rest} = function(Tokens),
+    Spec = cons(text(<<"-type ">>), Group),
+    Doc1 =
+        case PrevTerm of
+            function_comment -> newline(Doc0, Spec);
+            _ -> newlines(Doc0, Spec)
+        end,
+    generate_doc_(Rest, Doc1, type);
 generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
     % Module Attribute
     {Group, Rest} = attribute(Atom, Tokens),
@@ -383,6 +398,10 @@ head_and_clause([{'->', _} | Rest0], Doc) ->
     % End
     {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
     {Continue, ForceBreak, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), Rest1};
+head_and_clause([{'::', _} | Rest0], Doc) ->
+    % Altenative End (for Type definitions)
+    {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
+    {Continue, ForceBreak, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ::">>), Body), inherit)))), Rest1};
 head_and_clause(Rest0, Doc0) ->
     {Tokens, Rest1, Token} = get_until('->', Rest0),
     {empty, _ForceBreak, Doc1, []} = expr(Tokens, no_force_break, Doc0),

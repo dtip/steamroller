@@ -639,3 +639,31 @@ grouped_multi_guard_test_() ->
      ?_assertEqual(Expect1, Result1),
      ?_assertEqual(Expect2, Result2)
     ].
+
+type_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-type my_type() :: something | {something_else, atom()}.">>),
+    Expect0 = <<"-type my_type() :: something | {something_else, atom()}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-type my_type() ::\n    something | {something_else, atom()}.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"-type my_type() ::\n    something\n    | {something_else, atom()}.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    Expect3 = <<"-type my_type() ::\n    something\n    | {\n        something_else,\n        atom()\n    }.\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens, 20),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2),
+     ?_assertEqual(Expect3, Result3)
+    ].
+
+type_bracket_removal_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-type(my_type() :: atom()).">>),
+    Expect0 = <<"-type my_type() :: atom().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-type my_type() ::\n    atom().\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].
