@@ -574,7 +574,10 @@ expr_([{'|', _} | Rest0], Doc, ForceBreak0) ->
 expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
     Group = group(nest(?indent, space(text(<<"when">>), group(Expr)))),
-    {End, ForceBreak1, group(space(Doc, Group))}.
+    {End, ForceBreak1, group(space(Doc, Group))};
+expr_([{Op, _} | Rest], Doc0, ForceBreak) ->
+    Doc1 = space(Doc0, text(a2b(Op))),
+    expr_(Rest, Doc1, ForceBreak).
 
 -spec comment(string()) -> doc().
 comment(Comment) -> text(list_to_binary(Comment)).
