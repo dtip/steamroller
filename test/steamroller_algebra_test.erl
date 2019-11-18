@@ -747,3 +747,19 @@ empty_string_test_() ->
      ?_assertEqual(Expect0, Result0),
      ?_assertEqual(Expect1, Result1)
     ].
+
+group_type_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-type a() :: atom().\n\n-type b() :: atom().">>),
+    Expect0 = <<"-type a() :: atom().\n-type b() :: atom().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [
+     ?_assertEqual(Expect0, Result0)
+    ].
+
+group_define_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-define(a, a).\n\n-define(b, b).">>),
+    Expect0 = <<"-define(a, a).\n-define(b, b).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [
+     ?_assertEqual(Expect0, Result0)
+    ].

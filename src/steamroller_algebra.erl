@@ -28,7 +28,7 @@
 -type force_break() :: force_break | no_force_break.
 -type token() :: steamroller_ast:token().
 -type tokens() :: steamroller_ast:tokens().
--type previous_term() :: new_file | attribute | spec | type | list | function | module_comment | function_comment | dot.
+-type previous_term() :: new_file | {attribute, atom()} | spec | type | list | function | module_comment | function_comment | dot.
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
@@ -166,7 +166,7 @@ generate_doc_([{'-', _}, {atom, _, type} | Tokens], Doc0, PrevTerm) ->
     Spec = cons(text(<<"-type ">>), Group),
     Doc1 =
         case PrevTerm of
-            function_comment -> newline(Doc0, Spec);
+            PrevTerm when PrevTerm == function_comment orelse PrevTerm == type -> newline(Doc0, Spec);
             _ -> newlines(Doc0, Spec)
         end,
     generate_doc_(Rest, Doc1, type);
@@ -176,9 +176,10 @@ generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
     Doc1 =
         case PrevTerm of
             function_comment -> newline(Doc0, Group);
+            {attribute, Atom} -> newline(Doc0, Group);
             _ -> newlines(Doc0, Group)
         end,
-    generate_doc_(Rest, Doc1, attribute);
+    generate_doc_(Rest, Doc1, {attribute, Atom});
 generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
     % Function
     {Group, Rest} = function(Tokens),
