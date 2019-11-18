@@ -42,7 +42,7 @@ format_code(Code, File) ->
         {ok, OriginalAst} ->
             Tokens = steamroller_ast:tokens(Code),
             FormattedCode = steamroller_algebra:format_tokens(Tokens),
-            case steamroller_ast:ast(FormattedCode) of
+            case steamroller_ast:ast(FormattedCode, ?CRASHDUMP) of
                 {ok, NewAst} ->
                     case steamroller_ast:eq(OriginalAst, NewAst) of
                         true ->
