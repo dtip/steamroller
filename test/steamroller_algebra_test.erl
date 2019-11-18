@@ -611,3 +611,31 @@ when_test_() ->
      ?_assertEqual(Expect1, Result1),
      ?_assertEqual(Expect2, Result2)
     ].
+
+multi_guard_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) when is_integer(X) andalso X > 200 andalso X < 500 -> big_integer.">>),
+    Expect0 = <<"foo(X) when is_integer(X) andalso X > 200 andalso X < 500 -> big_integer.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(X)\nwhen is_integer(X) andalso X > 200 andalso X < 500 ->\n    big_integer.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"foo(X)\nwhen\n    is_integer(X)\n    andalso X > 200\n    andalso X < 500 ->\n    big_integer.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
+grouped_multi_guard_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) when is_integer(X) andalso (X > 200 orelse X < 0) -> maybe_negative.">>),
+    Expect0 = <<"foo(X) when is_integer(X) andalso (X > 200 orelse X < 0) -> maybe_negative.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(X)\nwhen is_integer(X) andalso (X > 200 orelse X < 0) ->\n    maybe_negative.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"foo(X)\nwhen\n    is_integer(X)\n    andalso (X > 200 orelse X < 0) ->\n    maybe_negative.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].

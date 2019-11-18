@@ -38,6 +38,7 @@
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
 -define(IS_OPERATOR(C), (C == '+' orelse C == '-' orelse C == '*' orelse C == '/' orelse C == 'div' orelse C == '=<' orelse C == '>=' orelse C == '<' orelse C == '>')).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==')).
+-define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
 
 %% API
 
@@ -536,6 +537,15 @@ expr_([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(i2b(Integer))), ForceBreak);
 expr_([{string, _, Var} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(s2b(Var))), ForceBreak);
+expr_([{BoolOp, _} | Rest0], Doc, ForceBreak0) when ?IS_BOOL_CONCATENATOR(BoolOp) ->
+    case get_until_any(['andalso', 'orelse'], Rest0) of
+        {Tokens, [], not_found} ->
+            {End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
+            {End, ForceBreak1, space(Doc, group(space(text(a2b(BoolOp)), group(Expr))))};
+        {Tokens, Rest1, EndToken} ->
+            {_End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
+            expr_([EndToken | Rest1], space(Doc, group(space(text(a2b(BoolOp)), group(Expr)))), ForceBreak1)
+    end;
 expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
     {comment, force_break, space(Doc, comment(Comment))};
 expr_([{'|', _} | Rest0], Doc, ForceBreak0) ->
@@ -651,6 +661,33 @@ get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when Keyword == 'case' 
     get_until_end(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_end([Token | Rest], Acc, Stack) ->
     get_until_end(Rest, [Token | Acc], Stack).
+
+-spec get_until_any(list(atom()), tokens()) -> {tokens(), tokens(), token() | not_found}.
+get_until_any(Ends, Tokens) -> get_until_any(Ends, Tokens, [], []).
+
+-spec get_until_any(list(atom()), tokens(), tokens(), list(atom())) -> {tokens(), tokens(), token() | not_found}.
+get_until_any(_Ends, [], Acc, []) ->
+    {lists:reverse(Acc), [], not_found};
+get_until_any(Ends, [{OpenBracket, _} = Token | Rest], Acc, Stack) when OpenBracket == '(' orelse OpenBracket == '[' orelse OpenBracket == '{' orelse OpenBracket == '<<' ->
+    CloseBracket = close_bracket(OpenBracket),
+    get_until_any(Ends, Rest, [Token | Acc], [CloseBracket | Stack]);
+get_until_any(Ends, [{CloseBracket, _} = Token | Rest], Acc, [CloseBracket | Stack]) ->
+    get_until_any(Ends, Rest, [Token | Acc], Stack);
+get_until_any(Ends, [{MaybeEnd, _} = Token | Rest], Acc, [] = Stack) ->
+    case lists:member(MaybeEnd, Ends) of
+        true ->
+            {lists:reverse(Acc), Rest, Token};
+        false ->
+            get_until_any(Ends, Rest, [Token | Acc], Stack)
+    end;
+get_until_any(Ends, [Token | Rest], Acc, Stack) ->
+    get_until_any(Ends, Rest, [Token | Acc], Stack).
+
+-spec close_bracket(atom()) -> atom().
+close_bracket('(') -> ')';
+close_bracket('[') -> ']';
+close_bracket('{') -> '}';
+close_bracket('<<') -> '>>'.
 
 -spec remove_matching(atom(), atom(), tokens()) -> tokens().
 remove_matching(Start, End, Tokens) -> remove_matching(Start, End, Tokens, [], 0).
