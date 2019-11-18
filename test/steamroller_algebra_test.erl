@@ -506,6 +506,26 @@ case_test_() ->
      ?_assertEqual(Expect0, Result0)
     ].
 
+matched_case_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foooooooooo(X) -> Ret = case X of some_value -> great end, Ret.">>),
+    Expect0 = <<"foooooooooo(X) ->\n    Ret = case X of some_value -> great end,\n    Ret.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foooooooooo(X) ->\n    Ret =\n        case X of\n            some_value ->\n                great\n        end,\n    Ret.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 40),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].
+
+commented_case_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) -> {Y, Z} = case X of\n    some_value ->\n        % Comment\n        {1, 2}\n    end.">>),
+    Expect0 = <<"foo(X) ->\n    {Y, Z} =\n        case X of\n            some_value ->\n                % Comment\n                {1, 2}\n        end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [
+     ?_assertEqual(Expect0, Result0)
+    ].
+
+
 simple_module_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(X) -> module:bar().">>),
     Expect0 = <<"foo(X) -> module:bar().\n">>,

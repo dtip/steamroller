@@ -95,6 +95,7 @@ break(S) -> {doc_break, S}.
 
 -spec force_break(force_break(), doc()) -> doc().
 force_break(force_break, X) -> {doc_force_break, X};
+force_break(no_force_break, {doc_group, X, inherit}) -> {doc_group, X, self};
 force_break(no_force_break, X) -> X.
 
 -spec group(doc()) -> doc().
@@ -452,7 +453,7 @@ expr_([{'?', _} | Rest0], Doc, ForceBreak0) ->
 expr_([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
     {CaseForceBreak, CaseGroup, Rest} = case_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, CaseForceBreak]),
-    expr_(Rest, space(Doc, CaseGroup), ForceBreak1);
+    expr_(Rest, group(space(Doc, CaseGroup), inherit), ForceBreak1);
 expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
     {IfForceBreak, CaseGroup, Rest} = if_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, IfForceBreak]),
@@ -498,7 +499,7 @@ expr_([{C, _} | Rest], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
     % foo({X, _} = Y) -> ...
     Equals = group(space(Doc0, text(a2b(C)))),
     {End, ForceBreak1, Expr} = expr_(Rest, empty(), ForceBreak0),
-    Equation = group(nest(?indent, space(Equals, group(Expr)))),
+    Equation = force_break(ForceBreak1, group(nest(?indent, space(Equals, Expr)), inherit)),
     {End, ForceBreak1, Equation};
 expr_([{var, _, Var}, {C, _} | Rest], Doc, ForceBreak0) when ?IS_EQUALS(C) ->
     % Handle equations
@@ -733,16 +734,18 @@ get_end_of_expr([], Acc, _LineNum, _KeywordStack) ->
     {lists:reverse(Acc), []};
 get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack) ->
     {[Comment], Rest};
-get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, _KeywordStack) ->
+get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, []) ->
     % Inline comment - naughty naughty
     % Return the comment and put the acc back.
+    % We must only do this when the keyword stack is empty otherwise we'll put the comment
+    % in the wrong place.
     {[Comment], lists:reverse(Acc) ++ Rest};
-get_end_of_expr([{comment, _, _} | _] = Rest, Acc, _LineNum, _KeywordStack) ->
-    {lists:reverse(Acc), Rest};
-get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _, _)
+get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _, [])
   when End == ',' orelse End == ';' orelse End == dot ->
     % Inline comment - naughty naughty
     % Return the comment and put the acc back.
+    % We must only do this when the keyword stack is empty otherwise we'll put the comment
+    % in the wrong place.
     {[Comment], lists:reverse([Token | Acc]) ++ Rest};
 get_end_of_expr([{End, _} = Token | Rest], Acc, _, []) when End == ',' orelse End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};
