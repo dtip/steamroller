@@ -154,6 +154,17 @@ function_macro_test_() ->
      ?_assertEqual(Expect1, Result1)
     ].
 
+function_macro_args_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(SomeVariable) -> ?MACRO(SomeVariable).">>),
+    Expect0 = <<"foo(SomeVariable) -> ?MACRO(SomeVariable).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(SomeVariable) ->\n    ?MACRO(SomeVariable).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].
+
 function_tuple_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> {error, oh_no}.">>),
     Expect0 = <<"foo() -> {error, oh_no}.\n">>,
@@ -762,4 +773,15 @@ group_define_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [
      ?_assertEqual(Expect0, Result0)
+    ].
+
+define_whitespace_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-define(MY_MACRO(Arg), (Arg == 5 orelse Arg == 6)).">>),
+    Expect0 = <<"-define(MY_MACRO(Arg), (Arg == 5 orelse Arg == 6)).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-define(\n    MY_MACRO(Arg),\n    (Arg == 5 orelse Arg == 6)\n).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
     ].

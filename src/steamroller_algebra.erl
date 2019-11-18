@@ -468,10 +468,41 @@ expr(Tokens, ForceBreak0, Doc) ->
 
 -spec expr_(tokens(), doc(), force_break()) -> {dot | ';' | ',' | empty | comment, force_break(), doc()}.
 expr_([], Doc, ForceBreak) -> {empty, ForceBreak, Doc};
+expr_([{'?', LineNum}, {var, LineNum, MacroName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle macros which take arguments
+    [_, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Macro =
+        space(
+          Doc,
+          cons(
+            [
+             text(<<"?">>),
+             text(v2b(MacroName)),
+             ListGroup
+            ]
+           )
+        ),
+    expr_(Rest, Macro, ForceBreak1);
 expr_([{'?', _} | Rest0], Doc, ForceBreak0) ->
     % Handle macros
     {End, ForceBreak1, Expr, []} = expr(Rest0, ForceBreak0),
     {End, ForceBreak1, space(Doc, cons(text(<<"?">>), Expr))};
+expr_([{var, LineNum, MacroName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle macros which take arguments
+    Tokens1 = tl(Tokens0),
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Macro =
+        space(
+          Doc,
+          cons(
+            text(v2b(MacroName)),
+            ListGroup
+           )
+        ),
+    expr_(Rest, Macro, ForceBreak1);
 expr_([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = case_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
