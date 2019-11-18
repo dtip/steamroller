@@ -17,7 +17,7 @@
 -spec ast(binary()) -> {ok, ast()} | {error, any()}.
 ast(Code) -> ast(Code, <<"no_file">>).
 
--spec ast(binary(), binary()) -> {ok, ast()} | {error, any()}.
+-spec ast(binary(), binary() | string()) -> {ok, ast()} | {error, any()}.
 ast(Code, File) ->
     file:write_file(?TEMP_FILE, Code),
     {ok, Ast} = epp:parse_file(?TEMP_FILE, []),
