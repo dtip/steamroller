@@ -36,7 +36,7 @@
 -define(indent, 4).
 
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
--define(IS_OPERATOR(C), (C == '+' orelse C == '-' orelse C == '*' orelse C == '/' orelse C == 'div')).
+-define(IS_OPERATOR(C), (C == '+' orelse C == '-' orelse C == '*' orelse C == '/' orelse C == 'div' orelse C == '=<' orelse C == '>=' orelse C == '<' orelse C == '>')).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==')).
 
 %% API
@@ -434,7 +434,6 @@ expr_([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
     ForceBreak1 = resolve_force_break([ForceBreak0, CaseForceBreak]),
     expr_(Rest, space(Doc, CaseGroup), ForceBreak1);
 expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
-    io:fwrite("\nTokens=~p", [Tokens]),
     {IfForceBreak, CaseGroup, Rest} = if_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, IfForceBreak]),
     expr_(Rest, space(Doc, CaseGroup), ForceBreak1);
@@ -542,7 +541,11 @@ expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
 expr_([{'|', _} | Rest0], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
     Group = group(cons(text(<<"| ">>), group(Expr))),
-    {End, ForceBreak1, space(Doc, Group)}.
+    {End, ForceBreak1, space(Doc, Group)};
+expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
+    {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
+    Group = group(nest(?indent, space(text(<<"when">>), group(Expr)))),
+    {End, ForceBreak1, group(space(Doc, Group))}.
 
 -spec comment(string()) -> doc().
 comment(Comment) -> text(list_to_binary(Comment)).
