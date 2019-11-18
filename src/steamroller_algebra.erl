@@ -350,7 +350,7 @@ list_elements([{C, _} | _] = Tokens, Doc0, ForceBreak0) when ?IS_LIST_CHAR(C) ->
             [{End, _} | Rest] when End == ',' ->
                 % If a list element is a list followed by a comma we want to capture the
                 % comma and attach it to the list group.
-                {cons(Group0, text(a2b(End))), Rest};
+                {cons(Group0, text(op2b(End))), Rest};
             _ -> {Group0, Rest0}
         end,
     Doc1 = space(Doc0, Group1),
@@ -497,7 +497,7 @@ expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
 expr_([{C, _} | Rest], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
     % Handle pattern matching in e.g. function heads
     % foo({X, _} = Y) -> ...
-    Equals = group(space(Doc0, text(a2b(C)))),
+    Equals = group(space(Doc0, text(op2b(C)))),
     {End, ForceBreak1, Expr} = expr_(Rest, empty(), ForceBreak0),
     Equation = force_break(ForceBreak1, group(nest(?indent, space(Equals, Expr)), inherit)),
     {End, ForceBreak1, Equation};
@@ -505,12 +505,12 @@ expr_([{var, _, Var}, {C, _} | Rest], Doc, ForceBreak0) when ?IS_EQUALS(C) ->
     % Handle equations
     % Arg3 =
     %     Arg1 + Arg2,
-    Equals = group(space(text(a2b(Var)), text(a2b(C)))),
+    Equals = group(space(text(v2b(Var)), text(op2b(C)))),
     {End, ForceBreak1, Expr} = expr_(Rest, empty(), ForceBreak0),
     Equation = group(nest(?indent, space(Equals, group(Expr)))),
     {End, ForceBreak1, space(Doc, Equation)};
 expr_([{End, _}], Doc, ForceBreak) ->
-    {End, ForceBreak, cons(Doc, text(a2b(End)))};
+    {End, ForceBreak, cons(Doc, text(op2b(End)))};
 expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
     % Handle function arity expressions
     % some_fun/1
@@ -526,7 +526,7 @@ expr_([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
     % Handle binary matching
     % <<Thing/binary>>
     TermDoc = cons([
-                    text(a2b(Var)),
+                    text(v2b(Var)),
                     text(<<"/">>),
                     text(a2b(Atom))
                    ]),
@@ -537,7 +537,7 @@ expr_([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom}
     TermDoc =
         cons(
           [
-           text(a2b(Var)),
+           text(v2b(Var)),
            text(<<":">>),
            text(i2b(Integer)),
            text(<<"/">>),
@@ -546,13 +546,15 @@ expr_([{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom}
         ),
     expr_(Rest, space(Doc, TermDoc), ForceBreak);
 expr_([{var, _, Var}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
-    Doc1 = space(Doc0, space(text(a2b(Var)), text(a2b(Op)))),
+    Doc1 = space(Doc0, space(text(v2b(Var)), text(op2b(Op)))),
     expr_(Rest, Doc1, ForceBreak);
 expr_([{integer, _, Integer}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
-    Doc1 = space(Doc0, space(text(i2b(Integer)), text(a2b(Op)))),
+    Doc1 = space(Doc0, space(text(i2b(Integer)), text(op2b(Op)))),
     expr_(Rest, Doc1, ForceBreak);
-expr_([{Token, _, Var} | Rest], Doc, ForceBreak) when Token == var orelse Token == atom ->
-    expr_(Rest, space(Doc, text(a2b(Var))), ForceBreak);
+expr_([{atom, _, Atom} | Rest], Doc, ForceBreak) ->
+    expr_(Rest, space(Doc, text(a2b(Atom))), ForceBreak);
+expr_([{var, _, Var} | Rest], Doc, ForceBreak) ->
+    expr_(Rest, space(Doc, text(v2b(Var))), ForceBreak);
 expr_([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(i2b(Integer))), ForceBreak);
 expr_([{string, _, Var} | Rest], Doc, ForceBreak) ->
@@ -561,10 +563,10 @@ expr_([{BoolOp, _} | Rest0], Doc, ForceBreak0) when ?IS_BOOL_CONCATENATOR(BoolOp
     case get_until_any(['andalso', 'orelse'], Rest0) of
         {Tokens, [], not_found} ->
             {End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
-            {End, ForceBreak1, space(Doc, group(space(text(a2b(BoolOp)), group(Expr))))};
+            {End, ForceBreak1, space(Doc, group(space(text(op2b(BoolOp)), group(Expr))))};
         {Tokens, Rest1, EndToken} ->
             {_End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
-            expr_([EndToken | Rest1], space(Doc, group(space(text(a2b(BoolOp)), group(Expr)))), ForceBreak1)
+            expr_([EndToken | Rest1], space(Doc, group(space(text(op2b(BoolOp)), group(Expr)))), ForceBreak1)
     end;
 expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
     {comment, force_break, space(Doc, comment(Comment))};
@@ -577,7 +579,7 @@ expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
     Group = group(nest(?indent, space(text(<<"when">>), group(Expr)))),
     {End, ForceBreak1, group(space(Doc, Group))};
 expr_([{Op, _} | Rest], Doc0, ForceBreak) ->
-    Doc1 = space(Doc0, text(a2b(Op))),
+    Doc1 = space(Doc0, text(op2b(Op))),
     expr_(Rest, Doc1, ForceBreak).
 
 -spec comment(string()) -> doc().
@@ -637,9 +639,16 @@ repeat(Bin, Times) when Times >= 0 -> repeat_(<<>>, Bin, Times).
 repeat_(Acc, _, 0) -> Acc;
 repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
 
+-spec op2b(atom()) -> binary().
+op2b(dot) -> ?dot;
+op2b(Atom) -> list_to_binary(atom_to_list(Atom)).
+
+-spec v2b(atom()) -> binary().
+v2b(Atom) -> list_to_binary(atom_to_list(Atom)).
+
 -spec a2b(atom()) -> binary().
-a2b(dot) -> ?dot;
-a2b(Atom) -> list_to_binary(atom_to_list(Atom)).
+% Escape atoms so that atoms such as '{' are converted correctly to binary.
+a2b(Atom) -> list_to_binary(escape(Atom)).
 
 -spec i2b(integer()) -> binary().
 i2b(Integer) -> integer_to_binary(Integer).
@@ -647,8 +656,8 @@ i2b(Integer) -> integer_to_binary(Integer).
 -spec s2b(string()) -> binary().
 s2b(String) -> list_to_binary(escape(String)).
 
--spec escape(string()) -> string().
-escape(String) -> io_lib:format("~p", [String]).
+-spec escape(string() | atom()) -> string().
+escape(Term) -> io_lib:format("~p", [Term]).
 
 -spec get_from_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
 get_from_until(Start, End, Tokens) -> get_from_until(Start, End, Tokens, [], 0).
