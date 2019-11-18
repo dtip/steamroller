@@ -735,3 +735,15 @@ anon_function_multicase_test_() ->
      ?_assertEqual(Expect1, Result1),
      ?_assertEqual(Expect2, Result2)
     ].
+
+empty_string_test_() ->
+    Tokens0 = steamroller_ast:tokens(<<"foo() -> <<\"\">>.">>),
+    Expect0 = <<"foo() -> <<\"\">>.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"foo() -> \"\".">>),
+    Expect1 = <<"foo() -> \"\".\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].

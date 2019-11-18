@@ -679,6 +679,7 @@ a2b(Atom) -> list_to_binary(escape(Atom)).
 i2b(Integer) -> integer_to_binary(Integer).
 
 -spec s2b(string()) -> binary().
+s2b("") -> <<"\"\"">>;
 s2b(String) -> list_to_binary(escape(String)).
 
 -spec escape(string() | atom()) -> string().
