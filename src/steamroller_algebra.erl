@@ -26,7 +26,7 @@
 -type force_break() :: force_break | no_force_break.
 -type token() :: steamroller_ast:token().
 -type tokens() :: steamroller_ast:tokens().
--type previous_term() :: new_file | attribute | spec | list | function | module_comment | function_comment | dot.
+-type previous_term() :: new_file | attribute | spec | type | list | function | module_comment | function_comment | dot.
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
