@@ -707,3 +707,31 @@ dot_test_() ->
      ?_assertEqual(Expect0, Result0),
      ?_assertEqual(Expect1, Result1)
     ].
+
+anon_function_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foooooooooo(X) -> lists:any(fun (Y) -> Y == thing end, X).">>),
+    Expect0 = <<"foooooooooo(X) -> lists:any(fun (Y) -> Y == thing end, X).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foooooooooo(X) ->\n    lists:any(fun (Y) -> Y == thing end, X).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"foooooooooo(X) ->\n    lists:any(\n        fun (Y) -> Y == thing end,\n        X\n    ).\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].
+
+anon_function_multicase_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> fun (test) -> ok; (_) -> error end.">>),
+    Expect0 = <<"foo() -> fun (test) -> ok; (_) -> error end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    fun (test) -> ok; (_) -> error end.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 40),
+    Expect2 = <<"foo() ->\n    fun\n        (test) ->\n            ok;\n        (_) ->\n            error\n    end.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2)
+    ].

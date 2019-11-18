@@ -295,6 +295,25 @@ if_([{'if', _} | Tokens]) ->
          ),
     {ForceBreak, Doc, Rest1}.
 
+-spec fun_(tokens()) -> {force_break(), doc(), tokens()}.
+fun_([{'fun', _} | Tokens]) ->
+    {IfClauseTokens, Rest1, _} = get_until_end(Tokens),
+    {ForceBreak, Clauses, []} = clauses(IfClauseTokens),
+    Doc =
+        force_break(
+          ForceBreak,
+          group(
+            space(
+              nest(
+                ?indent,
+                space([text(<<"fun">>) | Clauses])
+               ),
+              text(<<"end">>)
+             )
+           )
+         ),
+    {ForceBreak, Doc, Rest1}.
+
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{'(', _} | Rest0]) ->
     {Tokens, Rest1, _} = get_from_until('(', ')', Rest0),
@@ -451,13 +470,17 @@ expr_([{'?', _} | Rest0], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr, []} = expr(Rest0, ForceBreak0),
     {End, ForceBreak1, space(Doc, cons(text(<<"?">>), Expr))};
 expr_([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
-    {CaseForceBreak, CaseGroup, Rest} = case_(Tokens),
-    ForceBreak1 = resolve_force_break([ForceBreak0, CaseForceBreak]),
-    expr_(Rest, group(space(Doc, CaseGroup), inherit), ForceBreak1);
+    {GroupForceBreak, Group, Rest} = case_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
+    expr_(Rest, group(space(Doc, Group), inherit), ForceBreak1);
 expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
-    {IfForceBreak, CaseGroup, Rest} = if_(Tokens),
+    {IfForceBreak, Group, Rest} = if_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, IfForceBreak]),
-    expr_(Rest, space(Doc, CaseGroup), ForceBreak1);
+    expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'fun', _} | _] = Tokens, Doc, ForceBreak0) ->
+    {GroupForceBreak, Group, Rest} = fun_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
+    expr_(Rest, group(space(Doc, Group), inherit), ForceBreak1);
 expr_([{atom, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle function calls to other modules
     [_, _, _ | Tokens1] = Tokens0,
@@ -762,10 +785,8 @@ get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, []) ->
     {lists:reverse([Token | Acc]), Rest};
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack));
-get_end_of_expr([{'case', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, ['case' | KeywordStack]);
-get_end_of_expr([{'if', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, ['if' | KeywordStack]);
+get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack) when Keyword == 'case' orelse Keyword == 'if' orelse Keyword == 'fun' ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack]);
 get_end_of_expr([{'(', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {')', LineNum} = EndToken} = get_from_until('(', ')', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
