@@ -1,6 +1,6 @@
 -module(steamroller).
 
--export([init/1, format_file/1]).
+-export([init/1, format_file/1, format_file/2]).
 
 %% ===================================================================
 %% Public API
@@ -12,4 +12,7 @@ init(State) ->
     {ok, State1}.
 
 -spec format_file(binary()) -> ok | {error, any()}.
-format_file(File) when is_binary(File) -> steamroller_formatter:format(File).
+format_file(File) -> format_file(File, []).
+
+-spec format_file(binary(), list(any())) -> ok | {error, any()}.
+format_file(File, Opts) when is_binary(File) -> steamroller_formatter:format(File, Opts).

@@ -1,6 +1,6 @@
 -module(steamroller_formatter).
 
--export([format/1, format_code/1]).
+-export([format/2, format_code/1]).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -8,15 +8,21 @@
 
 %% API
 
--spec format(binary()) -> ok | {error, any()}.
-format(File) ->
+-spec format(binary(), list(any())) -> ok | {error, any()}.
+format(File, Opts) ->
+    Check = lists:member(check, Opts),
     case file:read_file(File) of
         {ok, Code} ->
             case format_code(Code, File) of
                 {ok, Code} ->
                     ok;
                 {ok, FormattedCode} ->
-                    file:write_file(File, FormattedCode);
+                    case Check of
+                        true ->
+                            {error, <<"Check failed: code needs to be formatted.">>};
+                        false ->
+                            file:write_file(File, FormattedCode)
+                    end;
                 {error, _} = Err ->
                     Err
             end;

@@ -23,3 +23,15 @@ Then ask it to steamroll your code directly in an existing application:
     ===> Fetching steamroller
     ===> Compiling steamroller
     <Steamroller Output>
+
+
+
+CI
+---
+
+To check that code is properly formatted as part of your CI:
+
+    rebar3 steamroll --check
+
+
+The exit code will be non-zero if the code has not been formatted before being committed.
