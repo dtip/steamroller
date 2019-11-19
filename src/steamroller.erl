@@ -12,5 +12,4 @@ init(State) ->
     {ok, State1}.
 
 -spec format_file(binary()) -> ok | {error, any()}.
-format_file(File) when is_binary(File) ->
-    steamroller_formatter:format(File).
+format_file(File) when is_binary(File) -> steamroller_formatter:format(File).

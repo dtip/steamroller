@@ -53,19 +53,10 @@ format_code(Code, File) ->
                 {error, _} = Err ->
                     handle_formatting_error(Err, File, FormattedCode)
             end;
-
         {error, _} = Err ->
             Err
     end.
 
 handle_formatting_error({error, Msg}, File, FormattedCode) ->
     file:write_file(?CRASHDUMP, FormattedCode),
-    {
-     error,
-     {
-      formatter_broke_the_code,
-      {file, File},
-      {msg, Msg},
-      {crashdump, ?CRASHDUMP}
-     }
-    }.
+    {error, {formatter_broke_the_code, {file, File}, {msg, Msg}, {crashdump, ?CRASHDUMP}}}.
