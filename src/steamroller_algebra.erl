@@ -512,6 +512,32 @@ expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
     {IfForceBreak, Group, Rest} = if_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, IfForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'fun', _}, {atom, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'/', LineNum}, {integer, LineNum, Arity} | Rest], Doc, ForceBreak) ->
+    Group = group(
+              cons(
+                [
+                 text(<<"fun ">>),
+                 text(a2b(ModuleName)),
+                 text(<<":">>),
+                 text(a2b(FunctionName)),
+                 text(<<"/">>),
+                 text(i2b(Arity))
+                ]
+               )
+             ),
+    expr_(Rest, space(Doc, Group), ForceBreak);
+expr_([{'fun', _}, {atom, LineNum, FunctionName}, {'/', LineNum}, {integer, LineNum, Arity} | Rest], Doc, ForceBreak) ->
+    Group = group(
+              cons(
+                [
+                 text(<<"fun ">>),
+                 text(a2b(FunctionName)),
+                 text(<<"/">>),
+                 text(i2b(Arity))
+                ]
+               )
+             ),
+    expr_(Rest, space(Doc, Group), ForceBreak);
 expr_([{'fun', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = fun_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
@@ -823,8 +849,14 @@ get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, []) ->
     {lists:reverse([Token | Acc]), Rest};
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack));
-get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack) when Keyword == 'case' orelse Keyword == 'if' orelse Keyword == 'fun' ->
+get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack) when Keyword == 'case' orelse Keyword == 'if' ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack]);
+get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, KeywordStack) ->
+    % We only expect an 'end' if this is an anon function and not pointing to another function:
+    % ignore:     `fun local/1`
+    % care about: `fun (X) -> X + 1 end`
+    Rest = tl(Tokens),
+    get_end_of_expr(Rest, [Token | Acc], LineNum, ['fun' | KeywordStack]);
 get_end_of_expr([{'(', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {')', LineNum} = EndToken} = get_from_until('(', ')', Rest0),
     get_end_of_expr(Rest1, [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc], LineNum, KeywordStack);
