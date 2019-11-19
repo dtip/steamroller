@@ -54,7 +54,10 @@ eq_({{Type, _, LeftName, LeftValue}, {Type, _, RightName, RightValue}}, true) ->
     % 4-tuples
     R1 = eq_({LeftName, RightName}, true),
     eq_({LeftValue, RightValue}, R1);
-eq_({{Type, _, LeftValue}, {Type, _, RightValue}}, true) ->
+eq_({{integer, LeftLine, LeftLine}, {integer, RightLine, RightLine}}, true) ->
+    % Not exactly sure what these are but we occasionally get them.
+    true;
+eq_({{Type, _LeftLine, LeftValue}, {Type, _RightLine, RightValue}}, true) ->
     % 3-tuples
     eq_({LeftValue, RightValue}, true);
 eq_({{Type, _}, {Type, _}}, true) ->
