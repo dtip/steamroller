@@ -143,6 +143,17 @@ function_clause_test_() ->
      ?_assertEqual(Expect2, Result2)
     ].
 
+function_long_multiclause_test_() ->
+    Tokens = steamroller_ast:tokens(<<"my_function(atom_1, X) -> {atom_1, X};\nmy_function(atom_2, {something, X, other_thing}) -> {something, X, yet_another_thing};\nmy_function(atom_2, X) -> X.">>),
+    Expect0 = <<"my_function(atom_1, X) -> {atom_1, X};\nmy_function(atom_2, {something, X, other_thing}) -> {something, X, yet_another_thing};\nmy_function(atom_2, X) -> X.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"my_function(atom_1, X) -> {atom_1, X};\nmy_function(atom_2, {something, X, other_thing}) ->\n    {something, X, yet_another_thing};\nmy_function(atom_2, X) -> X.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 70),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1)
+    ].
+
 function_macro_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> ?MACRO.">>),
     Expect0 = <<"foo() -> ?MACRO.\n">>,
@@ -634,7 +645,7 @@ when_test_() ->
     Expect0 = <<"foo(X) when is_atom(X) -> atom;\nfoo(X) when X =< 10 -> ok.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(X) when is_atom(X) ->\n    atom;\nfoo(X) when X =< 10 ->\n    ok.\n">>,
-    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
     Expect2 = <<"foo(X)\nwhen is_atom(X) ->\n    atom;\nfoo(X) when X =< 10 ->\n    ok.\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens, 20),
     [

@@ -417,10 +417,11 @@ head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
               ]
              ),
     {Continue, ForceBreak, Doc2, Tokens};
-head_and_clause([{'->', _} | Rest0], Doc) ->
+head_and_clause([{'->', _} | Rest0], Doc0) ->
     % End
     {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
-    {Continue, ForceBreak, cons(Doc, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), Rest1};
+    Doc1 = group(cons(Doc0, force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))), inherit),
+    {Continue, ForceBreak, Doc1, Rest1};
 head_and_clause([{'::', _} | Rest0], Doc) ->
     % Altenative End (for Type definitions)
     {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
@@ -650,12 +651,14 @@ format(W, K, [{_, _, doc_nil} | Rest]) -> format(W, K, Rest);
 format(W, K, [{I, M, {doc_cons, X, Y}} | Rest]) -> format(W, K, [{I, M, X}, {I, M, Y} | Rest]);
 format(W, K, [{I, M, {doc_nest, J, X}} | Rest]) -> format(W, K, [{I + J, M, X} | Rest]);
 format(W, K, [{_, _, {doc_text, S}} | Rest]) -> {s_text, S, format(W, K + byte_size(S), Rest)};
+format(W, _, [{I, flat, {doc_break, ?nl}} | Rest]) -> {s_text, ?nl, format(W, I, Rest)};
+format(W, _, [{I, flat, {doc_break, ?two_nl}} | Rest]) -> {s_text, ?two_nl, format(W, I, Rest)};
 format(W, K, [{_, flat, {doc_break, S}} | Rest]) -> {s_text, S, format(W, K + byte_size(S), Rest)};
 format(W, _, [{I, break, {doc_break, ?two_nl}} | Rest]) -> {s_line, 0, {s_line, I, format(W, I, Rest)}};
 format(W, _, [{I, break, {doc_break, _}} | Rest]) -> {s_line, I, format(W, I, Rest)};
 format(W, K, [{I, _, {doc_force_break, X}} | Rest]) -> format(W, K, [{I, break, X} | Rest]);
-format(W, K, [{I, M, {doc_group, X, inherit}} | Rest]) -> format(W, K, [{I, M, X} | Rest]);
-format(W, K, [{I, _, {doc_group, X, self}} | Rest]) ->
+format(W, K, [{I, break, {doc_group, X, inherit}} | Rest]) -> format(W, K, [{I, break, X} | Rest]);
+format(W, K, [{I, _, {doc_group, X, _}} | Rest]) ->
     case fits(W - K, [{I, flat, X}]) of
         true ->
             format(W, K, [{I, flat, X} | Rest]);
@@ -670,12 +673,12 @@ fits(W, [{_, _, doc_nil} | Rest]) -> fits(W, Rest);
 fits(W, [{I, M, {doc_cons, X, Y}} | Rest]) -> fits(W, [{I, M, X}, {I, M, Y} | Rest]);
 fits(W, [{I, M, {doc_nest, J, X}} | Rest]) -> fits(W, [{I + J, M, X} | Rest]);
 fits(W, [{_, _, {doc_text, S}} | Rest]) -> fits(W - byte_size(S), Rest);
+fits(_, [{_, flat, {doc_break, ?nl}} | _]) -> true;
 fits(W, [{_, flat, {doc_break, S}} | Rest]) -> fits(W - byte_size(S), Rest);
 % This clause is impossible according to the research paper and dialyzer agrees.
 %fits(_, [{_, break, {doc_break, _}} | _Rest]) -> throw(impossible);
-fits(W, [{_, _, {doc_force_break, _}} | Rest]) -> fits(W, Rest);
-fits(W, [{I, M, {doc_group, X, inherit}} | Rest]) -> fits(W, [{I, M, X} | Rest]);
-fits(W, [{I, _, {doc_group, X, self}} | Rest]) -> fits(W, [{I, flat, X} | Rest]).
+fits(_, [{_, _, {doc_force_break, _}} | _]) -> true;
+fits(W, [{I, _, {doc_group, X, _}} | Rest]) -> fits(W, [{I, flat, X} | Rest]).
 
 -spec sdoc_to_string(sdoc()) -> binary().
 sdoc_to_string(s_nil) -> <<"">>;
