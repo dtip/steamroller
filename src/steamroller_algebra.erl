@@ -664,7 +664,9 @@ expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
     {End, ForceBreak1, group(space(Doc, Group))};
 expr_([{Op, _} | Rest], Doc0, ForceBreak) ->
     Doc1 = space(Doc0, text(op2b(Op))),
-    expr_(Rest, Doc1, ForceBreak).
+    expr_(Rest, Doc1, ForceBreak);
+expr_([{char, _, Char} | Rest], Doc, ForceBreak) ->
+    expr_(Rest, space(Doc, text(c2b(Char))), ForceBreak).
 
 -spec comment(string()) -> doc().
 comment(Comment) -> text(list_to_binary(Comment)).
@@ -738,6 +740,9 @@ a2b(Atom) -> list_to_binary(escape(Atom)).
 
 -spec i2b(integer()) -> binary().
 i2b(Integer) -> integer_to_binary(Integer).
+
+-spec c2b(integer()) -> binary().
+c2b(Char) -> list_to_binary(io_lib:format("$~c", [Char])).
 
 -spec s2b(string()) -> binary().
 s2b("") -> <<"\"\"">>;

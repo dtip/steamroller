@@ -820,3 +820,21 @@ define_whitespace_test_() ->
      ?_assertEqual(Expect0, Result0),
      ?_assertEqual(Expect1, Result1)
     ].
+
+char_test_() ->
+    Tokens0 = steamroller_ast:tokens(<<"foo() -> $f.">>),
+    Expect0 = <<"foo() -> $f.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Expect1 = <<"foo() -> $f.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"foo() -> [$a, $b, $c].">>),
+    Expect2 = <<"foo() -> [$a, $b, $c].\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens1, 100),
+    Expect3 = <<"foo() -> [$a, $b, $c].\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [
+     ?_assertEqual(Expect0, Result0),
+     ?_assertEqual(Expect1, Result1),
+     ?_assertEqual(Expect2, Result2),
+     ?_assertEqual(Expect3, Result3)
+    ].
