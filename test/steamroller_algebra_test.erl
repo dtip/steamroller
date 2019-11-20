@@ -805,16 +805,24 @@ type_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     Expect2 = <<"-type my_type() ::\n    something\n    | {something_else, atom()}.\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens, 40),
-    Expect3 =
-        <<
-            "-type my_type() ::\n    something\n    | {\n        something_else,\n        atom()\n    }.\n"
-        >>,
-    Result3 = steamroller_algebra:format_tokens(Tokens, 20),
     [
         ?_assertEqual(Expect0, Result0),
         ?_assertEqual(Expect1, Result1),
-        ?_assertEqual(Expect2, Result2),
-        ?_assertEqual(Expect3, Result3)
+        ?_assertEqual(Expect2, Result2)
+    ].
+
+long_type_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-type my_type() :: one | two | three | four | five.">>),
+    Expect0 = <<"-type my_type() :: one | two | three | four | five.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-type my_type() ::\n    one | two | three | four | five.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 = <<"-type my_type() ::\n    one\n    | two\n    | three\n    | four\n    | five.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
     ].
 
 type_bracket_removal_test_() ->

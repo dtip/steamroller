@@ -20,7 +20,9 @@
     | {doc_cons, doc(), doc()}
     | {doc_text, binary()}
     | {doc_nest, integer(), doc()}
-    | {doc_break, binary()} | {doc_group, doc(), inherit()} | {doc_force_break, doc()}.
+    | {doc_break, binary()}
+    | {doc_group, doc(), inherit()}
+    | {doc_force_break, doc()}.
 -type sdoc() :: s_nil | {s_text, binary(), sdoc()} | {s_line, binary(), sdoc()}.
 -type mode() :: flat | break.
 -type inherit() :: self | inherit.
@@ -30,7 +32,14 @@
 -type tokens() :: steamroller_ast:tokens().
 -type previous_term() ::
     new_file
-    | {attribute, atom()} | spec | type | list | function | module_comment | function_comment | dot.
+    | {attribute, atom()}
+    | spec
+    | type
+    | list
+    | function
+    | module_comment
+    | function_comment
+    | dot.
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
@@ -55,7 +64,7 @@
     )
 ).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==')).
--define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
+-define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse' orelse C == '|')).
 
 %% API
 
@@ -621,7 +630,7 @@ expr_([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
 expr_([{string, _, Var} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(s2b(Var))), ForceBreak);
 expr_([{BoolOp, _} | Rest0], Doc, ForceBreak0) when ?IS_BOOL_CONCATENATOR(BoolOp) ->
-    case get_until_any(['andalso', 'orelse'], Rest0) of
+    case get_until_any(['andalso', 'orelse', '|'], Rest0) of
         {Tokens, [], not_found} ->
             {End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
             {End, ForceBreak1, space(Doc, group(space(text(op2b(BoolOp)), group(Expr))))};
@@ -635,10 +644,6 @@ expr_([{BoolOp, _} | Rest0], Doc, ForceBreak0) when ?IS_BOOL_CONCATENATOR(BoolOp
     end;
 expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
     {comment, force_break, space(Doc, comment(Comment))};
-expr_([{'|', _} | Rest0], Doc, ForceBreak0) ->
-    {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
-    Group = group(cons(text(<<"| ">>), group(Expr))),
-    {End, ForceBreak1, space(Doc, Group)};
 expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
     Group = group(nest(?indent, space(text(<<"when">>), group(Expr)))),
