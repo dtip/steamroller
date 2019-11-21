@@ -3,6 +3,9 @@
 
 Upset your colleagues by autoformatting their Erlang.
 
+This plugin is early stage and not yet suitable for use in production. In particular, it has not
+yet been testing on records or maps.
+
 Use
 ---
 
