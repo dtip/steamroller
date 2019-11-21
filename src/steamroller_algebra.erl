@@ -49,7 +49,7 @@
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==')).
 -define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
--define(IS_KEYWORD(C), (C == 'case' orelse C == 'of' orelse C == 'fun')).
+-define(IS_KEYWORD(C), (C == 'case' orelse C == 'if' orelse C == 'fun')).
 
 %% API
 
@@ -734,8 +734,7 @@ get_until_end(Tokens) -> get_until_end(Tokens, [], []).
 get_until_end([{'end', _} = Token | Rest], Acc, []) -> {lists:reverse(Acc), Rest, Token};
 get_until_end([{'end', _} = Token | Rest], Acc, Stack) ->
     get_until_end(Rest, [Token | Acc], tl(Stack));
-get_until_end([{Keyword, _} = Token | Rest], Acc, Stack)
-when Keyword == 'case' orelse Keyword == 'if' orelse Keyword == 'fun' ->
+get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_KEYWORD(Keyword) ->
     get_until_end(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_end([Token | Rest], Acc, Stack) -> get_until_end(Rest, [Token | Acc], Stack).
 
