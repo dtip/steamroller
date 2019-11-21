@@ -48,20 +48,6 @@
 -define(max_width, 100).
 -define(indent, 4).
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
--define(
-    IS_OPERATOR(C),
-    (
-        C == '+'
-        orelse C == '-'
-        orelse C == '*'
-        orelse C == '/'
-        orelse C == 'div'
-        orelse C == '=<'
-        orelse C == '>='
-        orelse C == '<'
-        orelse C == '>'
-    )
-).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==')).
 -define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
 -define(IS_KEYWORD(C), (C == 'case' orelse C == 'of' orelse C == 'fun')).
@@ -598,9 +584,6 @@ expr_(
     TermDoc =
         cons([text(v2b(Var)), text(<<":">>), text(i2b(Integer)), text(<<"/">>), text(a2b(Atom))]),
     expr_(Rest, space(Doc, TermDoc), ForceBreak);
-expr_([{integer, _, Integer}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
-    Doc1 = space(Doc0, space(text(i2b(Integer)), text(op2b(Op)))),
-    expr_(Rest, Doc1, ForceBreak);
 expr_([{atom, _, Atom} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(a2b(Atom))), ForceBreak);
 expr_([{var, _, Var} | Rest], Doc, ForceBreak) ->
