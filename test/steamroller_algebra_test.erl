@@ -801,35 +801,26 @@ type_test_() ->
     Tokens = steamroller_ast:tokens(<<"-type my_type() :: something | {something_else, atom()}.">>),
     Expect0 = <<"-type my_type() :: something | {something_else, atom()}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"-type my_type() ::\n    something | {something_else, atom()}.\n">>,
+    Expect1 = <<"-type my_type() :: something\n                 | {something_else, atom()}.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
-    Expect2 = <<"-type my_type() ::\n    something\n    | {something_else, atom()}.\n">>,
-    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
-    [
-        ?_assertEqual(Expect0, Result0),
-        ?_assertEqual(Expect1, Result1),
-        ?_assertEqual(Expect2, Result2)
-    ].
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 long_type_test_() ->
     Tokens = steamroller_ast:tokens(<<"-type my_type() :: one | two | three | four | five.">>),
     Expect0 = <<"-type my_type() :: one | two | three | four | five.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"-type my_type() ::\n    one | two | three | four | five.\n">>,
+    Expect1 =
+        <<
+            "-type my_type() :: one\n                 | two\n                 | three\n                 | four\n                 | five.\n"
+        >>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
-    Expect2 = <<"-type my_type() ::\n    one\n    | two\n    | three\n    | four\n    | five.\n">>,
-    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
-    [
-        ?_assertEqual(Expect0, Result0),
-        ?_assertEqual(Expect1, Result1),
-        ?_assertEqual(Expect2, Result2)
-    ].
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 type_bracket_removal_test_() ->
     Tokens = steamroller_ast:tokens(<<"-type(my_type() :: atom()).">>),
     Expect0 = <<"-type my_type() :: atom().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"-type my_type() ::\n    atom().\n">>,
+    Expect1 = <<"-type my_type() :: atom().\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 10),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 

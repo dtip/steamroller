@@ -15,14 +15,14 @@
 % Testing
 -export([repeat/2, from_the_paper/2]).
 
--type doc() ::
-    doc_nil
-    | {doc_cons, doc(), doc()}
-    | {doc_text, binary()}
-    | {doc_nest, integer(), doc()}
-    | {doc_break, binary()}
-    | {doc_group, doc(), inherit()}
-    | {doc_force_break, doc()}.
+-type doc() :: doc_nil
+             | {doc_cons, doc(), doc()}
+             | {doc_text, binary()}
+             | {doc_nest, integer(), doc()}
+             | {doc_underneath, integer(), doc()}
+             | {doc_break, binary()}
+             | {doc_group, doc(), inherit()}
+             | {doc_force_break, doc()}.
 -type sdoc() :: s_nil | {s_text, binary(), sdoc()} | {s_line, binary(), sdoc()}.
 -type mode() :: flat | break.
 -type inherit() :: self | inherit.
@@ -30,16 +30,15 @@
 -type force_break() :: force_break | no_force_break.
 -type token() :: steamroller_ast:token().
 -type tokens() :: steamroller_ast:tokens().
--type previous_term() ::
-    new_file
-    | {attribute, atom()}
-    | spec
-    | type
-    | list
-    | function
-    | module_comment
-    | function_comment
-    | dot.
+-type previous_term() :: new_file
+                       | {attribute, atom()}
+                       | spec
+                       | type
+                       | list
+                       | function
+                       | module_comment
+                       | function_comment
+                       | dot.
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
@@ -101,6 +100,9 @@ text(S) -> {doc_text, S}.
 
 -spec nest(integer(), doc()) -> doc().
 nest(I, X) -> {doc_nest, I, X}.
+
+-spec underneath(integer(), doc()) -> doc().
+underneath(Offset, X) -> {doc_underneath, Offset, X}.
 
 -spec break(binary()) -> doc().
 break(S) -> {doc_break, S}.
@@ -395,8 +397,7 @@ head_and_clause([{'::', _} | Rest0], Doc) ->
         Continue,
         ForceBreak,
         cons(
-            Doc,
-            force_break(ForceBreak, nest(?indent, group(space(text(<<" ::">>), Body), inherit)))
+            [Doc, text(<<" :: ">>), force_break(ForceBreak, underneath(- 2, group(Body, inherit)))]
         ),
         Rest1
     };
@@ -641,6 +642,7 @@ expr_([{char, _, Char} | Rest], Doc, ForceBreak) ->
 format(_, _, []) -> s_nil;
 format(W, K, [{_, _, doc_nil} | Rest]) -> format(W, K, Rest);
 format(W, K, [{I, M, {doc_cons, X, Y}} | Rest]) -> format(W, K, [{I, M, X}, {I, M, Y} | Rest]);
+format(W, K, [{_, M, {doc_underneath, J, X}} | Rest]) -> format(W, K, [{K + J, M, X} | Rest]);
 format(W, K, [{I, M, {doc_nest, J, X}} | Rest]) -> format(W, K, [{I + J, M, X} | Rest]);
 format(W, K, [{_, _, {doc_text, S}} | Rest]) -> {s_text, S, format(W, K + byte_size(S), Rest)};
 format(W, _, [{I, flat, {doc_break, ?nl}} | Rest]) -> {s_text, ?nl, format(W, I, Rest)};
@@ -664,6 +666,7 @@ fits(W, _) when W < 0 -> false;
 fits(_, []) -> true;
 fits(W, [{_, _, doc_nil} | Rest]) -> fits(W, Rest);
 fits(W, [{I, M, {doc_cons, X, Y}} | Rest]) -> fits(W, [{I, M, X}, {I, M, Y} | Rest]);
+fits(W, [{I, M, {doc_underneath, J, X}} | Rest]) -> fits(W, [{I + J, M, X} | Rest]);
 fits(W, [{I, M, {doc_nest, J, X}} | Rest]) -> fits(W, [{I + J, M, X} | Rest]);
 fits(W, [{_, _, {doc_text, S}} | Rest]) -> fits(W - byte_size(S), Rest);
 fits(_, [{_, flat, {doc_break, ?nl}} | _]) -> true;
