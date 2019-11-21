@@ -14,24 +14,17 @@ format(File, Opts) ->
     case file:read_file(File) of
         {ok, Code} ->
             case format_code(Code, File) of
-                {ok, Code} ->
-                    ok;
+                {ok, Code} -> ok;
                 {ok, FormattedCode} ->
                     case Check of
-                        true ->
-                            {error, <<"Check failed: code needs to be formatted.">>};
-                        false ->
-                            file:write_file(File, FormattedCode)
+                        true -> {error, <<"Check failed: code needs to be formatted.">>};
+                        false -> file:write_file(File, FormattedCode)
                     end;
-                {error, _} = Err ->
-                    Err
+                {error, _} = Err -> Err
             end;
-        {error, enoent} ->
-            {error, <<"file does not exist">>};
-        {error, eisdir} ->
-            {error, <<"that's a directory">>};
-        {error, _} = Err ->
-            Err
+        {error, enoent} -> {error, <<"file does not exist">>};
+        {error, eisdir} -> {error, <<"that's a directory">>};
+        {error, _} = Err -> Err
     end.
 
 -spec format_code(binary()) -> ok | {error, any()}.
@@ -51,16 +44,12 @@ format_code(Code, File) ->
             case steamroller_ast:ast(FormattedCode, ?CRASHDUMP) of
                 {ok, NewAst} ->
                     case steamroller_ast:eq(OriginalAst, NewAst) of
-                        true ->
-                            {ok, FormattedCode};
-                        false ->
-                            handle_formatting_error({error, ast_mismatch}, File, FormattedCode)
+                        true -> {ok, FormattedCode};
+                        false -> handle_formatting_error({error, ast_mismatch}, File, FormattedCode)
                     end;
-                {error, _} = Err ->
-                    handle_formatting_error(Err, File, FormattedCode)
+                {error, _} = Err -> handle_formatting_error(Err, File, FormattedCode)
             end;
-        {error, _} = Err ->
-            Err
+        {error, _} = Err -> Err
     end.
 
 handle_formatting_error({error, Msg}, File, FormattedCode) ->

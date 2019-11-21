@@ -64,8 +64,7 @@ do(State) ->
         ok ->
             rebar_api:info("Steamrolling done.", []),
             {ok, State};
-        {error, Err} ->
-            {error, format_error(Err)}
+        {error, Err} -> {error, format_error(Err)}
     end.
 
 -spec format_error(any()) -> iolist().
@@ -80,7 +79,10 @@ format_apps([App | Rest], Opts) ->
     SrcDir = rebar_app_info:dir(App) ++ "/src",
     TestDir = rebar_app_info:dir(App) ++ "/test",
     Files = [<<"rebar.config">> | find_source_files(SrcDir) ++ find_source_files(TestDir)],
-    case format_files(Files, Opts) of ok -> format_apps(Rest, Opts); {error, _} = Err -> Err end;
+    case format_files(Files, Opts) of
+        ok -> format_apps(Rest, Opts);
+        {error, _} = Err -> Err
+    end;
 format_apps([], _) -> ok.
 
 find_source_files(Path) ->
@@ -88,10 +90,7 @@ find_source_files(Path) ->
 
 format_files([File | Rest], Opts) ->
     case steamroller:format_file(File, Opts) of
-        ok ->
-            format_files(Rest, Opts);
-        {error, _} = Err ->
-            Err
+        ok -> format_files(Rest, Opts);
+        {error, _} = Err -> Err
     end;
-format_files([], _) ->
-    ok.
+format_files([], _) -> ok.

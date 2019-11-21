@@ -22,7 +22,10 @@ ast(Code, File) ->
     file:write_file(?TEMP_FILE, Code),
     {ok, Ast} = epp:parse_file(?TEMP_FILE, []),
     file:delete(?TEMP_FILE),
-    case check_for_errors(Ast, File) of ok -> {ok, Ast}; {error, _} = Err -> Err end.
+    case check_for_errors(Ast, File) of
+        ok -> {ok, Ast};
+        {error, _} = Err -> Err
+    end.
 
 -spec tokens(binary()) -> tokens().
 tokens(Code) ->
