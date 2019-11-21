@@ -613,9 +613,6 @@ expr_(
     TermDoc =
         cons([text(v2b(Var)), text(<<":">>), text(i2b(Integer)), text(<<"/">>), text(a2b(Atom))]),
     expr_(Rest, space(Doc, TermDoc), ForceBreak);
-expr_([{var, _, Var}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
-    Doc1 = space(Doc0, space(text(v2b(Var)), text(op2b(Op)))),
-    expr_(Rest, Doc1, ForceBreak);
 expr_([{integer, _, Integer}, {Op, _} | Rest], Doc0, ForceBreak) when ?IS_OPERATOR(Op) ->
     Doc1 = space(Doc0, space(text(i2b(Integer)), text(op2b(Op)))),
     expr_(Rest, Doc1, ForceBreak);
