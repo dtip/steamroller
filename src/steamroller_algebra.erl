@@ -350,27 +350,7 @@ list_elements(Tokens) -> list_elements(Tokens, empty(), no_force_break).
 
 -spec list_elements(tokens(), doc(), force_break()) -> {force_break(), doc()}.
 list_elements([], Doc, ForceBreak) -> {ForceBreak, Doc};
-list_elements([{C, _} | _] = Tokens, Doc0, ForceBreak0) when ?IS_LIST_CHAR(C) ->
-    {ListGroupForceBreak, Group0, Rest0} = list_group(Tokens),
-    ForceBreak1 = resolve_force_break([ForceBreak0, ListGroupForceBreak]),
-    {Group1, Rest1, ForceBreak2} =
-        case Rest0 of
-            [{End, _} | Rest] when End == ',' ->
-                % If a list element is a list followed by a comma we want to capture the
-                % comma and attach it to the list group.
-                {cons(Group0, text(op2b(End))), Rest, ForceBreak1};
-            [{Op, _} | _] = NextTokens when ?IS_EQUALS(Op) ->
-                % If an equals comes next we want to continue the expression
-                {_End, ExprForceBreak, Expr, Rest} = expr(NextTokens, ForceBreak1, Group0),
-                {Expr, Rest, resolve_force_break([ForceBreak1, ExprForceBreak])};
-            _ ->
-                {Group0, Rest0, ForceBreak1}
-        end,
-    Doc1 = space(Doc0, Group1),
-    list_elements(Rest1, Doc1, ForceBreak2);
 list_elements(Tokens, Doc, ForceBreak0) ->
-    %{_End, ForceBreak1, Doc1, Rest} = expr(Tokens, ForceBreak0, Doc0),
-    %list_elements(Rest, Doc1, ForceBreak1).
     {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0, empty()),
     list_elements(Rest, space(Doc, group(Expr)), ForceBreak1).
 
@@ -514,8 +494,7 @@ expr_(
         {':', LineNum},
         {atom, LineNum, FunctionName},
         {'/', LineNum},
-        {integer, LineNum, Arity}
-        | Rest
+        {integer, LineNum, Arity} | Rest
     ],
     Doc,
     ForceBreak
@@ -870,11 +849,7 @@ get_end_of_expr([{'(', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {')', LineNum} = EndToken} = get_from_until('(', ')', Rest0),
     get_end_of_expr(
         Rest1,
-        [EndToken]
-        ++
-        lists:reverse(Tokens)
-        ++
-        [Token | Acc],
+        [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
         LineNum,
         KeywordStack
     );
@@ -882,11 +857,7 @@ get_end_of_expr([{'{', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {'}', LineNum} = EndToken} = get_from_until('{', '}', Rest0),
     get_end_of_expr(
         Rest1,
-        [EndToken]
-        ++
-        lists:reverse(Tokens)
-        ++
-        [Token | Acc],
+        [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
         LineNum,
         KeywordStack
     );
@@ -894,11 +865,7 @@ get_end_of_expr([{'[', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {']', LineNum} = EndToken} = get_from_until('[', ']', Rest0),
     get_end_of_expr(
         Rest1,
-        [EndToken]
-        ++
-        lists:reverse(Tokens)
-        ++
-        [Token | Acc],
+        [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
         LineNum,
         KeywordStack
     );
@@ -906,11 +873,7 @@ get_end_of_expr([{'<<', _} = Token | Rest0], Acc, _, KeywordStack) ->
     {Tokens, Rest1, {'>>', LineNum} = EndToken} = get_from_until('<<', '>>', Rest0),
     get_end_of_expr(
         Rest1,
-        [EndToken]
-        ++
-        lists:reverse(Tokens)
-        ++
-        [Token | Acc],
+        [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
         LineNum,
         KeywordStack
     );

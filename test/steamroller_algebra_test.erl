@@ -956,14 +956,28 @@ define_whitespace_test_() ->
     ].
 
 bracketless_define_whitespace_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-define(MY_MACRO(Arg), Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8).">>),
-    Expect0 = <<"-define(MY_MACRO(Arg), Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8).\n">>,
+    Tokens =
+        steamroller_ast:tokens(
+            <<"-define(MY_MACRO(Arg), Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8).">>
+        ),
+    Expect0 =
+        <<"-define(MY_MACRO(Arg), Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"-define(\n    MY_MACRO(Arg),\n    Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8\n).\n">>,
+    Expect1 =
+        <<
+            "-define(\n    MY_MACRO(Arg),\n    Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8\n).\n"
+        >>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 70),
-    Expect2 = <<"-define(\n    MY_MACRO(Arg),\n    Arg == 5\n    orelse Arg == 6\n    orelse Arg == 7\n    orelse Arg == 8\n).\n">>,
+    Expect2 =
+        <<
+            "-define(\n    MY_MACRO(Arg),\n    Arg == 5\n    orelse Arg == 6\n    orelse Arg == 7\n    orelse Arg == 8\n).\n"
+        >>,
     Result2 = steamroller_algebra:format_tokens(Tokens, 30),
-    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1), ?_assertEqual(Expect2, Result2)].
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
 
 char_test_() ->
     Tokens0 = steamroller_ast:tokens(<<"foo() -> $f.">>),
@@ -981,4 +995,25 @@ char_test_() ->
         ?_assertEqual(Expect1, Result1),
         ?_assertEqual(Expect2, Result2),
         ?_assertEqual(Expect3, Result3)
+    ].
+
+list_concat_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo(One, Two, Three, Four) -> {[One] ++ lists:reverse(Two) ++ [Three], Four}.">>
+        ),
+    Expect0 = <<"foo(One, Two, Three, Four) -> {[One] ++ lists:reverse(Two) ++ [Three], Four}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<"foo(One, Two, Three, Four) ->\n    {[One] ++ lists:reverse(Two) ++ [Three], Four}.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 =
+        <<
+            "foo(One, Two, Three, Four) ->\n    {\n        [One] ++ lists:reverse(Two) ++ [Three],\n        Four\n    }.\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 48),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
     ].
