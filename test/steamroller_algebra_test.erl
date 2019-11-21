@@ -676,20 +676,33 @@ slash_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 if_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(A, B) -> if A == B -> great; true -> oh_no end.">>),
+    Tokens0 = steamroller_ast:tokens(<<"foo(A, B) -> if A == B -> great; true -> oh_no end.">>),
     Expect0 = <<"foo(A, B) -> if A == B -> great; true -> oh_no end.\n">>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     Expect1 = <<"foo(A, B) ->\n    if A == B -> great; true -> oh_no end.\n">>,
-    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Result1 = steamroller_algebra:format_tokens(Tokens0, 50),
     Expect2 =
         <<
             "foo(A, B) ->\n    if\n        A == B ->\n            great;\n        true ->\n            oh_no\n    end.\n"
         >>,
-    Result2 = steamroller_algebra:format_tokens(Tokens, 20),
+    Result2 = steamroller_algebra:format_tokens(Tokens0, 20),
+    Tokens1 = steamroller_ast:tokens(<<"foo(A) -> if length(A) > 1 -> great; true -> oh_no end.">>),
+    Expect3 = <<"foo(A) -> if length(A) > 1 -> great; true -> oh_no end.\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens1, 100),
+    Expect4 = <<"foo(A) ->\n    if length(A) > 1 -> great; true -> oh_no end.\n">>,
+    Result4 = steamroller_algebra:format_tokens(Tokens1, 50),
+    Expect5 =
+        <<
+            "foo(A) ->\n    if\n        length(A) > 1 ->\n            great;\n        true ->\n            oh_no\n    end.\n"
+        >>,
+    Result5 = steamroller_algebra:format_tokens(Tokens1, 30),
     [
         ?_assertEqual(Expect0, Result0),
         ?_assertEqual(Expect1, Result1),
-        ?_assertEqual(Expect2, Result2)
+        ?_assertEqual(Expect2, Result2),
+        ?_assertEqual(Expect3, Result3),
+        ?_assertEqual(Expect4, Result4),
+        ?_assertEqual(Expect5, Result5)
     ].
 
 nested_case_if_test_() ->

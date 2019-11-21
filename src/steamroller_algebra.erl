@@ -384,7 +384,7 @@ head_and_clause([{'->', _} | Rest0], Doc0) ->
     Doc1 =
         group(
             cons(
-                Doc0,
+                group(Doc0),
                 force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Body), inherit)))
             ),
             inherit
@@ -411,9 +411,7 @@ clause(Tokens) ->
     {End, ForceBreak, Exprs, Rest} = exprs(Tokens),
     Continue = case End of dot -> done; empty -> done; ';' -> continue end,
     if
-        length(Exprs)
-        >
-        1 ->
+        length(Exprs) > 1 ->
             % Force indentation for multi-line clauses
             {Continue, force_break, space(Exprs), Rest};
         true ->
