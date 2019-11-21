@@ -623,7 +623,7 @@ expr_([{Op, _} | Rest], Doc0, ForceBreak) ->
 expr_([{char, _, Char} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(c2b(Char))), ForceBreak).
 
-%% Internal
+%% Document Formatting
 
 -spec format(integer(), integer(), list({integer(), mode(), doc()})) -> sdoc().
 format(_, _, []) -> s_nil;
@@ -673,14 +673,7 @@ sdoc_to_string({s_line, Indent, Doc}) ->
     DocString = sdoc_to_string(Doc),
     <<"\n", Prefix/binary, DocString/binary>>.
 
-%% Utils
-
--spec repeat(binary(), integer()) -> binary().
-repeat(Bin, Times) when Times >= 0 -> repeat_(<<>>, Bin, Times).
-
--spec repeat_(binary(), binary(), integer()) -> binary().
-repeat_(Acc, _, 0) -> Acc;
-repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
+%% Binary Conversion
 
 -spec op2b(atom()) -> binary().
 op2b(dot) -> ?dot;
@@ -705,6 +698,15 @@ s2b(String) -> list_to_binary(escape(String)).
 
 -spec escape(string() | atom()) -> string().
 escape(Term) -> io_lib:format("~p", [Term]).
+
+%% Utils
+
+-spec repeat(binary(), integer()) -> binary().
+repeat(Bin, Times) when Times >= 0 -> repeat_(<<>>, Bin, Times).
+
+-spec repeat_(binary(), binary(), integer()) -> binary().
+repeat_(Acc, _, 0) -> Acc;
+repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
 
 -spec get_from_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
 get_from_until(Start, End, Tokens) -> get_from_until(Start, End, Tokens, [], 0).
