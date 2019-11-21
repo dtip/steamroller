@@ -955,6 +955,16 @@ define_whitespace_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+bracketless_define_whitespace_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-define(MY_MACRO(Arg), Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8).">>),
+    Expect0 = <<"-define(MY_MACRO(Arg), Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-define(\n    MY_MACRO(Arg),\n    Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8\n).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 70),
+    Expect2 = <<"-define(\n    MY_MACRO(Arg),\n    Arg == 5\n    orelse Arg == 6\n    orelse Arg == 7\n    orelse Arg == 8\n).\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1), ?_assertEqual(Expect2, Result2)].
+
 char_test_() ->
     Tokens0 = steamroller_ast:tokens(<<"foo() -> $f.">>),
     Expect0 = <<"foo() -> $f.\n">>,
