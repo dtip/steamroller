@@ -308,21 +308,10 @@ equation(Equals, Expr, ForceBreak) ->
     group(nest(?indent, force_break(ForceBreak, group(space(Equals, group(Expr)), inherit)))).
 
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
-list_group([{'(', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_from_until('(', ')', Rest0),
-    {ForceBreak, ListGroup} = brackets(Tokens, <<"(">>, <<")">>),
-    {ForceBreak, ListGroup, Rest1};
-list_group([{'{', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_from_until('{', '}', Rest0),
-    {ForceBreak, ListGroup} = brackets(Tokens, <<"{">>, <<"}">>),
-    {ForceBreak, ListGroup, Rest1};
-list_group([{'[', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_from_until('[', ']', Rest0),
-    {ForceBreak, ListGroup} = brackets(Tokens, <<"[">>, <<"]">>),
-    {ForceBreak, ListGroup, Rest1};
-list_group([{'<<', _} | Rest0]) ->
-    {Tokens, Rest1, _} = get_from_until('<<', '>>', Rest0),
-    {ForceBreak, ListGroup} = brackets(Tokens, <<"<<">>, <<">>">>),
+list_group([{Open, _} | Rest0]) when ?IS_LIST_CHAR(Open) ->
+    Close = close_bracket(Open),
+    {Tokens, Rest1, _} = get_from_until(Open, Close, Rest0),
+    {ForceBreak, ListGroup} = brackets(Tokens, op2b(Open), op2b(Close)),
     {ForceBreak, ListGroup, Rest1}.
 
 -spec brackets(tokens(), binary(), binary()) -> {force_break(), doc()}.
@@ -756,14 +745,9 @@ get_until_any(Ends, Tokens) -> get_until_any(Ends, Tokens, [], []).
 -spec get_until_any(list(atom()), tokens(), tokens(), list(atom())) ->
     {tokens(), tokens(), token() | not_found}.
 get_until_any(_Ends, [], Acc, []) -> {lists:reverse(Acc), [], not_found};
-get_until_any(Ends, [{OpenBracket, _} = Token | Rest], Acc, Stack)
-when
-    OpenBracket == '('
-    orelse OpenBracket == '['
-    orelse OpenBracket == '{'
-    orelse OpenBracket == '<<' ->
-    CloseBracket = close_bracket(OpenBracket),
-    get_until_any(Ends, Rest, [Token | Acc], [CloseBracket | Stack]);
+get_until_any(Ends, [{Open, _} = Token | Rest], Acc, Stack) when ?IS_LIST_CHAR(Open) ->
+    Close = close_bracket(Open),
+    get_until_any(Ends, Rest, [Token | Acc], [Close | Stack]);
 get_until_any(Ends, [{CloseBracket, _} = Token | Rest], Acc, [CloseBracket | Stack]) ->
     get_until_any(Ends, Rest, [Token | Acc], Stack);
 get_until_any(Ends, [{MaybeEnd, _} = Token | Rest], Acc, [] = Stack) ->
@@ -774,12 +758,6 @@ get_until_any(Ends, [{MaybeEnd, _} = Token | Rest], Acc, [] = Stack) ->
             get_until_any(Ends, Rest, [Token | Acc], Stack)
     end;
 get_until_any(Ends, [Token | Rest], Acc, Stack) -> get_until_any(Ends, Rest, [Token | Acc], Stack).
-
--spec close_bracket(atom()) -> atom().
-close_bracket('(') -> ')';
-close_bracket('[') -> ']';
-close_bracket('{') -> '}';
-close_bracket('<<') -> '>>'.
 
 -spec remove_matching(atom(), atom(), tokens()) -> tokens().
 remove_matching(Start, End, Tokens) -> remove_matching(Start, End, Tokens, [], 0).
@@ -831,32 +809,9 @@ get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, Keywo
     % care about: `fun (X) -> X + 1 end`
     Rest = tl(Tokens),
     get_end_of_expr(Rest, [Token | Acc], LineNum, ['fun' | KeywordStack]);
-get_end_of_expr([{'(', _} = Token | Rest0], Acc, _, KeywordStack) ->
-    {Tokens, Rest1, {')', LineNum} = EndToken} = get_from_until('(', ')', Rest0),
-    get_end_of_expr(
-        Rest1,
-        [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
-        LineNum,
-        KeywordStack
-    );
-get_end_of_expr([{'{', _} = Token | Rest0], Acc, _, KeywordStack) ->
-    {Tokens, Rest1, {'}', LineNum} = EndToken} = get_from_until('{', '}', Rest0),
-    get_end_of_expr(
-        Rest1,
-        [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
-        LineNum,
-        KeywordStack
-    );
-get_end_of_expr([{'[', _} = Token | Rest0], Acc, _, KeywordStack) ->
-    {Tokens, Rest1, {']', LineNum} = EndToken} = get_from_until('[', ']', Rest0),
-    get_end_of_expr(
-        Rest1,
-        [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
-        LineNum,
-        KeywordStack
-    );
-get_end_of_expr([{'<<', _} = Token | Rest0], Acc, _, KeywordStack) ->
-    {Tokens, Rest1, {'>>', LineNum} = EndToken} = get_from_until('<<', '>>', Rest0),
+get_end_of_expr([{Open, _} = Token | Rest0], Acc, _, KeywordStack) when ?IS_LIST_CHAR(Open) ->
+    Close = close_bracket(Open),
+    {Tokens, Rest1, {Close, LineNum} = EndToken} = get_from_until(Open, Close, Rest0),
     get_end_of_expr(
         Rest1,
         [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
@@ -882,6 +837,12 @@ is_bool_list([]) -> false;
 is_bool_list([{Keyword, _} | _]) when ?IS_KEYWORD(Keyword) -> false;
 is_bool_list([{Op, _} | _]) when ?IS_BOOL_CONCATENATOR(Op) -> true;
 is_bool_list([_ | Rest]) -> is_bool_list(Rest).
+
+-spec close_bracket(atom()) -> atom().
+close_bracket('(') -> ')';
+close_bracket('[') -> ']';
+close_bracket('{') -> '}';
+close_bracket('<<') -> '>>'.
 
 %% Testing
 
