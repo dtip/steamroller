@@ -296,6 +296,11 @@ fun_([{'fun', _} | Tokens]) ->
         ),
     {ForceBreak, Doc, Rest1}.
 
+-spec comment(string()) -> doc().
+comment(Comment) -> text(list_to_binary(Comment)).
+
+%% Generic Erlang Terms
+
 -spec equation(doc(), doc(), force_break()) -> doc().
 equation(Equals, Expr, ForceBreak) ->
     group(nest(?indent, force_break(ForceBreak, group(space(Equals, group(Expr)), inherit)))).
@@ -629,9 +634,6 @@ expr_([{Op, _} | Rest], Doc0, ForceBreak) ->
     expr_(Rest, Doc1, ForceBreak);
 expr_([{char, _, Char} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(c2b(Char))), ForceBreak).
-
--spec comment(string()) -> doc().
-comment(Comment) -> text(list_to_binary(Comment)).
 
 %% Internal
 
