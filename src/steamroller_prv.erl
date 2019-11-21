@@ -46,9 +46,9 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     % No idea why a two-element tuple is returned here.
-    {Opts, _} =
-        rebar_state:command_parsed_args(State),
-    Result = case {lists:keyfind(?FILE_KEY, 1, Opts), lists:keyfind(?DIR_KEY, 1, Opts)} of
+    {Opts, _} = rebar_state:command_parsed_args(State),
+    Result =
+        case {lists:keyfind(?FILE_KEY, 1, Opts), lists:keyfind(?DIR_KEY, 1, Opts)} of
             {{?FILE_KEY, File}, _} ->
                 rebar_api:info("Steamrolling file: ~s", [File]),
                 steamroller:format_file(File, Opts);

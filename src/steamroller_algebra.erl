@@ -51,20 +51,20 @@
 -define(
     IS_OPERATOR(C),
     (
-        C ==
-            '+'
-            orelse C == '-'
-            orelse C == '*'
-            orelse C == '/'
-            orelse C == 'div'
-            orelse C == '=<'
-            orelse C == '>='
-            orelse C == '<'
-            orelse C == '>'
+        C == '+'
+        orelse C == '-'
+        orelse C == '*'
+        orelse C == '/'
+        orelse C == 'div'
+        orelse C == '=<'
+        orelse C == '>='
+        orelse C == '<'
+        orelse C == '>'
     )
 ).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==')).
--define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse' orelse C == '|')).
+-define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
+-define(IS_KEYWORD(C), (C == 'case' orelse C == 'of' orelse C == 'fun')).
 
 %% API
 
@@ -171,8 +171,7 @@ generate_doc_([{'-', _} = H0, {atom, _, spec} = H1, {'(', _} | Rest0], Doc, Prev
 generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc0, PrevTerm) ->
     % Spec
     % Re-use the function code because the syntax is identical.
-    {Group, Rest} =
-        function(Tokens),
+    {Group, Rest} = function(Tokens),
     Spec = cons(text(<<"-spec ">>), Group),
     Doc1 = case PrevTerm of function_comment -> newline(Doc0, Spec); _ -> newlines(Doc0, Spec) end,
     generate_doc_(Rest, Doc1, spec);
@@ -183,8 +182,7 @@ generate_doc_([{'-', _} = H0, {atom, _, type} = H1, {'(', _} | Rest0], Doc, Prev
 generate_doc_([{'-', _}, {atom, _, type} | Tokens], Doc0, PrevTerm) ->
     % Type
     % Re-use the function code because the syntax is identical.
-    {Group, Rest} =
-        function(Tokens),
+    {Group, Rest} = function(Tokens),
     Spec = cons(text(<<"-type ">>), Group),
     Doc1 =
         case PrevTerm of
@@ -196,8 +194,7 @@ generate_doc_([{'-', _}, {atom, _, type} | Tokens], Doc0, PrevTerm) ->
     generate_doc_(Rest, Doc1, type);
 generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
     % Module Attribute
-    {Group, Rest} =
-        attribute(Atom, Tokens),
+    {Group, Rest} = attribute(Atom, Tokens),
     Doc1 =
         case PrevTerm of
             function_comment ->
@@ -210,8 +207,7 @@ generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
     generate_doc_(Rest, Doc1, {attribute, Atom});
 generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
     % Function
-    {Group, Rest} =
-        function(Tokens),
+    {Group, Rest} = function(Tokens),
     Doc1 =
         case PrevTerm of
             PrevTerm when PrevTerm == function_comment orelse PrevTerm == spec ->
@@ -222,8 +218,7 @@ generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
     generate_doc_(Rest, Doc1, function);
 generate_doc_([{C, _} | _] = Tokens, Doc0, PrevTerm) when ?IS_LIST_CHAR(C) ->
     % List -> if this is at the top level this is probably a config file
-    {ForceBreak, Group0, Rest} =
-        list_group(Tokens),
+    {ForceBreak, Group0, Rest} = list_group(Tokens),
     Group1 = force_break(ForceBreak, Group0),
     Doc1 =
         case PrevTerm of function_comment -> newline(Doc0, Group1); _ -> newlines(Doc0, Group1) end,
@@ -315,6 +310,10 @@ fun_([{'fun', _} | Tokens]) ->
         ),
     {ForceBreak, Doc, Rest1}.
 
+-spec equation(doc(), doc(), force_break()) -> doc().
+equation(Equals, Expr, ForceBreak) ->
+    group(nest(?indent, force_break(ForceBreak, group(space(Equals, group(Expr)), inherit)))).
+
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{'(', _} | Rest0]) ->
     {Tokens, Rest1, _} = get_from_until('(', ')', Rest0),
@@ -393,19 +392,16 @@ head_and_clause([{atom, _, Name} | Rest], Doc) ->
     head_and_clause(Rest, cons(Doc, text(a2b(Name))));
 head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
     % Args
-    {_ForceBreak, Group, Rest} =
-        list_group(Tokens),
+    {_ForceBreak, Group, Rest} = list_group(Tokens),
     head_and_clause(Rest, cons(Doc, Group));
 head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
     % Handle any comments between function clauses.
-    {Continue, ForceBreak, Doc1, Tokens} =
-        head_and_clause(Rest),
+    {Continue, ForceBreak, Doc1, Tokens} = head_and_clause(Rest),
     Doc2 = newline([Doc0, comment(Comment), Doc1]),
     {Continue, ForceBreak, Doc2, Tokens};
 head_and_clause([{'->', _} | Rest0], Doc0) ->
     % End
-    {Continue, ForceBreak, Body, Rest1} =
-        clause(Rest0),
+    {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
     Doc1 =
         group(
             cons(
@@ -417,8 +413,7 @@ head_and_clause([{'->', _} | Rest0], Doc0) ->
     {Continue, ForceBreak, Doc1, Rest1};
 head_and_clause([{'::', _} | Rest0], Doc) ->
     % Altenative End (for Type definitions)
-    {Continue, ForceBreak, Body, Rest1} =
-        clause(Rest0),
+    {Continue, ForceBreak, Body, Rest1} = clause(Rest0),
     {
         Continue,
         ForceBreak,
@@ -482,23 +477,19 @@ expr(Tokens, ForceBreak0, Doc) ->
 expr_([], Doc, ForceBreak) -> {empty, ForceBreak, Doc};
 expr_([{'?', LineNum}, {var, LineNum, MacroName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle macros which take arguments
-    [_, _ | Tokens1] =
-        Tokens0,
-    {ListForceBreak, ListGroup, Rest} =
-        list_group(Tokens1),
+    [_, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Macro = space(Doc, cons([text(<<"?">>), text(v2b(MacroName)), ListGroup])),
     expr_(Rest, Macro, ForceBreak1);
 expr_([{'?', _} | Rest0], Doc, ForceBreak0) ->
     % Handle macros
-    {End, ForceBreak1, Expr, []} =
-        expr(Rest0, ForceBreak0),
+    {End, ForceBreak1, Expr, []} = expr(Rest0, ForceBreak0),
     {End, ForceBreak1, space(Doc, cons(text(<<"?">>), Expr))};
 expr_([{var, LineNum, MacroName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle macros which take arguments
     Tokens1 = tl(Tokens0),
-    {ListForceBreak, ListGroup, Rest} =
-        list_group(Tokens1),
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Macro = space(Doc, cons(text(v2b(MacroName)), ListGroup)),
     expr_(Rest, Macro, ForceBreak1);
@@ -557,10 +548,8 @@ expr_(
     ForceBreak0
 ) ->
     % Handle function calls to other modules
-    [_, _, _ | Tokens1] =
-        Tokens0,
-    {ListForceBreak, ListGroup, Rest} =
-        list_group(Tokens1),
+    [_, _, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Function =
         space(Doc, cons([text(a2b(ModuleName)), text(<<":">>), text(a2b(FunctionName)), ListGroup])),
@@ -568,8 +557,7 @@ expr_(
 expr_([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle local function calls
     Tokens1 = tl(Tokens0),
-    {ListForceBreak, ListGroup, Rest} =
-        list_group(Tokens1),
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Function = space(Doc, cons(text(a2b(FunctionName)), ListGroup)),
     expr_(Rest, Function, ForceBreak1);
@@ -577,23 +565,33 @@ expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     expr_(Rest, space(Doc, ListGroup), ForceBreak1);
-expr_([{C, _} | Rest], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
-    % Handle pattern matching in e.g. function heads
-    % foo({X, _} = Y) -> ...
-    Equals = group(space(Doc0, text(op2b(C)))),
-    {End, ForceBreak1, Expr} =
-        expr_(Rest, empty(), ForceBreak0),
-    Equation = force_break(ForceBreak1, group(nest(?indent, space(Equals, Expr)), inherit)),
-    {End, ForceBreak1, Equation};
-expr_([{var, _, Var}, {C, _} | Rest], Doc, ForceBreak0) when ?IS_EQUALS(C) ->
-    % Handle equations
+expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
+    % Handle things like
     % Arg3 =
     %     Arg1 + Arg2,
-    Equals = group(space(text(v2b(Var)), text(op2b(C)))),
-    {End, ForceBreak1, Expr} =
-        expr_(Rest, empty(), ForceBreak0),
-    Equation = group(nest(?indent, space(Equals, group(Expr)))),
-    {End, ForceBreak1, space(Doc, Equation)};
+    Equals = group(space(Doc0, text(op2b(C)))),
+    case is_bool_list(Rest0) of
+        true ->
+            case get_until_any(['andalso', 'orelse'], Rest0) of
+                {_Tokens, [], not_found} ->
+                    % This should never happen
+                    throw(token_not_found);
+                {Tokens, Rest1, EndToken} ->
+                    % If we have a list of boolean terms
+                    %   e.g. Arg1 == 5 andalso Arg2 == 6
+                    % then we want to group each term individually rather than grouping everything
+                    % after the `==`.
+                    {_End, RestForceBreak, Expr} = expr_(Tokens, empty(), no_force_break),
+                    Equation = equation(Equals, Expr, RestForceBreak),
+                    ForceBreak1 = resolve_force_break([ForceBreak0, RestForceBreak]),
+                    expr_([EndToken | Rest1], Equation, ForceBreak1)
+            end;
+        false ->
+            {End, RestForceBreak, Expr} = expr_(Rest0, empty(), no_force_break),
+            Equation = equation(Equals, Expr, RestForceBreak),
+            ForceBreak1 = resolve_force_break([ForceBreak0, RestForceBreak]),
+            {End, ForceBreak1, Equation}
+    end;
 expr_([{End, _}], Doc, ForceBreak) -> {End, ForceBreak, cons(Doc, text(op2b(End)))};
 expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
     % Handle function arity expressions
@@ -639,6 +637,19 @@ expr_([{BoolOp, _} | Rest0], Doc, ForceBreak0) when ?IS_BOOL_CONCATENATOR(BoolOp
             expr_(
                 [EndToken | Rest1],
                 space(Doc, group(space(text(op2b(BoolOp)), group(Expr)))),
+                ForceBreak1
+            )
+    end;
+expr_([{'|' = Op, _} | Rest0], Doc, ForceBreak0) ->
+    case get_until_any(['|'], Rest0) of
+        {Tokens, [], not_found} ->
+            {End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
+            {End, ForceBreak1, space(Doc, group(space(text(op2b(Op)), group(Expr))))};
+        {Tokens, Rest1, EndToken} ->
+            {_End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
+            expr_(
+                [EndToken | Rest1],
+                space(Doc, group(space(text(op2b(Op)), group(Expr)))),
                 ForceBreak1
             )
     end;
@@ -779,8 +790,10 @@ get_until_any(Ends, Tokens) -> get_until_any(Ends, Tokens, [], []).
 get_until_any(_Ends, [], Acc, []) -> {lists:reverse(Acc), [], not_found};
 get_until_any(Ends, [{OpenBracket, _} = Token | Rest], Acc, Stack)
 when
-    OpenBracket ==
-        '(' orelse OpenBracket == '[' orelse OpenBracket == '{' orelse OpenBracket == '<<' ->
+    OpenBracket == '('
+    orelse OpenBracket == '['
+    orelse OpenBracket == '{'
+    orelse OpenBracket == '<<' ->
     CloseBracket = close_bracket(OpenBracket),
     get_until_any(Ends, Rest, [Token | Acc], [CloseBracket | Stack]);
 get_until_any(Ends, [{CloseBracket, _} = Token | Rest], Acc, [CloseBracket | Stack]) ->
@@ -911,6 +924,12 @@ resolve_force_break(Args) ->
         false ->
             no_force_break
     end.
+
+-spec is_bool_list(tokens()) -> boolean().
+is_bool_list([]) -> false;
+is_bool_list([{Keyword, _} | _]) when ?IS_KEYWORD(Keyword) -> false;
+is_bool_list([{Op, _} | _]) when ?IS_BOOL_CONCATENATOR(Op) -> true;
+is_bool_list([_ | Rest]) -> is_bool_list(Rest).
 
 %% Testing
 
