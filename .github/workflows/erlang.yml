@@ -1,0 +1,25 @@
+name: build
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:22.0.7
+    steps:
+    - uses: actions/checkout@v1
+    - name: Compile
+      run: rebar3 compile
+    - name: Use self for formatting
+      run: mkdir _checkouts && ln -s $PWD ./_checkouts/steamroller
+    - name: Check formatting
+      run: rebar3 steamroll --check
+    - name: Run tests
+      run: rebar3 test
+    - name: Run dialyzer
+      run: rebar3 dialyzer
