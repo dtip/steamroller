@@ -1,0 +1,38 @@
+name: release
+
+on:
+  release:
+    types: created
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:22.0.7
+    steps:
+    - uses: actions/checkout@v1
+    - name: Compile
+      run: rebar3 compile
+    - name: Use self for formatting
+      run: mkdir _checkouts && ln -s $PWD ./_checkouts/steamroller
+    - name: Check formatting
+      run: rebar3 steamroll --check
+    - name: Run tests
+      run: rebar3 test
+    - name: Run dialyzer
+      run: rebar3 dialyzer
+
+  publish:
+    needs: test
+    env:
+      HEXPM_USER: ${{ secrets.HEXPM_USER }}
+      HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+      HEXPM_WRITE_KEY: ${{ secrets.HEXPM_WRITE_KEY }}
+      HEXPM_LOCAL_PASSWORD: ${{ secrets.HEXPM_LOCAL_PASSWORD }}
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:22.0.7
+    steps:
+    - uses: actions/checkout@v1
+    - name: Publish
+      run: bash publi.sh
