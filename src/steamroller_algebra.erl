@@ -473,6 +473,7 @@ expr_(
     Doc,
     ForceBreak
 ) ->
+    % Handle `fun module:function/arity`
     Fun =
         cons(
             [
@@ -490,6 +491,7 @@ expr_(
     Doc,
     ForceBreak
 ) ->
+    % Handle `fun function/arity`
     Fun = cons([text(<<"fun ">>), text(a2b(FunctionName)), text(<<"/">>), text(i2b(Arity))]),
     expr_(Rest, space(Doc, Fun), ForceBreak);
 expr_([{'fun', _} | _] = Tokens, Doc, ForceBreak0) ->
@@ -518,6 +520,7 @@ expr_([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceB
     Function = space(Doc, cons(text(a2b(FunctionName)), ListGroup)),
     expr_(Rest, Function, ForceBreak1);
 expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
+    % Handle lists
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     expr_(Rest, space(Doc, ListGroup), ForceBreak1);
@@ -548,7 +551,9 @@ expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
             ForceBreak1 = resolve_force_break([ForceBreak0, RestForceBreak]),
             {End, ForceBreak1, Equation}
     end;
-expr_([{End, _}], Doc, ForceBreak) -> {End, ForceBreak, cons(Doc, text(op2b(End)))};
+expr_([{End, _}], Doc, ForceBreak) ->
+    % Handle the expression end character
+    {End, ForceBreak, cons(Doc, text(op2b(End)))};
 expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
     % Handle function arity expressions
     % some_fun/1
@@ -604,7 +609,11 @@ expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
 expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
     Group = group(nest(?indent, space(text(<<"when">>), Expr))),
-    {End, ForceBreak1, group(space(Doc, Group))};
+    {End, ForceBreak1, group(space(Doc, group(Group)))};
+expr_([{'||', _} | Rest], Doc, ForceBreak0) ->
+    % Handle list comprehensions
+    {End, ForceBreak1, Expr} = expr_(Rest, text(<<"||">>), ForceBreak0),
+    {End, ForceBreak1, group(space(Doc, group(Expr)))};
 expr_([{Op, _} | Rest], Doc0, ForceBreak) ->
     Doc1 = space(Doc0, text(op2b(Op))),
     expr_(Rest, Doc1, ForceBreak);

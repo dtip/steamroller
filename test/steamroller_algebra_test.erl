@@ -1023,3 +1023,21 @@ list_concat_test_() ->
         ?_assertEqual(Expect1, Result1),
         ?_assertEqual(Expect2, Result2)
     ].
+
+list_comprehension_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"fooooooooo(X) -> [some_other_module:bar(Y) || Y <- baz(X)].">>),
+    Expect0 = <<"fooooooooo(X) -> [some_other_module:bar(Y) || Y <- baz(X)].\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"fooooooooo(X) ->\n    [some_other_module:bar(Y) || Y <- baz(X)].\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 =
+        <<
+            "fooooooooo(X) ->\n    [\n        some_other_module:bar(Y)\n        || Y <- baz(X)\n    ].\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].

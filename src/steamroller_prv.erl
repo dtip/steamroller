@@ -87,19 +87,13 @@ format_apps([], _) -> ok.
 find_root_files(Dir) ->
     [
         list_to_binary(filename:join(Dir, File))
-        ||
-        File
-        <-
-        filelib:wildcard("{src,test}/**/*.{[he]rl,app.src}", Dir)
+        || File <- filelib:wildcard("{src,test}/**/*.{[he]rl,app.src}", Dir)
     ].
 
 find_dir_files(Dir) ->
     [
         list_to_binary(filename:join(Dir, File))
-        ||
-        File
-        <-
-        filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)
+        || File <- filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)
     ].
 
 format_files([File | Rest], Opts) ->
