@@ -48,3 +48,13 @@ exec 3>&-
 
 # Tidy up
 rm pipe
+
+# Now do it all again for docs
+mkfifo pipe
+rebar3 hex docs < pipe &
+exec 3>pipe
+sleep 1s
+echo $HEXPM_LOCAL_PASSWORD > pipe
+sleep 30s
+exec 3>&-
+rm pipe
