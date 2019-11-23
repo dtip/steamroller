@@ -15,7 +15,7 @@
 %% {plugins, [
 %%     {steamroller, {git, "https://github.com/old-reliable/steamroller.git", {branch, "master"}}}
 %% ]}.
-%% ```
+%% '''
 %%
 %% Then ask it to steamroll your code directly in an existing application:
 %%
@@ -24,7 +24,7 @@
 %% ===> Fetching steamroller
 %% ===> Compiling steamroller
 %% <Steamroller Output>
-%% ```
+%% '''
 %%
 %% === CI ===
 %%
@@ -32,7 +32,7 @@
 %%
 %% ```
 %% $ rebar3 steamroll --check
-%% ```
+%% '''
 %%
 %% The exit code will be non-zero if the code has not been formatted before being committed.
 %%
