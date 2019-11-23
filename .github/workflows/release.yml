@@ -1,14 +1,15 @@
 name: release
 
 on:
-  release:
-    types: created
+  push:
+    tags:
+      - v*
 
 jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: erlang:22.0.7
+      image: erlang:22.1.8
     steps:
     - uses: actions/checkout@v1
     - name: Compile
@@ -31,7 +32,7 @@ jobs:
       HEXPM_LOCAL_PASSWORD: ${{ secrets.HEXPM_LOCAL_PASSWORD }}
     runs-on: ubuntu-latest
     container:
-      image: erlang:22.0.7
+      image: erlang:22.1.8
     steps:
     - uses: actions/checkout@v1
     - name: Publish
