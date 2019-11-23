@@ -1,11 +1,15 @@
 🚂 Steamroller
 ==============
 
-![](https://github.com/old-reliable/steamroller/workflows/build/badge.svg)
+![Build Badge](https://github.com/old-reliable/steamroller/workflows/build/badge.svg)
+
+Code uniformity is inevitable.
+
+![Austin Powers Steamroller Gif](https://thumbs.gfycat.com/MassiveGlossyAmericantoad-size_restricted.gif)
 
 Upset your colleagues by autoformatting their Erlang.
 
-This plugin is early stage and not yet suitable for use in production. In particular, it has not
+This rebar3 plugin is early stage and not yet suitable for use in production. In particular, it has not
 yet been testing on records or maps.
 
 Use
