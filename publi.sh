@@ -25,36 +25,44 @@ rebar3 --version
 # However there's something funny around (I think) prompts and spawning processes going on,
 # where rebar3 will crash if we send it the local password too quickly.
 #
-mkfifo pipe
-rebar3 hex publish < pipe &
+pipe=pipe_name
+mkfifo $pipe
 
-# We do this so that we don't send a premature EOF. Otherwise we kill Erlang.
-exec 3>pipe
+publish () {
+    # We do this so that we don't send a premature EOF. Otherwise we kill Erlang.
+    exec 3>$pipe
 
-# Tell rebar3 yes, we want to publish.
-echo y > pipe
+    # Tell rebar3 yes, we want to publish.
+    echo y > $pipe
 
-# the mark of a quality piece of code.
-sleep 1s
+    # the mark of a quality piece of code.
+    sleep 1s
 
-# Give our local password
-echo $HEXPM_LOCAL_PASSWORD > pipe
+    # Give our local password
+    echo $HEXPM_LOCAL_PASSWORD > $pipe
 
-# revenge of the sleep
-sleep 30s
+    # revenge of the sleep
+    sleep 1m
+}
 
-# Send the EOF
+docs () {
+    exec 3>$pipe
+    sleep 1s
+    echo $HEXPM_LOCAL_PASSWORD > $pipe
+    sleep 1m
+}
+
+# Publish
+publish &
+rebar3 hex publish < $pipe
 exec 3>&-
 
+# Docs
+docs &
+rebar3 hex docs < $pipe
+exec 3>&-
+
+# Why is this necessary
+sleep 1s
 # Tidy up
-rm pipe
-
-# Now do it all again for docs
-mkfifo pipe
-rebar3 hex docs < pipe &
-exec 3>pipe
-sleep 1s
-echo $HEXPM_LOCAL_PASSWORD > pipe
-sleep 30s
-exec 3>&-
-rm pipe
+rm $pipe
