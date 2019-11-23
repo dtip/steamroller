@@ -33,23 +33,34 @@ format_code(Code) -> format_code(Code, <<"no_file">>).
 %% Internal
 
 -spec format_code(binary(), binary()) -> {ok, binary()} | {error, any()}.
-format_code(Code, <<"rebar.config">>) ->
-    Tokens = steamroller_ast:tokens(Code),
-    {ok, steamroller_algebra:format_tokens(Tokens)};
 format_code(Code, File) ->
-    case steamroller_ast:ast(Code, File) of
-        {ok, OriginalAst} ->
-            Tokens = steamroller_ast:tokens(Code),
-            FormattedCode = steamroller_algebra:format_tokens(Tokens),
-            case steamroller_ast:ast(FormattedCode, ?CRASHDUMP) of
-                {ok, NewAst} ->
-                    case steamroller_ast:eq(OriginalAst, NewAst) of
-                        true -> {ok, FormattedCode};
-                        false -> handle_formatting_error({error, ast_mismatch}, File, FormattedCode)
+    {ok, R} = re:compile("\\.[he]rl$"),
+    case re:run(File, R) of
+        {match, _} ->
+            % Check the AST after formatting for source files.
+            case steamroller_ast:ast(Code, File) of
+                {ok, OriginalAst} ->
+                    Tokens = steamroller_ast:tokens(Code),
+                    FormattedCode = steamroller_algebra:format_tokens(Tokens),
+                    case steamroller_ast:ast(FormattedCode, ?CRASHDUMP) of
+                        {ok, NewAst} ->
+                            case steamroller_ast:eq(OriginalAst, NewAst) of
+                                true -> {ok, FormattedCode};
+                                false ->
+                                    handle_formatting_error(
+                                        {error, ast_mismatch},
+                                        File,
+                                        FormattedCode
+                                    )
+                            end;
+                        {error, _} = Err -> handle_formatting_error(Err, File, FormattedCode)
                     end;
-                {error, _} = Err -> handle_formatting_error(Err, File, FormattedCode)
+                {error, _} = Err -> Err
             end;
-        {error, _} = Err -> Err
+        nomatch ->
+            % Don't check the AST for config files.
+            Tokens = steamroller_ast:tokens(Code),
+            {ok, steamroller_algebra:format_tokens(Tokens)}
     end.
 
 handle_formatting_error({error, Msg}, File, FormattedCode) ->

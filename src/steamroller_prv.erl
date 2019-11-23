@@ -54,7 +54,7 @@ do(State) ->
                 steamroller:format_file(File, Opts);
             {_, {?DIR_KEY, Dir}} ->
                 rebar_api:info("Steamrolling dir: ~s", [Dir]),
-                Files = find_source_files(Dir),
+                Files = find_dir_files(Dir),
                 format_files(Files, Opts);
             _ ->
                 rebar_api:info("Steamrolling code...", []),
@@ -76,17 +76,31 @@ format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 %% ===================================================================
 
 format_apps([App | Rest], Opts) ->
-    SrcDir = rebar_app_info:dir(App) ++ "/src",
-    TestDir = rebar_app_info:dir(App) ++ "/test",
-    Files = [<<"rebar.config">> | find_source_files(SrcDir) ++ find_source_files(TestDir)],
+    AppDir = rebar_app_info:dir(App),
+    Files = [<<"rebar.config">> | find_root_files(AppDir)],
     case format_files(Files, Opts) of
         ok -> format_apps(Rest, Opts);
         {error, _} = Err -> Err
     end;
 format_apps([], _) -> ok.
 
-find_source_files(Path) ->
-    [list_to_binary(filename:join(Path, Mod)) || Mod <- filelib:wildcard("*.erl", Path)].
+find_root_files(Dir) ->
+    [
+        list_to_binary(filename:join(Dir, File))
+        ||
+        File
+        <-
+        filelib:wildcard("{src,test}/**/*.{[he]rl,app.src}", Dir)
+    ].
+
+find_dir_files(Dir) ->
+    [
+        list_to_binary(filename:join(Dir, File))
+        ||
+        File
+        <-
+        filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)
+    ].
 
 format_files([File | Rest], Opts) ->
     case steamroller:format_file(File, Opts) of

@@ -666,10 +666,20 @@ case_pattern_match_test_() ->
     [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1)].
 
 slash_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> \"\\\"some string\\\"\".">>),
+    Tokens0 = steamroller_ast:tokens(<<"foo() -> \"\\\"some string\\\"\".">>),
     Expect0 = <<"foo() -> \"\\\"some string\\\"\".\n">>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    [?_assertEqual(Expect0, Result0)].
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"foo() -> re:compile(\"\\\\.[he]rl$\").">>),
+    Expect1 = <<"foo() -> re:compile(\"\\\\.[he]rl$\").\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    Tokens2 = steamroller_ast:tokens(<<"foo() -> re:compile(\"\\.[he]rl$\").">>),
+    Expect2 = <<"foo() -> re:compile(\".[he]rl$\").\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens2, 100),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
 
 if_test_() ->
     Tokens0 = steamroller_ast:tokens(<<"foo(A, B) -> if A == B -> great; true -> oh_no end.">>),
