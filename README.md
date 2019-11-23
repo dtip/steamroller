@@ -10,7 +10,7 @@ Code uniformity is inevitable.
 Upset your colleagues by autoformatting their Erlang.
 
 This rebar3 plugin is early stage and not yet suitable for use in production. In particular, it has not
-yet been testing on records or maps.
+yet been tested on records or maps.
 
 Use
 ---

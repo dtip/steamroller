@@ -1,11 +1,11 @@
 %%
-%% @doc An implementation of ["Strictly Pretty" (2000) by Christian Lindig][0].
+%% @doc An implementation of "Strictly Pretty" (2000) by Christian Lindig [0].
 %%
 %% Inspired by the Elixir implementation of the same paper in Inspect.Algebra. Thanks to the core team for their hard work!
 %%
 %% Includes plenty of Erlang-specific additions.
 %%
-%% [0] https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.34.2200
+%% [0] [https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.34.2200]
 %%
 
 -module(steamroller_algebra).
@@ -51,7 +51,9 @@
 -define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
 -define(IS_KEYWORD(C), (C == 'case' orelse C == 'if' orelse C == 'fun')).
 
+%%
 %% API
+%%
 
 -spec format_tokens(tokens()) -> binary().
 format_tokens(Tokens) -> format_tokens(Tokens, ?max_width).
@@ -82,7 +84,9 @@ from_the_paper(Width, Indent) ->
     Doc = test_ifthen(C, E1, E2, Indent),
     pretty(Doc, Width).
 
+%%
 %% Constructor Functions
+%%
 
 -spec cons(doc(), doc()) -> doc().
 cons(X, Y) -> {doc_cons, X, Y}.
@@ -118,7 +122,9 @@ group(D) -> {doc_group, D, self}.
 -spec group(doc(), inherit()) -> doc().
 group(D, Inherit) -> {doc_group, D, Inherit}.
 
+%%
 %% Operators
+%%
 
 -spec space(doc(), doc()) -> doc().
 space(X, Y) -> concat(X, Y, ?sp).
@@ -147,7 +153,9 @@ concat(doc_nil, Y, _) -> Y;
 concat(X, doc_nil, _) -> X;
 concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
+%%
 %% Token Consumption
+%%
 
 -spec generate_doc_(tokens(), doc(), previous_term()) -> doc().
 generate_doc_([], Doc, _) -> Doc;
@@ -238,7 +246,9 @@ generate_doc_([{dot, _} | Rest], Doc, _PrevTerm) ->
     % Any undhandled dots, for example at the end of terms in config files.
     generate_doc_(Rest, cons(Doc, text(?dot)), dot).
 
+%%
 %% Erlang Source Elements
+%%
 
 -spec attribute(atom(), tokens()) -> {doc(), tokens()}.
 attribute(Att, Tokens) ->
@@ -309,7 +319,9 @@ fun_([{'fun', _} | Tokens]) ->
 -spec comment(string()) -> doc().
 comment(Comment) -> text(list_to_binary(Comment)).
 
+%%
 %% Generic Erlang Terms
+%%
 
 -spec equation(doc(), doc(), force_break()) -> doc().
 equation(Equals, Expr, ForceBreak) ->
@@ -620,7 +632,9 @@ expr_([{Op, _} | Rest], Doc0, ForceBreak) ->
 expr_([{char, _, Char} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(c2b(Char))), ForceBreak).
 
+%%
 %% Document Formatting
+%%
 
 -spec format(integer(), integer(), list({integer(), mode(), doc()})) -> sdoc().
 format(_, _, []) -> s_nil;
@@ -668,7 +682,9 @@ sdoc_to_string({s_line, Indent, Doc}) ->
     DocString = sdoc_to_string(Doc),
     <<"\n", Prefix/binary, DocString/binary>>.
 
+%%
 %% Binary Conversion
+%%
 
 -spec op2b(atom()) -> binary().
 op2b(dot) -> ?dot;
@@ -694,7 +710,9 @@ s2b(String) -> list_to_binary(escape(String)).
 -spec escape(string() | atom()) -> string().
 escape(Term) -> io_lib:format("~p", [Term]).
 
+%%
 %% Utils
+%%
 
 -spec repeat(binary(), integer()) -> binary().
 repeat(Bin, Times) when Times >= 0 -> repeat_(<<>>, Bin, Times).
@@ -834,7 +852,9 @@ close_bracket('[') -> ']';
 close_bracket('{') -> '}';
 close_bracket('<<') -> '>>'.
 
+%%
 %% Testing
+%%
 
 test_binop(Left, Op, Right, Indent) ->
     group(nest(Indent, space(group(space(text(Left), text(Op))), text(Right)))).
