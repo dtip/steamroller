@@ -18,7 +18,7 @@ Use
 Add steamroller to your rebar config:
 
     {plugins, [
-        {steamroller, {git, "https://github.com/old-reliable/steamroller.git", {branch, "master"}}}
+        {steamroller, "0.2.0"}
     ]}.
 
 Then ask it to steamroll your code directly in an existing application:
