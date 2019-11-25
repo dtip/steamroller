@@ -1049,3 +1049,21 @@ map_test_() ->
     Expect1 = <<"foo() ->\n    X = #{test => 123},\n    X#{\"test\" => 456}.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+record_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo() -> State = #state{test=123}, State#state{other=456}.">>),
+    Expect0 = <<"foo() ->\n    State = #state{test = 123},\n    State#state{other = 456}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    State = #state{test = 123},\n    State#state{other = 456}.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 =
+        <<
+            "foo() ->\n    State =\n        #state{\n            test = 123\n        },\n    State#state{\n        other = 456\n    }.\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 25),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].

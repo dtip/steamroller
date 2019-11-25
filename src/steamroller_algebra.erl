@@ -473,6 +473,26 @@ expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = if_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle records
+    % #record_name{key => value}
+    [_, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Record = group(cons([text(<<"#">>), text(a2b(Atom)), ListGroup])),
+    expr_(Rest, space(Doc, Record), ForceBreak1);
+expr_(
+    [{var, LineNum, Var}, {'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0,
+    Doc,
+    ForceBreak0
+) ->
+    % Handle record updates
+    % Record#record_name{key => value}
+    [_, _, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Record = group(cons([text(v2b(Var)), text(<<"#">>), text(a2b(Atom)), ListGroup])),
+    expr_(Rest, space(Doc, Record), ForceBreak1);
 expr_([{'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle maps
     % #{key => value}
