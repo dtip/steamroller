@@ -1043,12 +1043,24 @@ list_comprehension_test_() ->
     ].
 
 map_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> X = #{test => 123}, X#{\"test\" => 456}.">>),
-    Expect0 = <<"foo() ->\n    X = #{test => 123},\n    X#{\"test\" => 456}.\n">>,
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo() -> X = #{test => 123, other => 456}, X#{\"test\" => 789}.">>
+        ),
+    Expect0 = <<"foo() ->\n    X = #{test => 123, other => 456},\n    X#{\"test\" => 789}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"foo() ->\n    X = #{test => 123},\n    X#{\"test\" => 456}.\n">>,
+    Expect1 = <<"foo() ->\n    X = #{test => 123, other => 456},\n    X#{\"test\" => 789}.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
-    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+    Expect2 =
+        <<
+            "foo() ->\n    X =\n        #{\n            test => 123,\n            other => 456\n        },\n    X#{\"test\" => 789}.\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
 
 record_test_() ->
     Tokens =
