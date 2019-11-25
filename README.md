@@ -20,9 +20,7 @@ Use
 
 Add steamroller to your rebar config:
 
-    {plugins, [
-        {steamroller, "0.2.0"}
-    ]}.
+    {plugins, [steamroller]}.
 
 Then ask it to steamroll your code directly in an existing application:
 
