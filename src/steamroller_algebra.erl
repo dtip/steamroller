@@ -473,6 +473,22 @@ expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = if_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle maps
+    % #{key => value}
+    Tokens1 = tl(Tokens0),
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Map = group(cons(text(<<"#">>), ListGroup)),
+    expr_(Rest, space(Doc, Map), ForceBreak1);
+expr_([{var, LineNum, Var}, {'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle map updates
+    % X#{key => value}
+    [_, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Map = group(cons([text(v2b(Var)), text(<<"#">>), ListGroup])),
+    expr_(Rest, space(Doc, Map), ForceBreak1);
 expr_(
     [
         {'fun', _},
