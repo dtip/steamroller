@@ -3,14 +3,17 @@
 
 ![Build Badge](https://github.com/old-reliable/steamroller/workflows/build/badge.svg)
 
-Code uniformity is inevitable.
+Steamroller is an opinionated Erlang code formatter. Uniformity is inevitable.
 
 ![Austin Powers Steamroller Gif](https://thumbs.gfycat.com/MassiveGlossyAmericantoad-size_restricted.gif)
 
-Upset your colleagues by autoformatting their Erlang.
+Upset your colleagues by autoformatting their code.
 
-This rebar3 plugin is early stage and not yet suitable for use in production. In particular, it has not
-yet been tested on records or maps.
+This rebar3 plugin is early stage but could be used in production if you're brave. The Erlang
+abstract syntax tree is checked before and after formatting to make sure that the formatted file
+is equivalent to the original.
+
+Steamroller should be used as part of your CI to enforce a consistent style across your codebase.
 
 Use
 ---
