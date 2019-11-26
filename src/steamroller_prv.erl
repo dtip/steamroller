@@ -37,8 +37,8 @@ init(State) ->
                         }
                     ]
                 },
-                {short_desc, "Format that Erlang."},
-                {desc, "Format that Erlang."}
+                {short_desc, "An opinionated Erlang code formatter."},
+                {desc, "An opinionated Erlang code formatter."}
             ]
         ),
     {ok, rebar_state:add_provider(State, Provider)}.
