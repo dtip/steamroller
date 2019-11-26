@@ -8,6 +8,7 @@
 -define(DEPS, [app_discovery]).
 -define(FILE_KEY, steamroll_file).
 -define(DIR_KEY, steamroll_dir).
+-define(DEFAULT_INPUTS, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]).
 
 %% ===================================================================
 %% Public API
@@ -82,19 +83,21 @@ format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 %% ===================================================================
 
 format_apps([App | Rest], Opts) ->
+    Inputs =
+        case proplists:get_value(inputs, Opts) of
+            undefined -> ?DEFAULT_INPUTS;
+            Custom -> Custom
+        end,
     AppDir = rebar_app_info:dir(App),
-    Files = [<<"rebar.config">> | find_root_files(AppDir)],
+    Files = lists:flatten(lists:map(fun (Input) -> find_root_files(AppDir, Input) end, Inputs)),
     case format_files(Files, Opts) of
         ok -> format_apps(Rest, Opts);
         {error, _} = Err -> Err
     end;
 format_apps([], _) -> ok.
 
-find_root_files(Dir) ->
-    [
-        list_to_binary(filename:join(Dir, File))
-        || File <- filelib:wildcard("{src,test}/**/*.{[he]rl,app.src}", Dir)
-    ].
+find_root_files(Dir, Input) ->
+    [list_to_binary(filename:join(Dir, File)) || File <- filelib:wildcard(Input, Dir)].
 
 find_dir_files(Dir) ->
     [
