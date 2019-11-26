@@ -10,7 +10,7 @@
 
 -module(steamroller_algebra).
 
--export([format_tokens/1, format_tokens/2, generate_doc/1, pretty/1, pretty/2]).
+-export([format_tokens/2, generate_doc/1, pretty/2]).
 
 % Testing
 -export([repeat/2, from_the_paper/2]).
@@ -44,7 +44,6 @@
 -define(nl, <<"\n">>).
 -define(two_nl, <<"\n\n">>).
 -define(dot, <<".">>).
--define(max_width, 100).
 -define(indent, 4).
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==')).
@@ -55,9 +54,6 @@
 %% API
 %%
 
--spec format_tokens(tokens()) -> binary().
-format_tokens(Tokens) -> format_tokens(Tokens, ?max_width).
-
 -spec format_tokens(tokens(), integer()) -> binary().
 format_tokens(Tokens, Width) ->
     Doc = generate_doc(Tokens),
@@ -65,9 +61,6 @@ format_tokens(Tokens, Width) ->
 
 -spec generate_doc(tokens()) -> doc().
 generate_doc(Tokens) -> generate_doc_(Tokens, empty(), new_file).
-
--spec pretty(doc()) -> binary().
-pretty(Doc) -> pretty(Doc, ?max_width).
 
 -spec pretty(doc(), integer()) -> binary().
 pretty(Doc, Width) ->

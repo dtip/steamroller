@@ -5,15 +5,21 @@
 -include_lib("kernel/include/logger.hrl").
 
 -define(CRASHDUMP, "steamroller.crashdump").
+-define(default_line_length, 100).
 
 %% API
 
 -spec format(binary(), list(any())) -> ok | {error, any()}.
 format(File, Opts) ->
     Check = lists:member(check, Opts),
+    LineLength =
+        case proplists:get_value(line_length, Opts) of
+            undefined -> ?default_line_length;
+            Custom -> Custom
+        end,
     case file:read_file(File) of
         {ok, Code} ->
-            case format_code(Code, File) of
+            case format_code(Code, File, LineLength) of
                 {ok, Code} -> ok;
                 {ok, FormattedCode} ->
                     case Check of
@@ -28,12 +34,12 @@ format(File, Opts) ->
     end.
 
 -spec format_code(binary()) -> ok | {error, any()}.
-format_code(Code) -> format_code(Code, <<"no_file">>).
+format_code(Code) -> format_code(Code, <<"no_file">>, ?default_line_length).
 
 %% Internal
 
--spec format_code(binary(), binary()) -> {ok, binary()} | {error, any()}.
-format_code(Code, File) ->
+-spec format_code(binary(), binary(), integer()) -> {ok, binary()} | {error, any()}.
+format_code(Code, File, LineLength) ->
     {ok, R} = re:compile("\\.[he]rl$"),
     case re:run(File, R) of
         {match, _} ->
@@ -41,7 +47,7 @@ format_code(Code, File) ->
             case steamroller_ast:ast(Code, File) of
                 {ok, OriginalAst} ->
                     Tokens = steamroller_ast:tokens(Code),
-                    FormattedCode = steamroller_algebra:format_tokens(Tokens),
+                    FormattedCode = steamroller_algebra:format_tokens(Tokens, LineLength),
                     case steamroller_ast:ast(FormattedCode, ?CRASHDUMP) of
                         {ok, NewAst} ->
                             case steamroller_ast:eq(OriginalAst, NewAst) of
@@ -60,7 +66,7 @@ format_code(Code, File) ->
         nomatch ->
             % Don't check the AST for config files.
             Tokens = steamroller_ast:tokens(Code),
-            {ok, steamroller_algebra:format_tokens(Tokens)}
+            {ok, steamroller_algebra:format_tokens(Tokens, LineLength)}
     end.
 
 handle_formatting_error({error, Msg}, File, FormattedCode) ->

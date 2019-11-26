@@ -46,7 +46,13 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     % No idea why a two-element tuple is returned here.
-    {Opts, _} = rebar_state:command_parsed_args(State),
+    {ArgOpts, _} = rebar_state:command_parsed_args(State),
+    RebarOpts = rebar_state:opts(State),
+    Opts =
+        case dict:find(steamroller, RebarOpts) of
+            {ok, ConfigOpts} -> ArgOpts ++ ConfigOpts;
+            error -> ArgOpts
+        end,
     Result =
         case {lists:keyfind(?FILE_KEY, 1, Opts), lists:keyfind(?DIR_KEY, 1, Opts)} of
             {{?FILE_KEY, File}, _} ->
