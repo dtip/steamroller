@@ -15,8 +15,7 @@ is equivalent to the original.
 
 Steamroller should be used as part of your CI to enforce a consistent style across your codebase.
 
-Use
----
+## Use
 
 Add steamroller to your rebar config:
 
@@ -29,8 +28,27 @@ Then ask it to steamroll your code directly in an existing application:
     ===> Compiling steamroller
     <Steamroller Output>
 
-CI
----
+## Editor Integration
+
+### Vim
+
+You can use steamroller from vim with [Neoformat][https://github.com/sbdchd/neoformat].
+
+Install Neoformat and then paste the below into your vimrc.
+
+```viml
+" Erlang autoformat
+let g:neoformat_erlang_steamroller = {
+  \ 'exe': 'rebar3',
+  \ 'args': ['steamroll -f'],
+  \ 'stdin': 0,
+  \ 'replace': 1,
+  \ }
+let g:neoformat_enabled_erlang = ['steamroller']
+autocmd BufWritePre rebar.config,*.[he]rl,*.app.src Neoformat steamroller
+```
+
+## CI
 
 To check that code is properly formatted as part of your CI:
 
@@ -38,25 +56,21 @@ To check that code is properly formatted as part of your CI:
 
 The exit code will be non-zero if the code has not been formatted before being committed.
 
-Build
------
+## Build
 
     $ rebar3 compile
 
-Test
-----
+## Test
 
     $ rebar3 test
 
-Dialyzer
---------
+## Dialyzer
 
 Dialyzer is Erlang's static analysis tool.
 
     $ rebar3 dialyzer
 
-Local Development
------------------
+## Local Development
 
 In order to use steamroller locally on itself you need to symlink the repo into the \_checkouts
 directory:
