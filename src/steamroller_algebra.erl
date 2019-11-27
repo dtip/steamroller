@@ -51,7 +51,14 @@
 -define(
     IS_TERMINATED_KEYWORD(C),
     % 'fun' is not always terminated - there is probably a bug here.
-    (C == 'case' orelse C == 'if' orelse C == 'fun' orelse C == 'receive' orelse C == 'try' orelse C == 'begin')
+    (
+        C == 'case'
+        orelse C == 'if'
+        orelse C == 'fun'
+        orelse C == 'receive'
+        orelse C == 'try'
+        orelse C == 'begin'
+    )
 ).
 
 %%
@@ -389,14 +396,14 @@ try_([{'try', _} | Tokens]) ->
             ForceBreak,
             group(
                 space(
-                  [
-                    cons(
-                        group(space(text(<<"try">>), TryArg)),
-                        nest(?indent, space(text(<<" of">>), GroupedClauses))
-                    ),
-                    Catch,
-                    text(<<"end">>)
-                  ]
+                    [
+                        cons(
+                            group(space(text(<<"try">>), TryArg)),
+                            nest(?indent, space(text(<<" of">>), GroupedClauses))
+                        ),
+                        Catch,
+                        text(<<"end">>)
+                    ]
                 ),
                 inherit
             )
@@ -424,7 +431,14 @@ catch_([{'catch', _} | Tokens]) ->
 fun_([{'fun', _} | Tokens]) ->
     {ClauseTokens, Rest1, _} = get_until_end(Tokens),
     {ForceBreak, Clauses, []} = clauses(ClauseTokens),
-    Doc = force_break(ForceBreak, group(space(nest(?indent, space([text(<<"fun">>) | Clauses])), text(<<"end">>)), inherit)),
+    Doc =
+        force_break(
+            ForceBreak,
+            group(
+                space(nest(?indent, space([text(<<"fun">>) | Clauses])), text(<<"end">>)),
+                inherit
+            )
+        ),
     {ForceBreak, Doc, Rest1}.
 
 -spec begin_(tokens()) -> {force_break(), doc(), tokens()}.
@@ -989,7 +1003,12 @@ get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, []) ->
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack));
 get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack)
-when Keyword == 'case' orelse Keyword == 'if' orelse Keyword == 'receive' orelse Keyword == 'try' orelse Keyword == 'begin' ->
+when
+    Keyword == 'case'
+    orelse Keyword == 'if'
+    orelse Keyword == 'receive'
+    orelse Keyword == 'try'
+    orelse Keyword == 'begin' ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack]);
 get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, KeywordStack) ->
     % We only expect an 'end' if this is an anon function and not pointing to another function:
@@ -1020,6 +1039,7 @@ resolve_force_break(Args) ->
 
 -spec is_bool_list(tokens()) -> boolean().
 is_bool_list([]) -> false;
+is_bool_list([{Op, _} | _]) when ?IS_TERMINATED_KEYWORD(Op) -> false;
 is_bool_list([{Op, _} | _]) when ?IS_BOOL_CONCATENATOR(Op) -> true;
 is_bool_list([_ | Rest]) -> is_bool_list(Rest).
 

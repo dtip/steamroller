@@ -664,6 +664,20 @@ guarded_case_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+guarded_case_equation_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<
+                "foo(X) -> Y = case X of X when X == test orelse X == other -> ok; _ -> error end, Y."
+            >>
+        ),
+    Expect0 =
+        <<
+            "foo(X) ->\n    Y =\n        case X of\n            X when X == test orelse X == other -> ok;\n            _ -> error\n        end,\n    Y.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 simple_module_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(X) -> module:bar().">>),
     Expect0 = <<"foo(X) -> module:bar().\n">>,
