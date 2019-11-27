@@ -845,7 +845,7 @@ multi_guard_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     Expect2 =
         <<
-            "foo(X)\nwhen\n    is_integer(X)\n    andalso X > 200\n    andalso X < 500 ->\n    big_integer.\n"
+            "foo(X)\nwhen is_integer(X)\n     andalso X > 200\n     andalso X < 500 ->\n    big_integer.\n"
         >>,
     Result2 = steamroller_algebra:format_tokens(Tokens, 40),
     [
@@ -866,7 +866,7 @@ grouped_multi_guard_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     Expect2 =
         <<
-            "foo(X)\nwhen\n    is_integer(X)\n    andalso (X > 200 orelse X < 0) ->\n    maybe_negative.\n"
+            "foo(X)\nwhen is_integer(X)\n     andalso (X > 200 orelse X < 0) ->\n    maybe_negative.\n"
         >>,
     Result2 = steamroller_algebra:format_tokens(Tokens, 40),
     [

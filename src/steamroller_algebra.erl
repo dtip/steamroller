@@ -806,7 +806,7 @@ expr_([{comment, _, Comment} | Rest], Doc, _ForceBreak) ->
     expr_(Rest, space(Doc, comment(Comment)), force_break);
 expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
-    Group = group(nest(?indent, space(text(<<"when">>), Expr))),
+    Group = group(cons(text(<<"when ">>), underneath(0, group(Expr, inherit)))),
     {End, ForceBreak1, group(space(Doc, group(Group)))};
 expr_([{'||', _} | Rest], Doc, ForceBreak0) ->
     % Handle list comprehensions
@@ -1003,12 +1003,11 @@ get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, []) ->
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack));
 get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack)
-when
-    Keyword == 'case'
-    orelse Keyword == 'if'
-    orelse Keyword == 'receive'
-    orelse Keyword == 'try'
-    orelse Keyword == 'begin' ->
+when Keyword == 'case'
+     orelse Keyword == 'if'
+     orelse Keyword == 'receive'
+     orelse Keyword == 'try'
+     orelse Keyword == 'begin' ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack]);
 get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, KeywordStack) ->
     % We only expect an 'end' if this is an anon function and not pointing to another function:
