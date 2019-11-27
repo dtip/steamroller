@@ -657,6 +657,8 @@ expr_([{'|' = Op, _} | Rest0], Doc, ForceBreak0) ->
     end;
 expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
     {comment, force_break, space(Doc, comment(Comment))};
+expr_([{comment, _, Comment} | Rest], Doc, _ForceBreak) ->
+    expr_(Rest, space(Doc, comment(Comment)), force_break);
 expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
     {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
     Group = group(nest(?indent, space(text(<<"when">>), Expr))),
@@ -842,6 +844,9 @@ when End == ',' orelse End == ';' orelse End == dot ->
     % We must only do this when the keyword stack is empty otherwise we'll put the comment
     % in the wrong place.
     {[Comment], lists:reverse([Token | Acc]) ++ Rest};
+get_end_of_expr([{comment, _, _} | _] = Rest, Acc, _LineNum, []) ->
+    % This can happen if there are comments after the final element in a list
+    {lists:reverse(Acc), Rest};
 get_end_of_expr([{End, _} = Token | Rest], Acc, _, [])
 when End == ',' orelse End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};

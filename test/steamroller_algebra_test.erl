@@ -75,6 +75,16 @@ brackets_inline_comment_test_() ->
     Result2 = steamroller_algebra:format_tokens(Tokens, 10),
     [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1), ?_assertEqual(Expect, Result2)].
 
+brackets_multiline_inline_comment_test_() ->
+    % Why would you do this, OTP?
+    % The comments below the inline could either be a continuation of the inline comment or a fresh
+    % comment...
+    % Lets use a solution which will upset everyone.
+    Tokens = steamroller_ast:tokens(<<"{\nflags % [line1,\n% line2,\n% line3]\n}">>),
+    Expect = <<"{\n    % [line1,\n    flags\n    % line2,\n    % line3]\n}\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect, Result0)].
+
 config_test_() ->
     Tokens =
         steamroller_ast:tokens(<<"{erl_opts, [debug_info, {warn_format, 1}, warn_export_all]}.">>),
