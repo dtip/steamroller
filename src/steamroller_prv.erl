@@ -106,6 +106,7 @@ find_dir_files(Dir) ->
     ].
 
 format_files([File | Rest], Opts) ->
+    rebar_api:debug("Steamrolling file: ~s", [File]),
     case steamroller:format_file(File, Opts) of
         ok -> format_files(Rest, Opts);
         {error, _} = Err -> Err

@@ -1079,3 +1079,12 @@ record_test_() ->
         ?_assertEqual(Expect1, Result1),
         ?_assertEqual(Expect2, Result2)
     ].
+
+ifdef_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"-ifdef(something).\n-define(x, 1).\n-else.\n-define(x, 2).\n-endif.">>
+        ),
+    Expect0 = <<"-ifdef(something).\n-define(x, 1).\n-else.\n-define(x, 2).\n-endif.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].

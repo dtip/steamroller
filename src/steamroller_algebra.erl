@@ -187,9 +187,13 @@ generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
     % Module Attribute
     {Group, Rest} = attribute(Atom, Tokens),
     Doc1 =
-        case PrevTerm of
-            function_comment -> newline(Doc0, Group);
-            {attribute, Atom} -> newline(Doc0, Group);
+        case {Atom, PrevTerm} of
+            {_, function_comment} -> newline(Doc0, Group);
+            {Atom, {attribute, Atom}} -> newline(Doc0, Group);
+            {define, {attribute, IfDef}} when IfDef == ifdef orelse IfDef == else ->
+                newline(Doc0, Group);
+            {IfDef, {attribute, define}} when IfDef == else orelse IfDef == endif ->
+                newline(Doc0, Group);
             _ -> newlines(Doc0, Group)
         end,
     generate_doc_(Rest, Doc1, {attribute, Atom});
@@ -244,6 +248,12 @@ generate_doc_([{dot, _} | Rest], Doc, _PrevTerm) ->
 %%
 
 -spec attribute(atom(), tokens()) -> {doc(), tokens()}.
+attribute(Att, [{dot, _} | Rest]) ->
+    % Handle attributes without brackets
+    % -else.
+    % -endif.
+    Attribute = group(cons([text(<<"-">>), text(a2b(Att)), text(?dot)])),
+    {Attribute, Rest};
 attribute(Att, Tokens) ->
     {_ForceBreak, Expr, [{dot, _} | Rest]} = list_group(Tokens),
     Attribute = group(cons([text(<<"-">>), text(a2b(Att)), Expr, text(?dot)])),
