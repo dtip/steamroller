@@ -1100,12 +1100,35 @@ ifdef_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 begin_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-define(macro(Thing),\n begin\n (Thing + 1)\n ).">>),
-    Expect0 = <<"-define(macro(Thing), begin (Thing + 1)).\n">>,
+    Tokens = steamroller_ast:tokens(<<"-define(macro(Thing),\n begin\n (Thing + 1)\n end).">>),
+    Expect0 = <<"-define(macro(Thing), begin (Thing + 1) end).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"-define(\n    macro(Thing),\n    begin\n    (Thing + 1)\n).\n">>,
+    Expect1 = <<"-define(\n    macro(Thing),\n    begin\n        (Thing + 1)\n    end\n).\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 20),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+begin_list_comprehension_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo(Pids) -> [begin unlink(Pid), exit(Pid, kill) end || Pid <- Pids].">>
+        ),
+    Expect0 = <<"foo(Pids) -> [begin unlink(Pid), exit(Pid, kill) end || Pid <- Pids].\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "foo(Pids) ->\n    [\n        begin unlink(Pid), exit(Pid, kill) end\n        || Pid <- Pids\n    ].\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 =
+        <<
+            "foo(Pids) ->\n    [\n        begin\n            unlink(Pid),\n            exit(Pid, kill)\n        end\n        || Pid <- Pids\n    ].\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
 
 send_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(Pid) -> Pid ! message.">>),
