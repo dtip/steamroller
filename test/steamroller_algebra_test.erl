@@ -833,6 +833,34 @@ when_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+guard_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) when is_atom(X), X == test -> ok.">>),
+    Expect0 = <<"foo(X) when is_atom(X), X == test -> ok.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(X)\nwhen is_atom(X), X == test ->\n    ok.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    Expect2 = <<"foo(X)\nwhen is_atom(X),\n     X == test ->\n    ok.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 20),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
+
+guard_sequence_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) when X == test; X == other -> ok.">>),
+    Expect0 = <<"foo(X) when X == test; X == other -> ok.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(X)\nwhen X == test; X == other ->\n    ok.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    Expect2 = <<"foo(X)\nwhen X == test;\n     X == other ->\n    ok.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 20),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
+
 multi_guard_test_() ->
     Tokens =
         steamroller_ast:tokens(
@@ -1251,7 +1279,6 @@ float_test_() ->
 % This seems like a faff so it's getting left for later.
 %
 number_base_test_() ->
-    % TODO:
     Tokens = steamroller_ast:tokens(<<"foo() -> 16#1f.">>),
     %Expect0 = <<"foo() -> 16#1f.\n">>,
     Expect0 = <<"foo() -> 31.\n">>,

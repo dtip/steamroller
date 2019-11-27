@@ -449,11 +449,26 @@ begin_([{'begin', _} | Tokens]) ->
     Doc = group(space(nest(?indent, space(text(<<"begin">>), GroupedExprs)), text(<<"end">>))),
     {ForceBreak, Doc, Rest}.
 
+-spec when_(tokens()) -> {force_break(), doc(), tokens()}.
+when_([{'when', _} | Tokens]) -> when__(Tokens, no_force_break, []).
+
+when__(Tokens, ForceBreak0, Acc) ->
+    case exprs(Tokens) of
+        {empty, ForceBreak, Exprs, []} ->
+            Expr = space(Acc ++ Exprs),
+            Doc = group(cons(text(<<"when ">>), underneath(0, group(Expr, inherit)))),
+            ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
+            {ForceBreak1, Doc, []};
+        {End, ForceBreak, Exprs, Rest} when End == ';' orelse End == ',' ->
+            ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
+            when__(Rest, ForceBreak1, Acc ++ Exprs)
+    end.
+
 -spec comment(string()) -> doc().
 comment(Comment) -> text(list_to_binary(Comment)).
 
 %%
-%% Generic Erlang Terms
+%% Generic Erlang Expressions
 %%
 
 -spec equation(doc(), doc(), force_break()) -> doc().
@@ -561,6 +576,7 @@ clause(Tokens) ->
             {Continue, force_break, space(Exprs), Rest}
     end.
 
+% Get a list of expressions.
 -spec exprs(tokens()) -> {dot | ';' | empty, force_break(), list(doc()), tokens()}.
 exprs(Tokens) -> exprs(Tokens, [], no_force_break).
 
@@ -617,6 +633,10 @@ expr_([{'try', _} | _] = Tokens, Doc, ForceBreak0) ->
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'begin', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = begin_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
+    expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'when', _} | _] = Tokens, Doc, ForceBreak0) ->
+    {GroupForceBreak, Group, Rest} = when_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
@@ -804,10 +824,6 @@ expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
     {comment, force_break, space(Doc, comment(Comment))};
 expr_([{comment, _, Comment} | Rest], Doc, _ForceBreak) ->
     expr_(Rest, space(Doc, comment(Comment)), force_break);
-expr_([{'when', _} | Rest0], Doc, ForceBreak0) ->
-    {End, ForceBreak1, Expr} = expr_(Rest0, empty(), ForceBreak0),
-    Group = group(cons(text(<<"when ">>), underneath(0, group(Expr, inherit)))),
-    {End, ForceBreak1, group(space(Doc, group(Group)))};
 expr_([{'||', _} | Rest], Doc, ForceBreak0) ->
     % Handle list comprehensions
     {End, ForceBreak1, Expr} = expr_(Rest, text(<<"||">>), ForceBreak0),
@@ -973,62 +989,75 @@ remove_matching(Start, End, [Token | Rest], Acc, Stack) ->
     remove_matching(Start, End, Rest, [Token | Acc], Stack).
 
 -spec get_end_of_expr(tokens()) -> {tokens(), tokens()}.
-get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, []).
+get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, [], not_guard).
 
 % Dialyzer gets upset if we use integer() for the third arg here but that's what it is.
--spec get_end_of_expr(tokens(), tokens(), any(), list(atom())) -> {tokens(), tokens()}.
-get_end_of_expr([], Acc, _LineNum, _KeywordStack) -> {lists:reverse(Acc), []};
-get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack) ->
+-spec get_end_of_expr(tokens(), tokens(), any(), list(atom()), guard | not_guard) ->
+    {tokens(), tokens()}.
+% We consider the end of an expression to be any ',', ';', or 'dot'.
+% If we find an end-terminated keyword, we put it onto the keyword stack and continue until
+% we find the matching 'end'.
+% If we find a 'when', we ignore any commas and semicolons until the corresponding '->'.
+get_end_of_expr([], Acc, _LineNum, _KeywordStack, _) -> {lists:reverse(Acc), []};
+get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack, _) ->
     {[Comment], Rest};
-get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, []) ->
+get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, [], _) ->
     % Inline comment - naughty naughty
     % Return the comment and put the acc back.
     % We must only do this when the keyword stack is empty otherwise we'll put the comment
     % in the wrong place.
     {[Comment], lists:reverse(Acc) ++ Rest};
-get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _, [])
+get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _, [], _)
 when End == ',' orelse End == ';' orelse End == dot ->
     % Inline comment - naughty naughty
     % Return the comment and put the acc back.
     % We must only do this when the keyword stack is empty otherwise we'll put the comment
     % in the wrong place.
     {[Comment], lists:reverse([Token | Acc]) ++ Rest};
-get_end_of_expr([{comment, _, _} | _] = Rest, Acc, _LineNum, []) ->
+get_end_of_expr([{comment, _, _} | _] = Rest, Acc, _LineNum, [], _) ->
     % This can happen if there are comments after the final element in a list
     {lists:reverse(Acc), Rest};
-get_end_of_expr([{End, _} = Token | Rest], Acc, _, [])
+get_end_of_expr([{End, _} = Token | Rest], Acc, _, [], not_guard)
 when End == ',' orelse End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};
-get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, []) ->
+get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, [], _) ->
     {lists:reverse([Token | Acc]), Rest};
-get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack));
-get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack)
+get_end_of_expr([{'when', LineNum} = Token | Rest], Acc, _, KeywordStack, not_guard) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, guard);
+get_end_of_expr([{'->', LineNum} = Token | Rest], Acc, _, KeywordStack, guard) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, not_guard);
+get_end_of_expr([{End, LineNum} = Token | Rest], Acc, _, KeywordStack, guard)
+when End == ',' orelse End == ';' ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, guard);
+get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack, Guard) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack), Guard);
+get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack, Guard)
 when Keyword == 'case'
      orelse Keyword == 'if'
      orelse Keyword == 'receive'
      orelse Keyword == 'try'
      orelse Keyword == 'begin' ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack]);
-get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, KeywordStack) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack], Guard);
+get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, KeywordStack, Guard) ->
     % We only expect an 'end' if this is an anon function and not pointing to another function:
     % ignore:     `fun local/1`
     % care about: `fun (X) -> X + 1 end`
     Rest = tl(Tokens),
-    get_end_of_expr(Rest, [Token | Acc], LineNum, ['fun' | KeywordStack]);
-get_end_of_expr([{Open, _} = Token | Rest0], Acc, _, KeywordStack) when ?IS_LIST_CHAR(Open) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, ['fun' | KeywordStack], Guard);
+get_end_of_expr([{Open, _} = Token | Rest0], Acc, _, KeywordStack, Guard) when ?IS_LIST_CHAR(Open) ->
     Close = close_bracket(Open),
     {Tokens, Rest1, {Close, LineNum} = EndToken} = get_from_until(Open, Close, Rest0),
     get_end_of_expr(
         Rest1,
         [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
         LineNum,
-        KeywordStack
+        KeywordStack,
+        Guard
     );
-get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _, KeywordStack) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack);
-get_end_of_expr([{_, LineNum, _} = Token | Rest], Acc, _, KeywordStack) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack).
+get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _, KeywordStack, Guard) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, Guard);
+get_end_of_expr([{_, LineNum, _} = Token | Rest], Acc, _, KeywordStack, Guard) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, Guard).
 
 -spec resolve_force_break(list(force_break())) -> force_break().
 resolve_force_break(Args) ->
