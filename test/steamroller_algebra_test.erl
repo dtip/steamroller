@@ -1154,3 +1154,34 @@ float_test_() ->
     Expect0 = <<"foo() -> 0.333333.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
+
+% FIXME
+%
+% number_base_test_ and number_e_test_ show that we convert allowed erlang number syntax into
+% the number literals (...apart from 2.3e3 because that's apparently allowed).
+%
+% This behaviour comes from erl_scan:string which we use to generate our source code tokens.
+%
+% I think the fix is to pass the `text` option to erl_scan:string and scan the tokens and the
+% raw text at the same time. Use the text instead of the parsed tokens for these number
+% representations.
+%
+% This seems like a faff so it's getting left for later.
+%
+number_base_test_() ->
+    % TODO:
+    Tokens = steamroller_ast:tokens(<<"foo() -> 16#1f.">>),
+    %Expect0 = <<"foo() -> 16#1f.\n">>,
+    Expect0 = <<"foo() -> 31.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+number_e_test_() ->
+    Tokens0 = steamroller_ast:tokens(<<"foo() -> 2.3e3.">>),
+    Expect0 = <<"foo() -> 2.3e3.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"foo() -> 2.3e-3.">>),
+    %Expect1 = <<"foo() -> 2.3e-3.\n">>,
+    Expect1 = <<"foo() -> 0.0023.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
