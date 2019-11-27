@@ -690,6 +690,8 @@ expr_([{var, _, Var} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(v2b(Var))), ForceBreak);
 expr_([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(i2b(Integer))), ForceBreak);
+expr_([{float, _, Float} | Rest], Doc, ForceBreak) ->
+    expr_(Rest, space(Doc, text(f2b(Float))), ForceBreak);
 expr_([{string, _, Var} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(s2b(Var))), ForceBreak);
 expr_([{BoolOp, _} | Rest0], Doc, ForceBreak0) when ?IS_BOOL_CONCATENATOR(BoolOp) ->
@@ -799,6 +801,9 @@ a2b(Atom) -> list_to_binary(escape(Atom)).
 
 -spec i2b(integer()) -> binary().
 i2b(Integer) -> integer_to_binary(Integer).
+
+-spec f2b(float()) -> binary().
+f2b(Float) -> list_to_binary(io_lib:format("~p", [Float])).
 
 -spec c2b(integer()) -> binary().
 c2b(Char) -> list_to_binary(io_lib:format("$~c", [Char])).

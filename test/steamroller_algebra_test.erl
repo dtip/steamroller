@@ -1148,3 +1148,9 @@ empty_receive_test_() ->
         ?_assertEqual(Expect1, Result1),
         ?_assertEqual(Expect2, Result2)
     ].
+
+float_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> 0.333333.">>),
+    Expect0 = <<"foo() -> 0.333333.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
