@@ -1133,3 +1133,18 @@ receive_test_() ->
         >>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 30),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+empty_receive_test_() ->
+    % Who knew this is valid erlang!
+    Tokens = steamroller_ast:tokens(<<"foo() -> receive\n  after X -> timeout\n end.">>),
+    Expect0 = <<"foo() -> receive after X -> timeout end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    receive after X -> timeout end.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 36),
+    Expect2 = <<"foo() ->\n    receive\n    after\n        X -> timeout\n    end.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].

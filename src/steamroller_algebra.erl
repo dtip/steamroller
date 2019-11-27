@@ -113,6 +113,7 @@ group(D) -> {doc_group, D, self}.
 
 % Group inheritance is lifted from the Elixir algebra implementation.
 -spec group(doc(), inherit()) -> doc().
+group(doc_nil, _) -> doc_nil;
 group(D, Inherit) -> {doc_group, D, Inherit}.
 
 %%
@@ -409,6 +410,7 @@ list_elements(Tokens, Doc, ForceBreak0) ->
     list_elements(Rest, space(Doc, group(Expr)), ForceBreak1).
 
 -spec clauses(tokens()) -> {force_break(), list(doc()), tokens()}.
+clauses([]) -> {no_force_break, [empty()], []};
 clauses(Tokens) -> clauses(Tokens, [], []).
 
 -spec clauses(tokens(), list(doc()), list(force_break())) -> {force_break(), list(doc()), tokens()}.
