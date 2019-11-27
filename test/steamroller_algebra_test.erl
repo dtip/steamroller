@@ -1222,6 +1222,15 @@ empty_receive_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+nested_receive_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo() -> receive message -> receive after 0 -> ok end end">>),
+    Expect0 = <<"foo() -> receive message -> receive after 0 -> ok end end\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    receive\n        message -> receive after 0 -> ok end\n    end\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 float_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> 0.333333.">>),
     Expect0 = <<"foo() -> 0.333333.\n">>,

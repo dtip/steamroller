@@ -328,8 +328,8 @@ if_([{'if', _} | Tokens]) ->
 receive_([{'receive', _} | Tokens]) ->
     {ReceiveClauseTokens0, Rest, _} = get_until_end(Tokens),
     {ReceiveClauseTokens1, AfterClauseTokens} =
-        case get_until_any(['after'], ReceiveClauseTokens0) of
-            {_Tokens, [], not_found} -> {ReceiveClauseTokens0, []};
+        case get_from_until('receive', 'after', ReceiveClauseTokens0) of
+            {_, [], _} -> {ReceiveClauseTokens0, []};
             {R, A, Token} -> {R, [Token | A]}
         end,
     {ReceiveForceBreak, Clauses, []} = clauses(ReceiveClauseTokens1),
@@ -915,6 +915,7 @@ get_from_until(Start, End, Tokens) -> get_from_until(Start, End, Tokens, [], 0).
 
 -spec get_from_until(atom(), atom(), tokens(), tokens(), integer()) ->
     {tokens(), tokens(), token()}.
+get_from_until(_Start, _End, [Token], Acc, _Stack) -> {lists:reverse(Acc), [], Token};
 get_from_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
     get_from_until(Start, End, Rest, [Token | Acc], Stack + 1);
 get_from_until(_Start, End, [{End, _} = Token | Rest], Acc, 0) -> {lists:reverse(Acc), Rest, Token};
