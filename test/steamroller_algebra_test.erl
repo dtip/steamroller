@@ -1106,3 +1106,30 @@ begin_test_() ->
     Expect1 = <<"-define(\n    macro(Thing),\n    begin\n    (Thing + 1)\n).\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 20),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+send_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(Pid) -> Pid ! message.">>),
+    Expect0 = <<"foo(Pid) -> Pid ! message.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(Pid) ->\n    Pid ! message.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 20),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+receive_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<
+                "foo() -> receive\n  X when is_integer(X) -> X + 1;\n  Y -> {ok, Y}\n  after\n  100 -> error\n end"
+            >>
+        ),
+    Expect0 =
+        <<
+            "foo() ->\n    receive\n        X when is_integer(X) -> X + 1;\n        Y -> {ok, Y}\n    after\n        100 -> error\n    end\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "foo() ->\n    receive\n        X when is_integer(X) ->\n            X + 1;\n        Y -> {ok, Y}\n    after\n        100 -> error\n    end\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].

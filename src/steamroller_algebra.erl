@@ -48,7 +48,7 @@
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==')).
 -define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
--define(IS_KEYWORD(C), (C == 'case' orelse C == 'if' orelse C == 'fun')).
+-define(IS_KEYWORD(C), (C == 'case' orelse C == 'if' orelse C == 'fun' orelse C == 'receive')).
 
 %%
 %% API
@@ -312,6 +312,55 @@ if_([{'if', _} | Tokens]) ->
         ),
     {ForceBreak, Doc, Rest1}.
 
+-spec receive_(tokens()) -> {force_break(), doc(), tokens()}.
+receive_([{'receive', _} | Tokens]) ->
+    {ReceiveClauseTokens0, Rest, _} = get_until_end(Tokens),
+    {ReceiveClauseTokens1, AfterClauseTokens} =
+        case get_until_any(['after'], ReceiveClauseTokens0) of
+            {_Tokens, [], not_found} -> {ReceiveClauseTokens0, []};
+            {R, A, Token} -> {R, [Token | A]}
+        end,
+    {ReceiveForceBreak, Clauses, []} = clauses(ReceiveClauseTokens1),
+    After = after_(AfterClauseTokens),
+    ForceBreak =
+        case length(Clauses) > 1 of
+            true -> force_break;
+            false -> ReceiveForceBreak
+        end,
+    GroupedClauses = force_break(ForceBreak, group(space(Clauses), inherit)),
+    Doc =
+        force_break(
+            ForceBreak,
+            group(
+                space(
+                    [
+                        nest(?indent, space(text(<<"receive">>), GroupedClauses)),
+                        After,
+                        text(<<"end">>)
+                    ]
+                ),
+                inherit
+            )
+        ),
+    {ForceBreak, Doc, Rest}.
+
+-spec after_(tokens()) -> doc().
+after_([]) -> empty();
+after_([{'after', _} | Tokens]) ->
+    {AfterForceBreak, Clauses, []} = clauses(Tokens),
+    ForceBreak =
+        case length(Clauses) > 1 of
+            true -> force_break;
+            false -> AfterForceBreak
+        end,
+    GroupedClauses = force_break(ForceBreak, group(space(Clauses), inherit)),
+    Doc =
+        force_break(
+            ForceBreak,
+            group(nest(?indent, space(text(<<"after">>), GroupedClauses)), inherit)
+        ),
+    Doc.
+
 -spec fun_(tokens()) -> {force_break(), doc(), tokens()}.
 fun_([{'fun', _} | Tokens]) ->
     {ClauseTokens, Rest1, _} = get_until_end(Tokens),
@@ -476,6 +525,14 @@ expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = if_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'receive', _} | _] = Tokens, Doc, ForceBreak0) ->
+    {GroupForceBreak, Group, Rest} = receive_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
+    expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'after', _} | _] = Tokens, Doc, ForceBreak0) ->
+    {GroupForceBreak, Group, []} = after_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
+    {empty, ForceBreak1, space(Doc, Group)};
 expr_([{'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle records
     % #record_name{key => value}
@@ -855,7 +912,7 @@ get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, []) ->
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack));
 get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack)
-when Keyword == 'case' orelse Keyword == 'if' ->
+when Keyword == 'case' orelse Keyword == 'if' orelse Keyword == 'receive' ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack]);
 get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, KeywordStack) ->
     % We only expect an 'end' if this is an anon function and not pointing to another function:
