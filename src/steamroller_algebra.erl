@@ -424,7 +424,7 @@ catch_([{'catch', _} | Tokens]) ->
 fun_([{'fun', _} | Tokens]) ->
     {ClauseTokens, Rest1, _} = get_until_end(Tokens),
     {ForceBreak, Clauses, []} = clauses(ClauseTokens),
-    Doc = group(space(nest(?indent, space([text(<<"fun">>) | Clauses])), text(<<"end">>))),
+    Doc = force_break(ForceBreak, group(space(nest(?indent, space([text(<<"fun">>) | Clauses])), text(<<"end">>)), inherit)),
     {ForceBreak, Doc, Rest1}.
 
 -spec begin_(tokens()) -> {force_break(), doc(), tokens()}.

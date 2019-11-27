@@ -768,6 +768,16 @@ nested_if_case_test_() ->
         ?_assertEqual(Expect3, Result3)
     ].
 
+nested_fun_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo(X) -> fun() -> case X of 1 -> ok; 0 -> error end end.">>),
+    Expect0 =
+        <<
+            "foo(X) ->\n    fun\n        () ->\n            case X of\n                1 -> ok;\n                0 -> error\n            end\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 when_test_() ->
     Tokens =
         steamroller_ast:tokens(<<"foo(X) when is_atom(X) -> atom; foo(X) when X =< 10 -> ok.">>),
