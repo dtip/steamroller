@@ -373,42 +373,76 @@ after_([{'after', _} | Tokens]) ->
         ),
     Doc.
 
+% 'try' can have an 'of' followed by heads and clauses or it can have no 'of' and instead
+% be followed by expressions.
+% TODO This is messy and should be refactored.
 -spec try_(tokens()) -> {force_break(), doc(), tokens()}.
 try_([{'try', _} | Tokens]) ->
-    {TryArgTokens, Rest0, _} = get_from_until('try', 'of', Tokens),
-    {empty, _, TryArg, []} = expr(TryArgTokens, no_force_break),
-    {TryClauseTokens0, Rest1, _} = get_until_end(Rest0),
-    {TryClauseTokens1, CatchClauseTokens} =
-        case get_until_any(['catch'], TryClauseTokens0) of
-            {_Tokens, [], not_found} -> {TryClauseTokens0, []};
+    {TryTokens, Rest, _} = get_until_end(Tokens),
+    {TryType, TryDoc, Rest1} =
+        case get_from_until('try', 'of', TryTokens) of
+            {_, [], _} ->
+                % There is no 'of' for this 'try'
+                {exprs, text(<<"try">>), TryTokens};
+            {TryArgTokens, Rest0, _} ->
+                {empty, _, TryArg, []} = expr(TryArgTokens, no_force_break),
+                {clauses, group(space(text(<<"try">>), TryArg)), Rest0}
+        end,
+    {TryTokens1, CatchClauseTokens} =
+        case get_until_any(['catch'], Rest1) of
+            {_Tokens, [], not_found} -> {Rest1, []};
             {R, A, Token} -> {R, [Token | A]}
         end,
-    {TryForceBreak, Clauses, []} = clauses(TryClauseTokens1),
     Catch = catch_(CatchClauseTokens),
-    ForceBreak =
-        case length(Clauses) > 1 of
-            true -> force_break;
-            false -> TryForceBreak
+    {ForceBreak0, Doc0} =
+        case TryType of
+            exprs ->
+                {empty, TryForceBreak, Exprs, []} = exprs(TryTokens1),
+                ForceBreak =
+                    case length(Exprs) > 1 of
+                        true -> force_break;
+                        false -> TryForceBreak
+                    end,
+                GroupedExprs = force_break(ForceBreak, group(space(Exprs), inherit)),
+                Doc =
+                    force_break(
+                        ForceBreak,
+                        group(
+                            space(
+                                [nest(?indent, space(TryDoc, GroupedExprs)), Catch, text(<<"end">>)]
+                            ),
+                            inherit
+                        )
+                    ),
+                {ForceBreak, Doc};
+            clauses ->
+                {TryForceBreak, Clauses, []} = clauses(TryTokens1),
+                ForceBreak =
+                    case length(Clauses) > 1 of
+                        true -> force_break;
+                        false -> TryForceBreak
+                    end,
+                GroupedClauses = force_break(ForceBreak, group(space(Clauses), inherit)),
+                Doc =
+                    force_break(
+                        ForceBreak,
+                        group(
+                            space(
+                                [
+                                    cons(
+                                        TryDoc,
+                                        nest(?indent, space(text(<<" of">>), GroupedClauses))
+                                    ),
+                                    Catch,
+                                    text(<<"end">>)
+                                ]
+                            ),
+                            inherit
+                        )
+                    ),
+                {ForceBreak, Doc}
         end,
-    GroupedClauses = force_break(ForceBreak, group(space(Clauses), inherit)),
-    Doc =
-        force_break(
-            ForceBreak,
-            group(
-                space(
-                    [
-                        cons(
-                            group(space(text(<<"try">>), TryArg)),
-                            nest(?indent, space(text(<<" of">>), GroupedClauses))
-                        ),
-                        Catch,
-                        text(<<"end">>)
-                    ]
-                ),
-                inherit
-            )
-        ),
-    {ForceBreak, Doc, Rest1}.
+    {ForceBreak0, Doc0, Rest}.
 
 -spec catch_(tokens()) -> doc().
 catch_([]) -> empty();
