@@ -1098,3 +1098,11 @@ ifdef_test_() ->
     Expect0 = <<"-ifdef(something).\n-define(x, 1).\n-else.\n-define(x, 2).\n-endif.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
+
+begin_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-define(macro(Thing),\n begin\n (Thing + 1)\n ).">>),
+    Expect0 = <<"-define(macro(Thing), begin (Thing + 1)).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-define(\n    macro(Thing),\n    begin\n    (Thing + 1)\n).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 20),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
