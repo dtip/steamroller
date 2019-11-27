@@ -1185,3 +1185,15 @@ number_e_test_() ->
     Expect1 = <<"foo() -> 0.0023.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+try_catch_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo() -> try bar() of X -> {ok, X} catch Y -> {caught, Y} end">>),
+    Expect0 = <<"foo() -> try bar() of X -> {ok, X} catch Y -> {caught, Y} end\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "foo() ->\n    try bar() of\n        X -> {ok, X}\n    catch\n        Y -> {caught, Y}\n    end\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
