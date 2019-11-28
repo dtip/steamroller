@@ -109,6 +109,12 @@ format_files([File | Rest], Opts) ->
     rebar_api:debug("Steamrolling file: ~s", [File]),
     case steamroller:format_file(File, Opts) of
         ok -> format_files(Rest, Opts);
+        {error, {File, {Line, epp, {undefined, Macro, _}}}} ->
+            rebar_api:warn(
+                "Steamroller Warn: File: ~s: Undefined macro ~p on line ~p. Skipping...",
+                [File, Macro, Line]
+            ),
+            format_files(Rest, Opts);
         {error, _} = Err -> Err
     end;
 format_files([], _) -> ok.
