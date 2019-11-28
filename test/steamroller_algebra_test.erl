@@ -1284,6 +1284,16 @@ begin_list_comprehension_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+begin_case_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo(X) -> begin case X of test -> ok; other -> error end end.">>),
+    Expect0 =
+        <<
+            "foo(X) ->\n    begin\n        case X of\n            test -> ok;\n            other -> error\n        end\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 send_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(Pid) -> Pid ! message.">>),
     Expect0 = <<"foo(Pid) -> Pid ! message.\n">>,

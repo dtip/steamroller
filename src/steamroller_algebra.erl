@@ -518,8 +518,15 @@ begin_([{'begin', _} | Tokens]) ->
     {BeginTokens, Rest, _} = get_until_end(Tokens),
     {empty, ForceBreak, Exprs, []} = exprs(BeginTokens),
     GroupedExprs = force_break(ForceBreak, group(space(Exprs), inherit)),
-    Doc = group(space(nest(?indent, space(text(<<"begin">>), GroupedExprs)), text(<<"end">>))),
-    {ForceBreak, Doc, Rest}.
+    Doc =
+        force_break(
+            ForceBreak,
+            group(
+                space(nest(?indent, space(text(<<"begin">>), GroupedExprs)), text(<<"end">>)),
+                inherit
+            )
+        ),
+    {ForceBreak, group(Doc), Rest}.
 
 -spec when_(tokens()) -> {force_break(), doc(), tokens()}.
 when_([{'when', _} | Tokens]) -> when__(Tokens, no_force_break, []).
