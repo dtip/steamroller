@@ -1326,6 +1326,14 @@ empty_receive_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+empty_receive_comment_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo() -> receive\n  % comment\n  after X -> timeout\n end.">>),
+    Expect0 =
+        <<"foo() ->\n    receive\n        % comment\n    after\n        X -> timeout\n    end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 nested_receive_test_() ->
     Tokens =
         steamroller_ast:tokens(<<"foo() -> receive message -> receive after 0 -> ok end end">>),

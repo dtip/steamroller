@@ -564,6 +564,7 @@ clauses(Tokens, Acc0, ForceBreaks0) ->
     end.
 
 -spec head_and_clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
+head_and_clause([]) -> {done, force_break, empty(), []};
 head_and_clause(Tokens) -> head_and_clause(Tokens, empty()).
 
 -spec head_and_clause(tokens(), doc()) -> {continue(), force_break(), doc(), tokens()}.
