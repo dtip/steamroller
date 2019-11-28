@@ -1472,6 +1472,18 @@ try_after_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+try_of_after_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo() -> try bar() of ok -> ok; error -> oh_no\nafter\n baz(), ok\nend">>
+        ),
+    Expect0 =
+        <<
+            "foo() ->\n    try bar() of\n        ok -> ok;\n        error -> oh_no\n    after\n        baz(),\n        ok\n    end\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 try_fun_test_() ->
     Tokens =
         steamroller_ast:tokens(

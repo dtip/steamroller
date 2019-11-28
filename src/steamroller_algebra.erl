@@ -455,6 +455,7 @@ try_([{'try', _} | Tokens]) ->
                                         nest(?indent, space(text(<<" of">>), GroupedClauses))
                                     ),
                                     Catch,
+                                    After,
                                     text(<<"end">>)
                                 ]
                             ),
