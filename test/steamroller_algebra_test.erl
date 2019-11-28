@@ -506,13 +506,21 @@ comment_test_() ->
     Result3 = steamroller_algebra:format_tokens(Tokens1, 100),
     Result4 = steamroller_algebra:format_tokens(Tokens1, 20),
     Result5 = steamroller_algebra:format_tokens(Tokens1, 1),
+    Tokens2 = steamroller_ast:tokens(<<"% Comment   \n">>),
+    Expect2 = <<"% Comment\n">>,
+    Result6 = steamroller_algebra:format_tokens(Tokens2, 100),
+    Result7 = steamroller_algebra:format_tokens(Tokens2, 20),
+    Result8 = steamroller_algebra:format_tokens(Tokens2, 1),
     [
         ?_assertEqual(Expect0, Result0),
         ?_assertEqual(Expect0, Result1),
         ?_assertEqual(Expect0, Result2),
         ?_assertEqual(Expect1, Result3),
         ?_assertEqual(Expect1, Result4),
-        ?_assertEqual(Expect1, Result5)
+        ?_assertEqual(Expect1, Result5),
+        ?_assertEqual(Expect2, Result6),
+        ?_assertEqual(Expect2, Result7),
+        ?_assertEqual(Expect2, Result8)
     ].
 
 basic_spec_test_() ->

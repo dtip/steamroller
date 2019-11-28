@@ -546,7 +546,7 @@ when__(Tokens, ForceBreak0, Acc) ->
     end.
 
 -spec comment(string()) -> doc().
-comment(Comment) -> text(unicode:characters_to_binary(Comment)).
+comment(Comment) -> text(string:trim(unicode:characters_to_binary(Comment))).
 
 -spec handle_trailing_comments({force_break(), list(doc()), tokens()}) ->
     {force_break(), list(doc())}.
