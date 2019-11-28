@@ -694,6 +694,22 @@ expr_([{'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0, Doc
     Record = group(cons([text(<<"#">>), text(a2b(Atom)), ListGroup])),
     expr_(Rest, space(Doc, Record), ForceBreak1);
 expr_(
+    [
+        {var, LineNum, Var},
+        {'#', LineNum},
+        {atom, LineNum, Rec},
+        {'.', LineNum},
+        {atom, LineNum, Key} | Rest
+    ],
+    Doc,
+    ForceBreak
+) ->
+    % Handle record element lookup
+    % #record_name.key
+    Record =
+        group(cons([text(v2b(Var)), text(<<"#">>), text(a2b(Rec)), text(<<".">>), text(a2b(Key))])),
+    expr_(Rest, space(Doc, Record), ForceBreak);
+expr_(
     [{var, LineNum, Var}, {'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0,
     Doc,
     ForceBreak0
