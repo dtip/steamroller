@@ -740,6 +740,33 @@ expr_(
         ),
     expr_(Rest, space(Doc, Fun), ForceBreak);
 expr_(
+    [
+        {'fun', _},
+        {'?', LineNum},
+        {var, LineNum, MacroName},
+        {':', LineNum},
+        {atom, LineNum, FunctionName},
+        {'/', LineNum},
+        {integer, LineNum, Arity} | Rest
+    ],
+    Doc,
+    ForceBreak
+) ->
+    % Handle `fun ?MACRO:function/arity`
+    Fun =
+        cons(
+            [
+                text(<<"fun ">>),
+                text(<<"?">>),
+                text(v2b(MacroName)),
+                text(<<":">>),
+                text(a2b(FunctionName)),
+                text(<<"/">>),
+                text(i2b(Arity))
+            ]
+        ),
+    expr_(Rest, space(Doc, Fun), ForceBreak);
+expr_(
     [{'fun', _}, {atom, LineNum, FunctionName}, {'/', LineNum}, {integer, LineNum, Arity} | Rest],
     Doc,
     ForceBreak
@@ -1000,6 +1027,11 @@ get_until_end([{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
     % fun local/1
     Rest1 = tl(Rest0),
     get_until_end(Rest1, [Token | Acc], Stack);
+get_until_end([{'fun', _} = Token, {'?', _} | _] = Rest0, Acc, Stack) ->
+    % 'fun' without 'end'
+    % fun ?MACRO/1
+    Rest1 = tl(Rest0),
+    get_until_end(Rest1, [Token | Acc], Stack);
 get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_TERMINATED_KEYWORD(Keyword) ->
     get_until_end(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_end([Token | Rest], Acc, Stack) -> get_until_end(Rest, [Token | Acc], Stack).
@@ -1098,6 +1130,11 @@ get_end_of_expr(
 ) ->
     % 'fun' without 'end'
     % fun local/1
+    Rest1 = tl(Rest0),
+    get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+get_end_of_expr([{'fun', LineNum} = Token, {'?', _} | _] = Rest0, Acc, LineNum, KeywordStack, Guard) ->
+    % 'fun' without 'end'
+    % fun ?MACRO/1
     Rest1 = tl(Rest0),
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack, Guard)
