@@ -1428,6 +1428,18 @@ try_case_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+nested_try_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo() -> try\n try bar(), baz() catch X -> raise(X) end\ncatch Y -> oh_no\nend.">>
+        ),
+    Expect0 =
+        <<
+            "foo() ->\n    try\n        try\n            bar(),\n            baz()\n        catch\n            X -> raise(X)\n        end\n    catch\n        Y -> oh_no\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 unicode_test_() ->
     Tokens0 =
         steamroller_ast:tokens(

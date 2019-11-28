@@ -390,11 +390,8 @@ try_([{'try', _} | Tokens]) ->
                 {empty, _, TryArg, []} = expr(TryArgTokens, no_force_break),
                 {clauses, group(space(text(<<"try">>), TryArg)), Rest0}
         end,
-    {TryTokens1, CatchClauseTokens} =
-        case get_until_any(['catch'], Rest1) of
-            {_Tokens, [], not_found} -> {Rest1, []};
-            {R, A, Token} -> {R, [Token | A]}
-        end,
+    {T, R, Token} = get_from_until('try', 'catch', Rest1),
+    {TryTokens1, CatchClauseTokens} = {T, [Token | R]},
     Catch = catch_(CatchClauseTokens),
     {ForceBreak0, Doc0} =
         case TryType of
@@ -447,7 +444,6 @@ try_([{'try', _} | Tokens]) ->
     {ForceBreak0, Doc0, Rest}.
 
 -spec catch_(tokens()) -> doc().
-catch_([]) -> empty();
 catch_([{'catch', _} | Tokens]) ->
     {CatchForceBreak, Clauses} = handle_trailing_comments(clauses(Tokens)),
     ForceBreak =
@@ -1106,8 +1102,13 @@ get_until_of(Tokens) -> get_until_of(Tokens, [], []).
 -spec get_until_of(tokens(), tokens(), list(atom())) -> {tokens(), tokens(), token()}.
 get_until_of([], Acc, []) -> {lists:reverse(Acc), [], not_found};
 get_until_of([{'of', _} = Token | Rest], Acc, []) -> {lists:reverse(Acc), Rest, Token};
+get_until_of([{'of', _} = Token | Rest], Acc, ['try' | _] = Stack) ->
+    get_until_of(Rest, [Token | Acc], Stack);
 get_until_of([{'of', _} = Token | Rest], Acc, Stack) ->
     get_until_of(Rest, [Token | Acc], tl(Stack));
+get_until_of([{'catch', _} = Token | Rest], Acc, ['try' | Stack]) ->
+    % Only a 'catch' can remove the 'try' from the stack.
+    get_until_of(Rest, [Token | Acc], Stack);
 get_until_of([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_OF_KEYWORD(Keyword) ->
     get_until_of(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_of([Token | Rest], Acc, Stack) -> get_until_of(Rest, [Token | Acc], Stack).
