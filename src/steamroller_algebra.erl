@@ -1231,7 +1231,7 @@ get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, [], not_guard).
 % If we find an end-terminated keyword, we put it onto the keyword stack and continue until
 % we find the matching 'end'.
 % If we find a 'when', we ignore any commas and semicolons until the corresponding '->'.
-get_end_of_expr([], Acc, _LineNum, _KeywordStack, _) -> {lists:reverse(Acc), []};
+get_end_of_expr([], Acc, _LineNum, _KeywordStack, _Guard) -> {lists:reverse(Acc), []};
 get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack, _) ->
     {[Comment], Rest};
 get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, [], _) ->
@@ -1264,13 +1264,7 @@ when End == ',' orelse End == ';' ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, guard);
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack, Guard) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack), Guard);
-get_end_of_expr(
-    [{'fun', LineNum} = Token, {atom, _, _} | _] = Rest0,
-    Acc,
-    LineNum,
-    KeywordStack,
-    Guard
-) ->
+get_end_of_expr([{'fun', LineNum} = Token, {atom, _, _} | _] = Rest0, Acc, _, KeywordStack, Guard) ->
     % 'fun' without 'end'
     % fun local/1
     Rest1 = tl(Rest0),
@@ -1278,7 +1272,7 @@ get_end_of_expr(
 get_end_of_expr(
     [{'fun', LineNum} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0,
     Acc,
-    LineNum,
+    _,
     KeywordStack,
     Guard
 ) ->
@@ -1289,7 +1283,7 @@ get_end_of_expr(
 get_end_of_expr(
     [{'fun', LineNum} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0,
     Acc,
-    LineNum,
+    _,
     KeywordStack,
     Guard
 ) ->
@@ -1300,7 +1294,7 @@ get_end_of_expr(
 get_end_of_expr(
     [{'fun', LineNum} = Token, {var, _, _}, {':', _} | _] = Rest0,
     Acc,
-    LineNum,
+    _,
     KeywordStack,
     Guard
 ) ->
@@ -1308,7 +1302,7 @@ get_end_of_expr(
     % fun Var:x/1
     Rest1 = tl(Rest0),
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
-get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack, Guard)
+get_end_of_expr([{Keyword, LineNum} = Token | Rest], Acc, _, KeywordStack, Guard)
 when ?IS_TERMINATED_KEYWORD(Keyword) ->
     % If a 'fun' keyword gets through to here then we expect it to have an end.
     % We need to be a bit careful, something like this is valid syntax:

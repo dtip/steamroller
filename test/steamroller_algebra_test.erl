@@ -718,11 +718,22 @@ case_pattern_match_test_() ->
     [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1)].
 
 case_fun_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun bar/2 end.">>),
-    Expect0 = <<"foo() -> case X of 1 -> fun bar/2 end.\n">>,
+    Tokens =
+        steamroller_ast:tokens(
+            <<
+                "foo(X) -> case X of 0 -> fun baz/2; 1 -> fun other:bee/2; 2 -> fun ?MODULE:bop/2 end."
+            >>
+        ),
+    Expect0 =
+        <<
+            "foo(X) ->\n    case X of\n        0 -> fun baz/2;\n        1 -> fun other:bee/2;\n        2 -> fun ?MODULE:bop/2\n    end.\n"
+        >>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"foo() ->\n    case X of\n        1 ->\n            fun bar/2\n    end.\n">>,
-    Result1 = steamroller_algebra:format_tokens(Tokens, 20),
+    Expect1 =
+        <<
+            "foo(X) ->\n    case X of\n        0 -> fun baz/2;\n        1 -> fun other:bee/2;\n        2 -> fun ?MODULE:bop/2\n    end.\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 case_fun_macro_test_() ->
