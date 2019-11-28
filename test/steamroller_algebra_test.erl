@@ -1484,6 +1484,27 @@ try_of_after_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+try_receive_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<
+                "foo() -> try receive ok -> ok; oh_no -> throw(oh_no) after 0 -> ok end catch _ -> ok end"
+            >>
+        ),
+    Expect0 =
+        <<
+            "foo() ->\n    try\n        receive\n            ok -> ok;\n            oh_no -> throw(oh_no)\n        after\n            0 -> ok\n        end\n    catch\n        _ -> ok\n    end\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+after_case_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo() -> receive after case {x} of {x} -> 0 end -> ok end.">>),
+    Expect0 = <<"foo() -> receive after case {x} of {x} -> 0 end -> ok end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 try_fun_test_() ->
     Tokens =
         steamroller_ast:tokens(

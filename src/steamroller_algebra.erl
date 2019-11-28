@@ -45,7 +45,8 @@
 -define(two_nl, <<"\n\n">>).
 -define(dot, <<".">>).
 -define(indent, 4).
--define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
+-define(IS_LIST_OPEN_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
+-define(IS_LIST_CLOSE_CHAR(C), (C == ')' orelse C == '}' orelse C == ']' orelse C == '>>')).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==' orelse C == '=:=' orelse C == '=/=')).
 -define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
 -define(
@@ -221,7 +222,7 @@ generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
             _ -> newlines(Doc0, Group)
         end,
     generate_doc_(Rest, Doc1, function);
-generate_doc_([{C, _} | _] = Tokens, Doc0, PrevTerm) when ?IS_LIST_CHAR(C) ->
+generate_doc_([{C, _} | _] = Tokens, Doc0, PrevTerm) when ?IS_LIST_OPEN_CHAR(C) ->
     % List
     % If this is at the top level this is probably a config file
     {ForceBreak, Group0, Rest} = list_group(Tokens),
@@ -330,7 +331,7 @@ if_([{'if', _} | Tokens]) ->
 receive_([{'receive', _} | Tokens]) ->
     {ReceiveClauseTokens0, Rest, _} = get_until_end(Tokens),
     {ReceiveClauseTokens1, AfterClauseTokens} =
-        case get_from_until('receive', 'after', ReceiveClauseTokens0) of
+        case get_until('after', ReceiveClauseTokens0) of
             {_, [], _} -> {ReceiveClauseTokens0, []};
             {R, A, Token} -> {R, [Token | A]}
         end,
@@ -391,7 +392,7 @@ try_([{'try', _} | Tokens]) ->
                 {clauses, group(space(text(<<"try">>), TryArg)), Rest0}
         end,
     {TryTokens1, AfterClauseTokens} =
-        case get_from_until('try', 'after', Rest1) of
+        case get_until('after', Rest1) of
             {Tokens0, [], EndToken0} ->
                 % No 'after'
                 {Tokens0 ++ [EndToken0], []};
@@ -400,7 +401,7 @@ try_([{'try', _} | Tokens]) ->
                 {Tokens0, [EndToken0 | Rest2]}
         end,
     {TryTokens2, CatchClauseTokens} =
-        case get_from_until('try', 'catch', TryTokens1) of
+        case get_until('catch', TryTokens1) of
             {Tokens1, [], EndToken1} ->
                 % No 'catch'
                 {Tokens1 ++ [EndToken1], []};
@@ -563,9 +564,9 @@ equation(Equals, Expr, ForceBreak) ->
     group(nest(?indent, force_break(ForceBreak, group(space(Equals, group(Expr)), inherit)))).
 
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
-list_group([{Open, _} | Rest0]) when ?IS_LIST_CHAR(Open) ->
+list_group([{Open, _} | Rest0]) when ?IS_LIST_OPEN_CHAR(Open) ->
     Close = close_bracket(Open),
-    {Tokens, Rest1, _} = get_from_until(Open, Close, Rest0),
+    {Tokens, Rest1, _} = get_until(Close, Rest0),
     {ForceBreak, ListGroup} = brackets(Tokens, op2b(Open), op2b(Close)),
     {ForceBreak, ListGroup, Rest1}.
 
@@ -615,7 +616,7 @@ head_and_clause(Tokens) -> head_and_clause(Tokens, empty()).
 head_and_clause([{atom, _, Name} | Rest], Doc) ->
     % Name
     head_and_clause(Rest, cons(Doc, text(a2b(Name))));
-head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_CHAR(C) ->
+head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_OPEN_CHAR(C) ->
     % Args
     {_ForceBreak, Group, Rest} = list_group(Tokens),
     head_and_clause(Rest, cons(Doc, Group));
@@ -931,7 +932,7 @@ expr_([{var, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBr
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Function = space(Doc, cons(text(v2b(FunctionName)), ListGroup)),
     expr_(Rest, Function, ForceBreak1);
-expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
+expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_OPEN_CHAR(C) ->
     % Handle lists
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
@@ -1126,65 +1127,52 @@ repeat(Bin, Times) when Times >= 0 -> repeat_(<<>>, Bin, Times).
 repeat_(Acc, _, 0) -> Acc;
 repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
 
--spec get_from_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
-get_from_until(Start, End, Tokens) -> get_from_until(Start, End, Tokens, [], []).
-
--spec get_from_until(atom(), atom(), tokens(), tokens(), list(atom())) ->
-    {tokens(), tokens(), token()}.
-get_from_until(_Start, _End, [Token], Acc, _Stack) -> {lists:reverse(Acc), [], Token};
-get_from_until(_Start, End, [{End, _} = Token | Rest], Acc, []) ->
-    {lists:reverse(Acc), Rest, Token};
-get_from_until(Start, End, [{C, _} = Token | Rest], Acc, Stack) when ?IS_LIST_CHAR(C) ->
-    get_from_until(Start, End, Rest, [Token | Acc], [close_bracket(C) | Stack]);
-get_from_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
-    get_from_until(Start, End, Rest, [Token | Acc], [End | Stack]);
-get_from_until(Start, End, [{Op, _} = Token | Rest], Acc, [Op | Stack]) ->
-    get_from_until(Start, End, Rest, [Token | Acc], Stack);
-get_from_until(Start, End, [Token | Rest], Acc, Stack) ->
-    get_from_until(Start, End, Rest, [Token | Acc], Stack).
+-spec get_until_end(tokens()) -> {tokens(), tokens(), token()}.
+get_until_end(Tokens) -> get_until('end', Tokens).
 
 -spec get_until(atom(), tokens()) -> {tokens(), tokens(), token()}.
-get_until(End, Tokens) -> get_until(End, Tokens, []).
+get_until(End, Tokens) -> get_until(End, Tokens, [], []).
 
--spec get_until(atom(), tokens(), tokens()) -> {tokens(), tokens(), token()}.
-get_until(End, [{End, _} = Token | Rest], Acc) -> {lists:reverse(Acc), Rest, Token};
-get_until(End, [Token | Rest], Acc) -> get_until(End, Rest, [Token | Acc]).
-
--spec get_until_end(tokens()) -> {tokens(), tokens(), token()}.
-get_until_end(Tokens) -> get_until_end(Tokens, [], []).
-
--spec get_until_end(tokens(), tokens(), list(atom())) -> {tokens(), tokens(), token()}.
-get_until_end([{'end', _} = Token | Rest], Acc, []) -> {lists:reverse(Acc), Rest, Token};
-get_until_end([{'end', _} = Token | Rest], Acc, Stack) ->
-    get_until_end(Rest, [Token | Acc], tl(Stack));
-get_until_end([{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
+-spec get_until(atom(), tokens(), tokens(), list(atom())) -> {tokens(), tokens(), token()}.
+get_until(_End, [Token], Acc, _Stack) -> {lists:reverse(Acc), [], Token};
+get_until(End, [{End, _} = Token | Rest], Acc, []) -> {lists:reverse(Acc), Rest, Token};
+get_until(End, [{'end', _} = Token | Rest], Acc, [Keyword | Stack])
+when ?IS_TERMINATED_KEYWORD(Keyword) ->
+    get_until(End, Rest, [Token | Acc], Stack);
+get_until(End, [{C, _} = Token | Rest], Acc, [C | Stack]) when ?IS_LIST_CLOSE_CHAR(C) ->
+    % Close bracket
+    get_until(End, Rest, [Token | Acc], Stack);
+get_until(End, [{C, _} = Token | Rest], Acc, Stack) when ?IS_LIST_OPEN_CHAR(C) ->
+    % If we hit an open bracket we ignore until the close bracket
+    get_until(End, Rest, [Token | Acc], [close_bracket(C) | Stack]);
+get_until(End, [{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun local/1
     Rest1 = tl(Rest0),
-    get_until_end(Rest1, [Token | Acc], Stack);
-get_until_end([{'fun', _} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], Stack);
+get_until(End, [{'fun', _} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun ?MACRO:x/1
     Rest1 = tl(Rest0),
-    get_until_end(Rest1, [Token | Acc], Stack);
-get_until_end([{'fun', _} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], Stack);
+get_until(End, [{'fun', _} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun ?MACRO/1
     Rest1 = tl(Rest0),
-    get_until_end(Rest1, [Token | Acc], Stack);
-get_until_end([{'fun', _} = Token, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], Stack);
+get_until(End, [{'fun', _} = Token, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun Var:x/1
     Rest1 = tl(Rest0),
-    get_until_end(Rest1, [Token | Acc], Stack);
-get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_TERMINATED_KEYWORD(Keyword) ->
+    get_until(End, Rest1, [Token | Acc], Stack);
+get_until(End, [{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_TERMINATED_KEYWORD(Keyword) ->
     % If a 'fun' keyword gets through to here then we expect it to have an end.
     % We need to be a bit careful, something like this is valid syntax:
     %
     % `fun F() -> do_stuff end`
     %
-    get_until_end(Rest, [Token | Acc], [Keyword | Stack]);
-get_until_end([Token | Rest], Acc, Stack) -> get_until_end(Rest, [Token | Acc], Stack).
+    get_until(End, Rest, [Token | Acc], [Keyword | Stack]);
+get_until(End, [Token | Rest], Acc, Stack) -> get_until(End, Rest, [Token | Acc], Stack).
 
 -spec get_until_of(tokens()) -> {tokens(), tokens(), token()}.
 get_until_of(Tokens) -> get_until_of(Tokens, [], []).
@@ -1209,7 +1197,7 @@ get_until_any(Ends, Tokens) -> get_until_any(Ends, Tokens, [], []).
 -spec get_until_any(list(atom()), tokens(), tokens(), list(atom())) ->
     {tokens(), tokens(), token() | not_found}.
 get_until_any(_Ends, [], Acc, []) -> {lists:reverse(Acc), [], not_found};
-get_until_any(Ends, [{Open, _} = Token | Rest], Acc, Stack) when ?IS_LIST_CHAR(Open) ->
+get_until_any(Ends, [{Open, _} = Token | Rest], Acc, Stack) when ?IS_LIST_OPEN_CHAR(Open) ->
     Close = close_bracket(Open),
     get_until_any(Ends, Rest, [Token | Acc], [Close | Stack]);
 get_until_any(Ends, [{CloseBracket, _} = Token | Rest], Acc, [CloseBracket | Stack]) ->
@@ -1328,9 +1316,10 @@ when ?IS_TERMINATED_KEYWORD(Keyword) ->
     % `fun F() -> do_stuff end`
     %
     get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack], Guard);
-get_end_of_expr([{Open, _} = Token | Rest0], Acc, _, KeywordStack, Guard) when ?IS_LIST_CHAR(Open) ->
+get_end_of_expr([{Open, _} = Token | Rest0], Acc, _, KeywordStack, Guard)
+when ?IS_LIST_OPEN_CHAR(Open) ->
     Close = close_bracket(Open),
-    {Tokens, Rest1, {Close, LineNum} = EndToken} = get_from_until(Open, Close, Rest0),
+    {Tokens, Rest1, {Close, LineNum} = EndToken} = get_until(Close, Rest0),
     get_end_of_expr(
         Rest1,
         [EndToken] ++ lists:reverse(Tokens) ++ [Token | Acc],
