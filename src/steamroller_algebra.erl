@@ -375,22 +375,6 @@ after_([{'after', _} | Tokens]) ->
         ),
     Doc.
 
--spec catch_(tokens()) -> {force_break(), doc(), tokens()}.
-catch_([{'catch', _} | Tokens]) ->
-    {empty, CatchForceBreak, Exprs, []} = exprs(Tokens),
-    ForceBreak =
-        case length(Exprs) > 1 of
-            true -> force_break;
-            false -> CatchForceBreak
-        end,
-    GroupedExprs = force_break(ForceBreak, group(space(Exprs), inherit)),
-    Doc =
-        force_break(
-            ForceBreak,
-            group(nest(?indent, space(text(<<"catch">>), GroupedExprs)), inherit)
-        ),
-    {ForceBreak, Doc, []}.
-
 % 'try' can have an 'of' followed by heads and clauses or it can have no 'of' and instead
 % be followed by expressions.
 % TODO This is messy and should be refactored.
@@ -728,10 +712,6 @@ expr_([{'receive', _} | _] = Tokens, Doc, ForceBreak0) ->
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'try', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = try_(Tokens),
-    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
-    expr_(Rest, space(Doc, Group), ForceBreak1);
-expr_([{'catch', _} | _] = Tokens, Doc, ForceBreak0) ->
-    {GroupForceBreak, Group, Rest} = catch_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'begin', _} | _] = Tokens, Doc, ForceBreak0) ->

@@ -1402,6 +1402,12 @@ try_catch_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 40),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
+catch_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> catch bar(), catch baz(), 5 + 5.">>),
+    Expect0 = <<"foo() ->\n    catch bar(),\n    catch baz(),\n    5 + 5.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 try_internal_catch_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> try X = (catch bar()), 2 div 0 after baz() end">>),
     Expect0 =
