@@ -1075,17 +1075,27 @@ get_until_end([{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
     % fun local/1
     Rest1 = tl(Rest0),
     get_until_end(Rest1, [Token | Acc], Stack);
-get_until_end([{'fun', _} = Token, {'?', _} | _] = Rest0, Acc, Stack) ->
+get_until_end([{'fun', _} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun ?MACRO:x/1
     Rest1 = tl(Rest0),
     get_until_end(Rest1, [Token | Acc], Stack);
-get_until_end([{'fun', _} = Token, {var, _, _} | _] = Rest0, Acc, Stack) ->
+get_until_end([{'fun', _} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0, Acc, Stack) ->
+    % 'fun' without 'end'
+    % fun ?MACRO/1
+    Rest1 = tl(Rest0),
+    get_until_end(Rest1, [Token | Acc], Stack);
+get_until_end([{'fun', _} = Token, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun Var:x/1
     Rest1 = tl(Rest0),
     get_until_end(Rest1, [Token | Acc], Stack);
 get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_TERMINATED_KEYWORD(Keyword) ->
+    % If a 'fun' keyword gets through to here then we expect it to have an end.
+    % We need to be a bit careful, something like this is valid syntax:
+    %
+    % `fun F() -> do_stuff end`
+    %
     get_until_end(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_end([Token | Rest], Acc, Stack) -> get_until_end(Rest, [Token | Acc], Stack).
 
@@ -1185,13 +1195,30 @@ get_end_of_expr(
     % fun local/1
     Rest1 = tl(Rest0),
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
-get_end_of_expr([{'fun', LineNum} = Token, {'?', _} | _] = Rest0, Acc, LineNum, KeywordStack, Guard) ->
+get_end_of_expr(
+    [{'fun', LineNum} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0,
+    Acc,
+    LineNum,
+    KeywordStack,
+    Guard
+) ->
     % 'fun' without 'end'
     % fun ?MACRO:x/1
     Rest1 = tl(Rest0),
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr(
-    [{'fun', LineNum} = Token, {var, _, _} | _] = Rest0,
+    [{'fun', LineNum} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0,
+    Acc,
+    LineNum,
+    KeywordStack,
+    Guard
+) ->
+    % 'fun' without 'end'
+    % fun ?MACRO/1
+    Rest1 = tl(Rest0),
+    get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+get_end_of_expr(
+    [{'fun', LineNum} = Token, {var, _, _}, {':', _} | _] = Rest0,
     Acc,
     LineNum,
     KeywordStack,
@@ -1203,6 +1230,11 @@ get_end_of_expr(
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack, Guard)
 when ?IS_TERMINATED_KEYWORD(Keyword) ->
+    % If a 'fun' keyword gets through to here then we expect it to have an end.
+    % We need to be a bit careful, something like this is valid syntax:
+    %
+    % `fun F() -> do_stuff end`
+    %
     get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack], Guard);
 get_end_of_expr([{Open, _} = Token | Rest0], Acc, _, KeywordStack, Guard) when ?IS_LIST_CHAR(Open) ->
     Close = close_bracket(Open),

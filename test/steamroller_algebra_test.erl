@@ -733,6 +733,15 @@ case_fun_var_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 20),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
+case_fun_var_2_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun X() -> ok, X() end end.">>),
+    Expect0 =
+        <<
+            "foo() ->\n    case X of\n        1 ->\n            fun\n                X() ->\n                    ok,\n                    X()\n            end\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 simple_module_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(X) -> module:bar().">>),
     Expect0 = <<"foo(X) -> module:bar().\n">>,
