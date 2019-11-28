@@ -1204,12 +1204,6 @@ get_end_of_expr(
 get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack, Guard)
 when ?IS_TERMINATED_KEYWORD(Keyword) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack], Guard);
-get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, KeywordStack, Guard) ->
-    % We only expect an 'end' if this is an anon function and not pointing to another function:
-    % ignore:     `fun local/1`
-    % care about: `fun (X) -> X + 1 end`
-    Rest = tl(Tokens),
-    get_end_of_expr(Rest, [Token | Acc], LineNum, ['fun' | KeywordStack], Guard);
 get_end_of_expr([{Open, _} = Token | Rest0], Acc, _, KeywordStack, Guard) when ?IS_LIST_CHAR(Open) ->
     Close = close_bracket(Open),
     {Tokens, Rest1, {Close, LineNum} = EndToken} = get_from_until(Open, Close, Rest0),
