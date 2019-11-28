@@ -714,11 +714,6 @@ expr_([{'try', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = try_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
-expr_([{'after', _} | _] = Tokens, Doc, ForceBreak0) ->
-    % We can get here from try/after or try/catch/after
-    {GroupForceBreak, Group, Rest} = after_(Tokens),
-    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
-    expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'begin', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = begin_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
@@ -876,18 +871,57 @@ expr_(
     ForceBreak0
 ) ->
     % Handle function calls to other modules
+    % `module:fuction(Args)`
     [_, _, _ | Tokens1] = Tokens0,
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Function =
         space(Doc, cons([text(a2b(ModuleName)), text(<<":">>), text(a2b(FunctionName)), ListGroup])),
     expr_(Rest, Function, ForceBreak1);
+expr_(
+    [{var, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'(', LineNum} | _]
+        =
+        Tokens0,
+    Doc,
+    ForceBreak0
+) ->
+    % Handle function calls to other modules using a variable module.
+    % `Var:fuction(Args)`
+    [_, _, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Function =
+        space(Doc, cons([text(v2b(ModuleName)), text(<<":">>), text(a2b(FunctionName)), ListGroup])),
+    expr_(Rest, Function, ForceBreak1);
+expr_(
+    [{var, LineNum, ModuleName}, {':', LineNum}, {var, LineNum, FunctionName}, {'(', LineNum} | _] =
+        Tokens0,
+    Doc,
+    ForceBreak0
+) ->
+    % Handle function calls to other modules using a variable module and function.
+    % `Var0:Var1(Args)`
+    [_, _, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Function =
+        space(Doc, cons([text(v2b(ModuleName)), text(<<":">>), text(v2b(FunctionName)), ListGroup])),
+    expr_(Rest, Function, ForceBreak1);
 expr_([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle local function calls
+    % `function(Args)`
     Tokens1 = tl(Tokens0),
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Function = space(Doc, cons(text(a2b(FunctionName)), ListGroup)),
+    expr_(Rest, Function, ForceBreak1);
+expr_([{var, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle local function calls using variables
+    % `Var(Args)`
+    Tokens1 = tl(Tokens0),
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Function = space(Doc, cons(text(v2b(FunctionName)), ListGroup)),
     expr_(Rest, Function, ForceBreak1);
 expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_CHAR(C) ->
     % Handle lists

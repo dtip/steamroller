@@ -1447,6 +1447,18 @@ try_after_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+try_fun_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo(X) -> try\n Y = bar(fun () -> X:do() end), Y()\n after ok = baz() end.">>
+        ),
+    Expect0 =
+        <<
+            "foo(X) ->\n    try\n        Y = bar(fun () -> X:do() end),\n        Y()\n    after\n        ok = baz()\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 unicode_test_() ->
     Tokens0 =
         steamroller_ast:tokens(
