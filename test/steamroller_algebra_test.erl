@@ -646,6 +646,18 @@ commented_case_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+case_comment_sadness_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo(X) -> case X of hello -> world\n% A very special comment\nend.">>
+        ),
+    Expect0 =
+        <<
+            "foo(X) ->\n    case X of\n        hello -> world\n        % A very special comment\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 guarded_case_test_() ->
     Tokens =
         steamroller_ast:tokens(

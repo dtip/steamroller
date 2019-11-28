@@ -283,7 +283,7 @@ case_([{'case', _} | Tokens]) ->
     {CaseArgTokens, Rest0, _} = get_until_of(Tokens),
     {empty, _, CaseArg, []} = expr(CaseArgTokens, no_force_break),
     {CaseClauseTokens, Rest1, _} = get_until_end(Rest0),
-    {CaseForceBreak, Clauses, []} = clauses(CaseClauseTokens),
+    {CaseForceBreak, Clauses} = handle_trailing_comments(clauses(CaseClauseTokens)),
     ForceBreak =
         case length(Clauses) > 1 of
             true -> force_break;
@@ -309,7 +309,7 @@ case_([{'case', _} | Tokens]) ->
 -spec if_(tokens()) -> {force_break(), doc(), tokens()}.
 if_([{'if', _} | Tokens]) ->
     {IfClauseTokens, Rest1, _} = get_until_end(Tokens),
-    {IfForceBreak, Clauses, []} = clauses(IfClauseTokens),
+    {IfForceBreak, Clauses} = handle_trailing_comments(clauses(IfClauseTokens)),
     ForceBreak =
         case length(Clauses) > 1 of
             true -> force_break;
@@ -334,7 +334,7 @@ receive_([{'receive', _} | Tokens]) ->
             {_, [], _} -> {ReceiveClauseTokens0, []};
             {R, A, Token} -> {R, [Token | A]}
         end,
-    {ReceiveForceBreak, Clauses, []} = clauses(ReceiveClauseTokens1),
+    {ReceiveForceBreak, Clauses} = handle_trailing_comments(clauses(ReceiveClauseTokens1)),
     After = after_(AfterClauseTokens),
     ForceBreak =
         case length(Clauses) > 1 of
@@ -361,7 +361,7 @@ receive_([{'receive', _} | Tokens]) ->
 -spec after_(tokens()) -> doc().
 after_([]) -> empty();
 after_([{'after', _} | Tokens]) ->
-    {AfterForceBreak, Clauses, []} = clauses(Tokens),
+    {AfterForceBreak, Clauses} = handle_trailing_comments(clauses(Tokens)),
     ForceBreak =
         case length(Clauses) > 1 of
             true -> force_break;
@@ -418,7 +418,7 @@ try_([{'try', _} | Tokens]) ->
                     ),
                 {ForceBreak, Doc};
             clauses ->
-                {TryForceBreak, Clauses, []} = clauses(TryTokens1),
+                {TryForceBreak, Clauses} = handle_trailing_comments(clauses(TryTokens1)),
                 ForceBreak =
                     case length(Clauses) > 1 of
                         true -> force_break;
@@ -449,7 +449,7 @@ try_([{'try', _} | Tokens]) ->
 -spec catch_(tokens()) -> doc().
 catch_([]) -> empty();
 catch_([{'catch', _} | Tokens]) ->
-    {CatchForceBreak, Clauses, []} = clauses(Tokens),
+    {CatchForceBreak, Clauses} = handle_trailing_comments(clauses(Tokens)),
     ForceBreak =
         case length(Clauses) > 1 of
             true -> force_break;
@@ -466,7 +466,7 @@ catch_([{'catch', _} | Tokens]) ->
 -spec fun_(tokens()) -> {force_break(), doc(), tokens()}.
 fun_([{'fun', _} | Tokens]) ->
     {ClauseTokens, Rest1, _} = get_until_end(Tokens),
-    {ForceBreak, Clauses, []} = clauses(ClauseTokens),
+    {ForceBreak, Clauses} = handle_trailing_comments(clauses(ClauseTokens)),
     Doc =
         force_break(
             ForceBreak,
@@ -502,6 +502,13 @@ when__(Tokens, ForceBreak0, Acc) ->
 
 -spec comment(string()) -> doc().
 comment(Comment) -> text(unicode:characters_to_binary(Comment)).
+
+-spec handle_trailing_comments({force_break(), list(doc()), tokens()}) ->
+    {force_break(), list(doc())}.
+handle_trailing_comments({ForceBreak, Clauses, []}) -> {ForceBreak, Clauses};
+handle_trailing_comments({_, Clauses, Comments}) ->
+    CommentDocs = lists:map(fun ({comment, _, Text}) -> comment(Text) end, Comments),
+    {force_break, Clauses ++ CommentDocs}.
 
 %%
 %% Generic Erlang Expressions
