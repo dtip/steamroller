@@ -1440,6 +1440,13 @@ nested_try_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+try_after_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> try\n bar()\nafter\n baz(), ok\nend">>),
+    Expect0 =
+        <<"foo() ->\n    try\n        bar()\n    after\n        baz(),\n        ok\n    end\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 unicode_test_() ->
     Tokens0 =
         steamroller_ast:tokens(

@@ -390,17 +390,34 @@ try_([{'try', _} | Tokens]) ->
                 {empty, _, TryArg, []} = expr(TryArgTokens, no_force_break),
                 {clauses, group(space(text(<<"try">>), TryArg)), Rest0}
         end,
-    {T, R, Token} = get_from_until('try', 'catch', Rest1),
-    {TryTokens1, CatchClauseTokens} = {T, [Token | R]},
+    {TryTokens1, AfterClauseTokens} =
+        case get_from_until('try', 'after', Rest1) of
+            {Tokens0, [], EndToken0} ->
+                % No 'after'
+                {Tokens0 ++ [EndToken0], []};
+            {Tokens0, Rest2, EndToken0} ->
+                % Found 'after'. EndToken is the after token.
+                {Tokens0, [EndToken0 | Rest2]}
+        end,
+    {TryTokens2, CatchClauseTokens} =
+        case get_from_until('try', 'catch', TryTokens1) of
+            {Tokens1, [], EndToken1} ->
+                % No 'catch'
+                {Tokens1 ++ [EndToken1], []};
+            {Tokens1, Rest3, EndToken1} ->
+                % Found 'catch'. EndToken is the catch token.
+                {Tokens1, [EndToken1 | Rest3]}
+        end,
     Catch = catch_(CatchClauseTokens),
+    {AfterForceBreak, After} = try_after_(AfterClauseTokens),
     {ForceBreak0, Doc0} =
         case TryType of
             exprs ->
-                {empty, TryForceBreak, Exprs, []} = exprs(TryTokens1),
+                {empty, TryForceBreak, Exprs, []} = exprs(TryTokens2),
                 ForceBreak =
                     case length(Exprs) > 1 of
                         true -> force_break;
-                        false -> TryForceBreak
+                        false -> resolve_force_break([TryForceBreak, AfterForceBreak])
                     end,
                 GroupedExprs = force_break(ForceBreak, group(space(Exprs), inherit)),
                 Doc =
@@ -408,18 +425,23 @@ try_([{'try', _} | Tokens]) ->
                         ForceBreak,
                         group(
                             space(
-                                [nest(?indent, space(TryDoc, GroupedExprs)), Catch, text(<<"end">>)]
+                                [
+                                    nest(?indent, space(TryDoc, GroupedExprs)),
+                                    Catch,
+                                    After,
+                                    text(<<"end">>)
+                                ]
                             ),
                             inherit
                         )
                     ),
                 {ForceBreak, Doc};
             clauses ->
-                {TryForceBreak, Clauses} = handle_trailing_comments(clauses(TryTokens1)),
+                {TryForceBreak, Clauses} = handle_trailing_comments(clauses(TryTokens2)),
                 ForceBreak =
                     case length(Clauses) > 1 of
                         true -> force_break;
-                        false -> TryForceBreak
+                        false -> resolve_force_break([TryForceBreak, AfterForceBreak])
                     end,
                 GroupedClauses = force_break(ForceBreak, group(space(Clauses), inherit)),
                 Doc =
@@ -444,6 +466,7 @@ try_([{'try', _} | Tokens]) ->
     {ForceBreak0, Doc0, Rest}.
 
 -spec catch_(tokens()) -> doc().
+catch_([]) -> empty();
 catch_([{'catch', _} | Tokens]) ->
     {CatchForceBreak, Clauses} = handle_trailing_comments(clauses(Tokens)),
     ForceBreak =
@@ -458,6 +481,23 @@ catch_([{'catch', _} | Tokens]) ->
             group(nest(?indent, space(text(<<"catch">>), GroupedClauses)), inherit)
         ),
     Doc.
+
+-spec try_after_(tokens()) -> {force_break(), doc()}.
+try_after_([]) -> {no_force_break, empty()};
+try_after_([{'after', _} | Tokens]) ->
+    {empty, AfterForceBreak, Exprs, []} = exprs(Tokens),
+    ForceBreak =
+        case length(Exprs) > 1 of
+            true -> force_break;
+            false -> AfterForceBreak
+        end,
+    GroupedExprs = force_break(ForceBreak, group(space(Exprs), inherit)),
+    Doc =
+        force_break(
+            ForceBreak,
+            group(nest(?indent, space(text(<<"after">>), GroupedExprs)), inherit)
+        ),
+    {ForceBreak, Doc}.
 
 -spec fun_(tokens()) -> {force_break(), doc(), tokens()}.
 fun_([{'fun', _} | Tokens]) ->
@@ -672,6 +712,11 @@ expr_([{'receive', _} | _] = Tokens, Doc, ForceBreak0) ->
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'try', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = try_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
+    expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'after', _} | _] = Tokens, Doc, ForceBreak0) ->
+    % We can get here from try/after or try/catch/after
+    {GroupForceBreak, Group, Rest} = after_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'begin', _} | _] = Tokens, Doc, ForceBreak0) ->
@@ -1106,8 +1151,8 @@ get_until_of([{'of', _} = Token | Rest], Acc, ['try' | _] = Stack) ->
     get_until_of(Rest, [Token | Acc], Stack);
 get_until_of([{'of', _} = Token | Rest], Acc, Stack) ->
     get_until_of(Rest, [Token | Acc], tl(Stack));
-get_until_of([{'catch', _} = Token | Rest], Acc, ['try' | Stack]) ->
-    % Only a 'catch' can remove the 'try' from the stack.
+get_until_of([{Op, _} = Token | Rest], Acc, ['try' | Stack]) when Op == 'catch' orelse Op == 'after' ->
+    % Only a 'catch' or an 'after' can remove the 'try' from the stack.
     get_until_of(Rest, [Token | Acc], Stack);
 get_until_of([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_OF_KEYWORD(Keyword) ->
     get_until_of(Rest, [Token | Acc], [Keyword | Stack]);
