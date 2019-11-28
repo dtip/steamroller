@@ -1,6 +1,6 @@
 -module(steamroller_formatter).
 
--export([format/2, format_code/1]).
+-export([format/2, format_code/1, test_format/1]).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -36,6 +36,11 @@ format(File, Opts) ->
 -spec format_code(binary()) -> ok | {error, any()}.
 format_code(Code) -> format_code(Code, <<"no_file">>, ?default_line_length).
 
+% For testing.
+% We give the file a proper name so that we compare the ASTs.
+-spec test_format(binary()) -> ok | {error, any()}.
+test_format(Code) -> format_code(Code, <<"test.erl">>, ?default_line_length).
+
 %% Internal
 
 -spec format_code(binary(), binary(), integer()) -> {ok, binary()} | {error, any()}.
@@ -69,6 +74,6 @@ format_code(Code, File, LineLength) ->
             {ok, steamroller_algebra:format_tokens(Tokens, LineLength)}
     end.
 
-handle_formatting_error({error, Msg}, File, FormattedCode) ->
+handle_formatting_error({error, _} = Err, File, FormattedCode) ->
     file:write_file(?CRASHDUMP, FormattedCode),
-    {error, {formatter_broke_the_code, {file, File}, {msg, Msg}, {crashdump, ?CRASHDUMP}}}.
+    {error, {formatter_broke_the_code, {file, File}, Err, {crashdump, ?CRASHDUMP}}}.

@@ -500,7 +500,7 @@ when__(Tokens, ForceBreak0, Acc) ->
     end.
 
 -spec comment(string()) -> doc().
-comment(Comment) -> text(list_to_binary(Comment)).
+comment(Comment) -> text(unicode:characters_to_binary(Comment)).
 
 %%
 %% Generic Erlang Expressions
