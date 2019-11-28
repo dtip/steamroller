@@ -36,7 +36,7 @@ tokens(Code) ->
     Scanned.
 
 -spec eq(ast(), ast()) -> boolean().
-eq(Ast0, Ast1) -> lists:foldl(fun eq_/2, true, lists:zip(Ast0, Ast1)).
+eq(Ast0, Ast1) -> lists:foldl(fun eq_/2 , true , lists:zip(Ast0, Ast1)).
 
 %% Internal
 

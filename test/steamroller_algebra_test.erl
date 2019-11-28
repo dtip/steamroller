@@ -686,6 +686,25 @@ guarded_case_equation_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+case_pattern_match_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo() -> case bar() of ok -> ok; {error, _} = Err -> Err end.">>),
+    Expect =
+        <<
+            "foo() ->\n    case bar() of\n        ok -> ok;\n        {error, _} = Err -> Err\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1)].
+
+case_fun_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun bar/2 end.">>),
+    Expect0 = <<"foo() -> case X of 1 -> fun bar/2 end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    case X of\n        1 ->\n            fun bar/2\n    end.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 20),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 simple_module_function_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(X) -> module:bar().">>),
     Expect0 = <<"foo(X) -> module:bar().\n">>,
@@ -711,17 +730,6 @@ function_head_pattern_match_test_() ->
         ?_assertEqual(Expect1, Result1),
         ?_assertEqual(Expect2, Result2)
     ].
-
-case_pattern_match_test_() ->
-    Tokens =
-        steamroller_ast:tokens(<<"foo() -> case bar() of ok -> ok; {error, _} = Err -> Err end.">>),
-    Expect =
-        <<
-            "foo() ->\n    case bar() of\n        ok -> ok;\n        {error, _} = Err -> Err\n    end.\n"
-        >>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
-    [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1)].
 
 slash_test_() ->
     Tokens0 = steamroller_ast:tokens(<<"foo() -> \"\\\"some string\\\"\".">>),

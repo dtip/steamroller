@@ -50,7 +50,8 @@
 -define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
 -define(
     IS_TERMINATED_KEYWORD(C),
-    % 'fun' is not always terminated - there is probably a bug here.
+    % 'fun' is not always terminated with 'end'.
+    % Make sure to handle that separately if you use this macro.
     (
         C == 'case'
         orelse C == 'if'
@@ -994,6 +995,11 @@ get_until_end(Tokens) -> get_until_end(Tokens, [], []).
 get_until_end([{'end', _} = Token | Rest], Acc, []) -> {lists:reverse(Acc), Rest, Token};
 get_until_end([{'end', _} = Token | Rest], Acc, Stack) ->
     get_until_end(Rest, [Token | Acc], tl(Stack));
+get_until_end([{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
+    % 'fun' without 'end'
+    % fun local/1
+    Rest1 = tl(Rest0),
+    get_until_end(Rest1, [Token | Acc], Stack);
 get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_TERMINATED_KEYWORD(Keyword) ->
     get_until_end(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_end([Token | Rest], Acc, Stack) -> get_until_end(Rest, [Token | Acc], Stack).
@@ -1083,12 +1089,19 @@ when End == ',' orelse End == ';' ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, guard);
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack, Guard) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack), Guard);
+get_end_of_expr(
+    [{'fun', LineNum} = Token, {atom, _, _} | _] = Rest0,
+    Acc,
+    LineNum,
+    KeywordStack,
+    Guard
+) ->
+    % 'fun' without 'end'
+    % fun local/1
+    Rest1 = tl(Rest0),
+    get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack, Guard)
-when Keyword == 'case'
-     orelse Keyword == 'if'
-     orelse Keyword == 'receive'
-     orelse Keyword == 'try'
-     orelse Keyword == 'begin' ->
+when ?IS_TERMINATED_KEYWORD(Keyword) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack], Guard);
 get_end_of_expr([{'fun', _} = Token, {'(', _} | _] = Tokens, Acc, LineNum, KeywordStack, Guard) ->
     % We only expect an 'end' if this is an anon function and not pointing to another function:
