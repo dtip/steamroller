@@ -1257,7 +1257,16 @@ nested_receive_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    receive\n        message -> receive after 0 -> ok end\n    end\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
-    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+    Expect2 =
+        <<
+            "foo() ->\n    receive\n        message ->\n            receive\n            after\n                0 -> ok\n            end\n    end\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
 
 float_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> 0.333333.">>),
@@ -1320,3 +1329,17 @@ try_of_test_() ->
         >>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+try_case_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<
+                "foo() -> try case bar() of test -> ok; other -> error end catch _:Y -> throw(Y) end."
+            >>
+        ),
+    Expect0 =
+        <<
+            "foo() ->\n    try\n        case bar() of\n            test -> ok;\n            other -> error\n        end\n    catch\n        _ : Y -> throw(Y)\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].

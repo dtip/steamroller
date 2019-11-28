@@ -60,6 +60,7 @@
         orelse C == 'begin'
     )
 ).
+-define(IS_OF_KEYWORD(C), (C == 'case' orelse C == 'try')).
 
 %%
 %% API
@@ -278,7 +279,7 @@ function(Tokens) ->
 
 -spec case_(tokens()) -> {force_break(), doc(), tokens()}.
 case_([{'case', _} | Tokens]) ->
-    {CaseArgTokens, Rest0, _} = get_from_until('case', 'of', Tokens),
+    {CaseArgTokens, Rest0, _} = get_until_of(Tokens),
     {empty, _, CaseArg, []} = expr(CaseArgTokens, no_force_break),
     {CaseClauseTokens, Rest1, _} = get_until_end(Rest0),
     {CaseForceBreak, Clauses, []} = clauses(CaseClauseTokens),
@@ -380,7 +381,7 @@ after_([{'after', _} | Tokens]) ->
 try_([{'try', _} | Tokens]) ->
     {TryTokens, Rest, _} = get_until_end(Tokens),
     {TryType, TryDoc, Rest1} =
-        case get_from_until('try', 'of', TryTokens) of
+        case get_until_of(TryTokens) of
             {_, [], _} ->
                 % There is no 'of' for this 'try'
                 {exprs, text(<<"try">>), TryTokens};
@@ -991,6 +992,18 @@ get_until_end([{'end', _} = Token | Rest], Acc, Stack) ->
 get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_TERMINATED_KEYWORD(Keyword) ->
     get_until_end(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_end([Token | Rest], Acc, Stack) -> get_until_end(Rest, [Token | Acc], Stack).
+
+-spec get_until_of(tokens()) -> {tokens(), tokens(), token()}.
+get_until_of(Tokens) -> get_until_of(Tokens, [], []).
+
+-spec get_until_of(tokens(), tokens(), list(atom())) -> {tokens(), tokens(), token()}.
+get_until_of([], Acc, []) -> {lists:reverse(Acc), [], not_found};
+get_until_of([{'of', _} = Token | Rest], Acc, []) -> {lists:reverse(Acc), Rest, Token};
+get_until_of([{'of', _} = Token | Rest], Acc, Stack) ->
+    get_until_of(Rest, [Token | Acc], tl(Stack));
+get_until_of([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_OF_KEYWORD(Keyword) ->
+    get_until_of(Rest, [Token | Acc], [Keyword | Stack]);
+get_until_of([Token | Rest], Acc, Stack) -> get_until_of(Rest, [Token | Acc], Stack).
 
 -spec get_until_any(list(atom()), tokens()) -> {tokens(), tokens(), token() | not_found}.
 get_until_any(Ends, Tokens) -> get_until_any(Ends, Tokens, [], []).
