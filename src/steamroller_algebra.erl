@@ -375,6 +375,22 @@ after_([{'after', _} | Tokens]) ->
         ),
     Doc.
 
+-spec catch_(tokens()) -> {force_break(), doc(), tokens()}.
+catch_([{'catch', _} | Tokens]) ->
+    {empty, CatchForceBreak, Exprs, []} = exprs(Tokens),
+    ForceBreak =
+        case length(Exprs) > 1 of
+            true -> force_break;
+            false -> CatchForceBreak
+        end,
+    GroupedExprs = force_break(ForceBreak, group(space(Exprs), inherit)),
+    Doc =
+        force_break(
+            ForceBreak,
+            group(nest(?indent, space(text(<<"catch">>), GroupedExprs)), inherit)
+        ),
+    {ForceBreak, Doc, []}.
+
 % 'try' can have an 'of' followed by heads and clauses or it can have no 'of' and instead
 % be followed by expressions.
 % TODO This is messy and should be refactored.
@@ -408,7 +424,7 @@ try_([{'try', _} | Tokens]) ->
                 % Found 'catch'. EndToken is the catch token.
                 {Tokens1, [EndToken1 | Rest3]}
         end,
-    Catch = catch_(CatchClauseTokens),
+    Catch = try_catch_(CatchClauseTokens),
     {AfterForceBreak, After} = try_after_(AfterClauseTokens),
     {ForceBreak0, Doc0} =
         case TryType of
@@ -465,9 +481,9 @@ try_([{'try', _} | Tokens]) ->
         end,
     {ForceBreak0, Doc0, Rest}.
 
--spec catch_(tokens()) -> doc().
-catch_([]) -> empty();
-catch_([{'catch', _} | Tokens]) ->
+-spec try_catch_(tokens()) -> doc().
+try_catch_([]) -> empty();
+try_catch_([{'catch', _} | Tokens]) ->
     {CatchForceBreak, Clauses} = handle_trailing_comments(clauses(Tokens)),
     ForceBreak =
         case length(Clauses) > 1 of
@@ -712,6 +728,10 @@ expr_([{'receive', _} | _] = Tokens, Doc, ForceBreak0) ->
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'try', _} | _] = Tokens, Doc, ForceBreak0) ->
     {GroupForceBreak, Group, Rest} = try_(Tokens),
+    ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
+    expr_(Rest, space(Doc, Group), ForceBreak1);
+expr_([{'catch', _} | _] = Tokens, Doc, ForceBreak0) ->
+    {GroupForceBreak, Group, Rest} = catch_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'begin', _} | _] = Tokens, Doc, ForceBreak0) ->
@@ -1119,16 +1139,19 @@ repeat_(Acc, _, 0) -> Acc;
 repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
 
 -spec get_from_until(atom(), atom(), tokens()) -> {tokens(), tokens(), token()}.
-get_from_until(Start, End, Tokens) -> get_from_until(Start, End, Tokens, [], 0).
+get_from_until(Start, End, Tokens) -> get_from_until(Start, End, Tokens, [], []).
 
--spec get_from_until(atom(), atom(), tokens(), tokens(), integer()) ->
+-spec get_from_until(atom(), atom(), tokens(), tokens(), list(atom())) ->
     {tokens(), tokens(), token()}.
 get_from_until(_Start, _End, [Token], Acc, _Stack) -> {lists:reverse(Acc), [], Token};
+get_from_until(_Start, End, [{End, _} = Token | Rest], Acc, []) ->
+    {lists:reverse(Acc), Rest, Token};
+get_from_until(Start, End, [{C, _} = Token | Rest], Acc, Stack) when ?IS_LIST_CHAR(C) ->
+    get_from_until(Start, End, Rest, [Token | Acc], [close_bracket(C) | Stack]);
 get_from_until(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
-    get_from_until(Start, End, Rest, [Token | Acc], Stack + 1);
-get_from_until(_Start, End, [{End, _} = Token | Rest], Acc, 0) -> {lists:reverse(Acc), Rest, Token};
-get_from_until(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
-    get_from_until(Start, End, Rest, [Token | Acc], Stack - 1);
+    get_from_until(Start, End, Rest, [Token | Acc], [End | Stack]);
+get_from_until(Start, End, [{Op, _} = Token | Rest], Acc, [Op | Stack]) ->
+    get_from_until(Start, End, Rest, [Token | Acc], Stack);
 get_from_until(Start, End, [Token | Rest], Acc, Stack) ->
     get_from_until(Start, End, Rest, [Token | Acc], Stack).
 
