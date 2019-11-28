@@ -536,7 +536,7 @@ list_elements(Tokens) -> list_elements(Tokens, empty(), no_force_break).
 -spec list_elements(tokens(), doc(), force_break()) -> {force_break(), doc()}.
 list_elements([], Doc, ForceBreak) -> {ForceBreak, Doc};
 list_elements(Tokens, Doc, ForceBreak0) ->
-    {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0, empty()),
+    {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0),
     list_elements(Rest, space(Doc, group(Expr)), ForceBreak1).
 
 -spec clauses(tokens()) -> {force_break(), list(doc()), tokens()}.
@@ -634,13 +634,9 @@ exprs(Tokens, Acc0, ForceBreak0) ->
 
 -spec expr(tokens(), force_break()) ->
     {dot | ';' | ',' | empty | comment, force_break(), doc(), tokens()}.
-expr(Tokens, ForceBreak) -> expr(Tokens, ForceBreak, empty()).
-
--spec expr(tokens(), force_break(), doc()) ->
-    {dot | ';' | ',' | empty | comment, force_break(), doc(), tokens()}.
-expr(Tokens, ForceBreak0, Doc) ->
+expr(Tokens, ForceBreak0) ->
     {ExprTokens, Rest} = get_end_of_expr(Tokens),
-    {End, ForceBreak1, Expr} = expr_(ExprTokens, Doc, ForceBreak0),
+    {End, ForceBreak1, Expr} = expr_(ExprTokens, empty(), ForceBreak0),
     {End, ForceBreak1, group(Expr), Rest}.
 
 -spec expr_(tokens(), doc(), force_break()) ->
