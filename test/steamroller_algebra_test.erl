@@ -861,6 +861,23 @@ guard_sequence_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+if_guard_sequence_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo(X) -> if X =:= test; X =:= not_test -> ok; true -> error end.">>
+        ),
+    Expect0 =
+        <<
+            "foo(X) ->\n    if\n        X =:= test; X =:= not_test -> ok;\n        true -> error\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "foo(X) ->\n    if\n        X =:= test;\n        X =:= not_test ->\n            ok;\n        true -> error\n    end.\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 multi_guard_test_() ->
     Tokens =
         steamroller_ast:tokens(

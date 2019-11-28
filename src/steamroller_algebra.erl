@@ -46,7 +46,7 @@
 -define(dot, <<".">>).
 -define(indent, 4).
 -define(IS_LIST_CHAR(C), (C == '(' orelse C == '{' orelse C == '[' orelse C == '<<')).
--define(IS_EQUALS(C), (C == '=' orelse C == '==')).
+-define(IS_EQUALS(C), (C == '=' orelse C == '==' orelse C == '=:=' orelse C == '=/=')).
 -define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
 -define(
     IS_TERMINATED_KEYWORD(C),
@@ -592,8 +592,15 @@ head_and_clause([{'::', _} | Rest0], Doc) ->
     {Continue, ForceBreak, Doc1, Rest1};
 head_and_clause(Rest0, Doc0) ->
     {Tokens, Rest1, Token} = get_until('->', Rest0),
-    {empty, _ForceBreak, Doc1, []} = expr(Tokens, no_force_break, Doc0),
-    head_and_clause([Token | Rest1], Doc1).
+    % We expect this to come back with either:
+    % End = empty and Rest = []
+    % End = ';' and Rest = list(tokens())
+    %
+    % The first case happens most of the time. The second case happens when we have
+    % things like:
+    % if X =:= test; X =:= other ->
+    {_End, _ForceBreak, Expr, Leftovers} = expr(Tokens, no_force_break),
+    head_and_clause(Leftovers ++ [Token | Rest1], space(Doc0, Expr)).
 
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 clause(Tokens) ->
