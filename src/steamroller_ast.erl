@@ -45,6 +45,18 @@ eq_(_, false) -> false;
 eq_({Left, Right}, true) when is_list(Left) andalso is_list(Right) -> eq(Left, Right);
 eq_({Element, Element}, true) -> true;
 eq_(
+    {
+        {Type, _, LeftName, LeftValue0, LeftValue1, LeftValue2},
+        {Type, _, RightName, RightValue0, RightValue1, RightValue2}
+    },
+    true
+) ->
+    % 6-tuples
+    R1 = eq_({LeftName, RightName}, true),
+    R2 = eq_({LeftValue0, RightValue0}, R1),
+    R3 = eq_({LeftValue1, RightValue1}, R2),
+    eq_({LeftValue2, RightValue2}, R3);
+eq_(
     {{Type, _, LeftName, LeftValue0, LeftValue1}, {Type, _, RightName, RightValue0, RightValue1}},
     true
 ) ->
