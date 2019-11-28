@@ -32,7 +32,7 @@ tokens(Code) ->
     % Comments are not included in the AST created by epp:parse_file.
     % Neither are most of the attributes (things like `-define(BLAH, blah).`).
     % We'll need them to generate formatted code.
-    {ok, Scanned, _} = erl_scan:string(binary_to_list(Code), 0, [return_comments]),
+    {ok, Scanned, _} = erl_scan:string(unicode:characters_to_list(Code), 0, [return_comments]),
     Scanned.
 
 -spec eq(ast(), ast()) -> boolean().

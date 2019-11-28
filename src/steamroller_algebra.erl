@@ -935,7 +935,7 @@ v2b(Atom) -> list_to_binary(atom_to_list(Atom)).
 
 -spec a2b(atom()) -> binary().
 % Escape atoms so that atoms such as '{' are converted correctly to binary.
-a2b(Atom) -> list_to_binary(escape(Atom)).
+a2b(Atom) -> unicode:characters_to_binary(io_lib:write_atom(Atom)).
 
 -spec i2b(integer()) -> binary().
 i2b(Integer) -> integer_to_binary(Integer).
@@ -944,14 +944,11 @@ i2b(Integer) -> integer_to_binary(Integer).
 f2b(Float) -> list_to_binary(io_lib:format("~p", [Float])).
 
 -spec c2b(integer()) -> binary().
-c2b(Char) -> list_to_binary(io_lib:format("$~c", [Char])).
+c2b(Char) -> unicode:characters_to_binary(io_lib:write_char(Char)).
 
 -spec s2b(string()) -> binary().
 s2b("") -> <<"\"\"">>;
-s2b(String) -> list_to_binary(escape(String)).
-
--spec escape(string() | atom()) -> string().
-escape(Term) -> io_lib:format("~p", [Term]).
+s2b(String) -> unicode:characters_to_binary(io_lib:write_string(String)).
 
 %%
 %% Utils

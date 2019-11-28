@@ -1360,3 +1360,15 @@ try_case_test_() ->
         >>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
+
+unicode_test_() ->
+    Tokens0 =
+        steamroller_ast:tokens(
+            <<"foo() -> 'こんにちは' = bar(\"こんにちは\"), ok." / utf8>>
+        ),
+    Expect0 = <<"foo() ->\n    'こんにちは' = bar(\"こんにちは\"),\n    ok.\n" / utf8>>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"foo() -> $ん." / utf8>>),
+    Expect1 = <<"foo() -> $ん.\n" / utf8>>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
