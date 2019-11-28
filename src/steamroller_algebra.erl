@@ -767,6 +767,31 @@ expr_(
         ),
     expr_(Rest, space(Doc, Fun), ForceBreak);
 expr_(
+    [
+        {'fun', _},
+        {var, LineNum, MacroName},
+        {':', LineNum},
+        {atom, LineNum, FunctionName},
+        {'/', LineNum},
+        {integer, LineNum, Arity} | Rest
+    ],
+    Doc,
+    ForceBreak
+) ->
+    % Handle `fun Var:function/arity`
+    Fun =
+        cons(
+            [
+                text(<<"fun ">>),
+                text(v2b(MacroName)),
+                text(<<":">>),
+                text(a2b(FunctionName)),
+                text(<<"/">>),
+                text(i2b(Arity))
+            ]
+        ),
+    expr_(Rest, space(Doc, Fun), ForceBreak);
+expr_(
     [{'fun', _}, {atom, LineNum, FunctionName}, {'/', LineNum}, {integer, LineNum, Arity} | Rest],
     Doc,
     ForceBreak
@@ -1029,7 +1054,12 @@ get_until_end([{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
     get_until_end(Rest1, [Token | Acc], Stack);
 get_until_end([{'fun', _} = Token, {'?', _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
-    % fun ?MACRO/1
+    % fun ?MACRO:x/1
+    Rest1 = tl(Rest0),
+    get_until_end(Rest1, [Token | Acc], Stack);
+get_until_end([{'fun', _} = Token, {var, _, _} | _] = Rest0, Acc, Stack) ->
+    % 'fun' without 'end'
+    % fun Var:x/1
     Rest1 = tl(Rest0),
     get_until_end(Rest1, [Token | Acc], Stack);
 get_until_end([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_TERMINATED_KEYWORD(Keyword) ->
@@ -1134,7 +1164,18 @@ get_end_of_expr(
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{'fun', LineNum} = Token, {'?', _} | _] = Rest0, Acc, LineNum, KeywordStack, Guard) ->
     % 'fun' without 'end'
-    % fun ?MACRO/1
+    % fun ?MACRO:x/1
+    Rest1 = tl(Rest0),
+    get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+get_end_of_expr(
+    [{'fun', LineNum} = Token, {var, _, _} | _] = Rest0,
+    Acc,
+    LineNum,
+    KeywordStack,
+    Guard
+) ->
+    % 'fun' without 'end'
+    % fun Var:x/1
     Rest1 = tl(Rest0),
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{Keyword, _} = Token | Rest], Acc, LineNum, KeywordStack, Guard)
