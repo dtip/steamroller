@@ -1528,3 +1528,18 @@ unicode_test_() ->
     Expect1 = <<"foo() -> $ん.\n"/utf8>>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+bool_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) -> true = bar(X) =:= (X > 0 andalso X < 10).">>),
+    Expect0 = <<"foo(X) -> true = bar(X) =:= (X > 0 andalso X < 10).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(X) ->\n    true = bar(X) =:= (X > 0 andalso X < 10).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 =
+        <<"foo(X) ->\n    true =\n        bar(X) =:=\n            (X > 0 andalso X < 10).\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].

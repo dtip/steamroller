@@ -1340,10 +1340,16 @@ resolve_force_break(Args) ->
     end.
 
 -spec is_bool_list(tokens()) -> boolean().
-is_bool_list([]) -> false;
-is_bool_list([{Op, _} | _]) when ?IS_TERMINATED_KEYWORD(Op) -> false;
-is_bool_list([{Op, _} | _]) when ?IS_BOOL_CONCATENATOR(Op) -> true;
-is_bool_list([_ | Rest]) -> is_bool_list(Rest).
+is_bool_list(Tokens) -> is_bool_list(Tokens, []).
+
+-spec is_bool_list(tokens(), list(atom())) -> boolean().
+is_bool_list([], []) -> false;
+is_bool_list([{Op, _} | _], []) when ?IS_TERMINATED_KEYWORD(Op) -> false;
+is_bool_list([{Op, _} | _], []) when ?IS_BOOL_CONCATENATOR(Op) -> true;
+is_bool_list([{C, _} | Rest], Stack) when ?IS_LIST_OPEN_CHAR(C) ->
+    is_bool_list(Rest, [close_bracket(C) | Stack]);
+is_bool_list([{C, _} | Rest], [C | Stack]) when ?IS_LIST_CLOSE_CHAR(C) -> is_bool_list(Rest, Stack);
+is_bool_list([_ | Rest], Stack) -> is_bool_list(Rest, Stack).
 
 -spec close_bracket(atom()) -> atom().
 close_bracket('(') -> ')';
