@@ -816,6 +816,11 @@ expr_([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
     % <<Thing/binary>>
     TermDoc = cons([text(v2b(Var)), text(<<"/">>), text(a2b(Atom))]),
     expr_(Rest, space(Doc, TermDoc), ForceBreak);
+expr_([{string, _, String}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
+    % Handle binary literals
+    % <<"hello"/utf8>>
+    TermDoc = cons([text(s2b(String)), text(<<"/">>), text(a2b(Atom))]),
+    expr_(Rest, space(Doc, TermDoc), ForceBreak);
 expr_(
     [{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} | Rest],
     Doc,

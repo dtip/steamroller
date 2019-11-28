@@ -224,7 +224,7 @@ function_tuple_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
-function_basic_string_test_() ->
+basic_string_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> \"string\".">>),
     Expect0 = <<"foo() -> \"string\".\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -232,7 +232,7 @@ function_basic_string_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 10),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
-function_basic_binary_test_() ->
+basic_binary_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> <<\"binary\">>.">>),
     Expect0 = <<"foo() -> <<\"binary\">>.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -246,7 +246,7 @@ function_basic_binary_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
-function_binary_construction_test_() ->
+binary_construction_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(A, B) -> <<A/binary, B/binary>>.">>),
     Expect0 = <<"foo(A, B) -> <<A/binary, B/binary>>.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -260,7 +260,15 @@ function_binary_construction_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
-function_binary_arg_test_() ->
+binary_literal_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> <<\"test\"/unicode>>.">>),
+    Expect0 = <<"foo() -> <<\"test\"/unicode>>.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    <<\"test\"/unicode>>.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 25),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+binary_arg_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo(<<A/binary>>) -> A.">>),
     Expect0 = <<"foo(<<A/binary>>) -> A.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -274,7 +282,7 @@ function_binary_arg_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
-function_complex_binary_arg_test_() ->
+complex_binary_arg_test_() ->
     Tokens =
         steamroller_ast:tokens(
             <<"foooooo(<<H,B:1/binary, C/binary>>) -> <<B/binary, H/binary,C/binary>>.">>
@@ -1364,11 +1372,11 @@ try_case_test_() ->
 unicode_test_() ->
     Tokens0 =
         steamroller_ast:tokens(
-            <<"foo() -> 'こんにちは' = bar(\"こんにちは\"), ok." / utf8>>
+            <<"foo() -> 'こんにちは' = bar(\"こんにちは\"), ok."/utf8>>
         ),
-    Expect0 = <<"foo() ->\n    'こんにちは' = bar(\"こんにちは\"),\n    ok.\n" / utf8>>,
+    Expect0 = <<"foo() ->\n    'こんにちは' = bar(\"こんにちは\"),\n    ok.\n"/utf8>>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo() -> $ん." / utf8>>),
-    Expect1 = <<"foo() -> $ん.\n" / utf8>>,
+    Tokens1 = steamroller_ast:tokens(<<"foo() -> $ん."/utf8>>),
+    Expect1 = <<"foo() -> $ん.\n"/utf8>>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
