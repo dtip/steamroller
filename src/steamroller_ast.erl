@@ -20,7 +20,9 @@ ast(Code) -> ast(Code, <<"no_file">>).
 -spec ast(binary(), binary() | string()) -> {ok, ast()} | {error, any()}.
 ast(Code, File) ->
     file:write_file(?TEMP_FILE, Code),
-    {ok, Ast} = epp:parse_file(?TEMP_FILE, []),
+    % Add the file dir to includes so we can find any necessary headers.
+    Dir = filename:dirname(File),
+    {ok, Ast} = epp:parse_file(?TEMP_FILE, [{includes, [Dir]}]),
     file:delete(?TEMP_FILE),
     case check_for_errors(Ast, File) of
         ok -> {ok, Ast};
