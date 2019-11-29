@@ -1263,6 +1263,12 @@ record_element_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+record_key_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) -> #rec.id.">>),
+    Expect0 = <<"foo(X) -> #rec.id.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 ifdef_test_() ->
     Tokens =
         steamroller_ast:tokens(
