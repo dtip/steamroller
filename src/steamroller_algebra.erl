@@ -182,15 +182,17 @@ generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc0, PrevTerm) ->
             _ -> newlines(Doc0, Spec)
         end,
     generate_doc_(Rest, Doc1, spec);
-generate_doc_([{'-', _} = H0, {atom, _, type} = H1, {'(', _} | Rest0], Doc, PrevTerm) ->
+generate_doc_([{'-', _} = H0, {atom, _, Type} = H1, {'(', _} | Rest0], Doc, PrevTerm)
+when Type == type orelse Type == opaque ->
     % Remove brackets from Types
     Rest1 = remove_matching('(', ')', Rest0),
     generate_doc_([H0, H1 | Rest1], Doc, PrevTerm);
-generate_doc_([{'-', _}, {atom, _, type} | Tokens], Doc0, PrevTerm) ->
+generate_doc_([{'-', _}, {atom, _, Type} | Tokens], Doc0, PrevTerm)
+when Type == type orelse Type == opaque ->
     % Type
     % Re-use the function code because the syntax is identical.
     {Group, Rest} = function(Tokens),
-    Spec = cons(text(<<"-type ">>), Group),
+    Spec = cons([text(<<"-">>), text(a2b(Type)), text(<<" ">>), Group]),
     Doc1 =
         case PrevTerm of
             PrevTerm when PrevTerm == function_comment orelse PrevTerm == type ->

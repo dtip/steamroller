@@ -1076,6 +1076,14 @@ type_bracket_removal_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 10),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
+opaque_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-opaque my_type() :: other_type().">>),
+    Expect0 = <<"-opaque my_type() :: other_type().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-opaque my_type() :: other_type().\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 10),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 atom_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> '{'.">>),
     Expect0 = <<"foo() -> '{'.\n">>,
