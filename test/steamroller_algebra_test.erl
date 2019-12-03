@@ -1011,6 +1011,21 @@ long_type_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
+type_var_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"-type x() :: fun((Y :: other_type()) -> ok) | fun((Y :: type2()) -> ok | error).">>
+        ),
+    Expect0 =
+        <<"-type x() :: fun((Y :: other_type()) -> ok) | fun((Y :: type2()) -> ok | error).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "-type x() :: fun((Y :: other_type()) -> ok)\n           | fun((Y :: type2()) -> ok | error).\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 60),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 type_bracket_removal_test_() ->
     Tokens = steamroller_ast:tokens(<<"-type(my_type() :: atom()).">>),
     Expect0 = <<"-type my_type() :: atom().\n">>,

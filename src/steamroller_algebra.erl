@@ -792,6 +792,13 @@ expr_([{var, LineNum, Var}, {'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, 
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Map = group(cons([text(v2b(Var)), text(<<"#">>), ListGroup])),
     expr_(Rest, space(Doc, Map), ForceBreak1);
+expr_([{'fun', _}, {'(', _}, {'(', _} | _] = Tokens0, Doc, ForceBreak0) ->
+    % Handle 'fun((Arg :: type()) -> other_type())'
+    Tokens1 = tl(Tokens0),
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Fun = group(cons(text(<<"fun">>), ListGroup)),
+    expr_(Rest, space(Doc, Fun), ForceBreak1);
 expr_(
     [
         {'fun', _},
@@ -1154,6 +1161,11 @@ get_until(End, [{C, _} = Token | Rest], Acc, [C | Stack]) when ?IS_LIST_CLOSE_CH
 get_until(End, [{C, _} = Token | Rest], Acc, Stack) when ?IS_LIST_OPEN_CHAR(C) ->
     % If we hit an open bracket we ignore until the close bracket
     get_until(End, Rest, [Token | Acc], [close_bracket(C) | Stack]);
+get_until(End, [{'fun', _} = Token, {'(', _}, {'(', _} | _] = Rest0, Acc, Stack) ->
+    % 'fun' without 'end'
+    % fun((Arg :: type) -> other_type())
+    Rest1 = tl(Rest0),
+    get_until(End, Rest1, [Token | Acc], Stack);
 get_until(End, [{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun local/1
@@ -1273,6 +1285,17 @@ when End == ',' orelse End == ';' ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, guard);
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack, Guard) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack), Guard);
+get_end_of_expr(
+    [{'fun', LineNum} = Token, {'(', _}, {'(', _} | _] = Rest0,
+    Acc,
+    _,
+    KeywordStack,
+    Guard
+) ->
+    % 'fun' without 'end'
+    % fun((Arg :: type) -> other_type())
+    Rest1 = tl(Rest0),
+    get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{'fun', LineNum} = Token, {atom, _, _} | _] = Rest0, Acc, _, KeywordStack, Guard) ->
     % 'fun' without 'end'
     % fun local/1
