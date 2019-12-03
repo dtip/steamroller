@@ -115,6 +115,12 @@ format_files([File | Rest], Opts) ->
                 [File, Macro, Line]
             ),
             format_files(Rest, Opts);
+        {error, {File, {Line, epp, {include, file, IncludeFile}}}} ->
+            rebar_api:warn(
+                "Steamroller Warn: File: ~s: Undefined include file ~p on line ~p. Skipping...",
+                [File, IncludeFile, Line]
+            ),
+            format_files(Rest, Opts);
         {error, _} = Err -> Err
     end;
 format_files([], _) -> ok.
