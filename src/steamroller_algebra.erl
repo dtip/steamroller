@@ -1255,8 +1255,17 @@ get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, [], not_guard).
 get_end_of_expr([], Acc, _LineNum, _KeywordStack, _Guard) -> {lists:reverse(Acc), []};
 get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack, _) ->
     {[Comment], Rest};
-get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, [], _) ->
-    % Inline comment - naughty naughty
+get_end_of_expr([{comment, _, _} = Comment | Rest], Acc, _, [], _) ->
+    % This could be an in-line comment
+    % It could also happen if there are comments after the final element in a list
+    % or if you have something ludicrous like:
+    %
+    % ```
+    % X = 1
+    % % great comment
+    % ,
+    % ```
+    %
     % Return the comment and put the acc back.
     % We must only do this when the keyword stack is empty otherwise we'll put the comment
     % in the wrong place.
@@ -1268,9 +1277,6 @@ when End == ',' orelse End == ';' orelse End == dot ->
     % We must only do this when the keyword stack is empty otherwise we'll put the comment
     % in the wrong place.
     {[Comment], lists:reverse([Token | Acc]) ++ Rest};
-get_end_of_expr([{comment, _, _} | _] = Rest, Acc, _LineNum, [], _) ->
-    % This can happen if there are comments after the final element in a list
-    {lists:reverse(Acc), Rest};
 get_end_of_expr([{End, _} = Token | Rest], Acc, _, [], not_guard)
 when End == ',' orelse End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};

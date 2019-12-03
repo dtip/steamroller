@@ -81,7 +81,7 @@ brackets_multiline_inline_comment_test_() ->
     % comment...
     % Lets use a solution which will upset everyone.
     Tokens = steamroller_ast:tokens(<<"{\nflags % [line1,\n% line2,\n% line3]\n}">>),
-    Expect = <<"{\n    % [line1,\n    flags\n    % line2,\n    % line3]\n}\n">>,
+    Expect = <<"{\n    % [line1,\n    % line2,\n    % line3]\n    flags\n}\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect, Result0)].
 
@@ -703,7 +703,7 @@ case_comment_sadness_test_() ->
         ),
     Expect0 =
         <<
-            "foo(X) ->\n    case X of\n        hello -> world\n        % A very special comment\n    end.\n"
+            "foo(X) ->\n    case X of\n        hello ->\n            % A very special comment\n            world\n    end.\n"
         >>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
@@ -1625,3 +1625,9 @@ bool_test_() ->
         ?_assertEqual(Expect1, Result1),
         ?_assertEqual(Expect2, Result2)
     ].
+
+comment_sadness_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> bar()\n% why\n% WHY\n, baz().">>),
+    Expect0 = <<"foo() ->\n    % why\n    % WHY\n    bar(),\n    baz().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
