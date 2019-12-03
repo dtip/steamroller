@@ -584,6 +584,48 @@ spec_bracket_removal_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+spec_var_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"-spec test(X, Y) -> type() when X :: integer(), Y :: [string()].">>
+        ),
+    Expect0 = <<"-spec test(X, Y) -> type() when X :: integer(), Y :: [string()].\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-spec test(X, Y) ->\n    type() when X :: integer(), Y :: [string()].\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 =
+        <<"-spec test(X, Y) ->\n    type()\n    when X :: integer(),\n         Y :: [string()].\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
+
+spec_var_fun_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"-spec foo(X) -> type() when X :: integer().\nfoo(X) when is_integer(X) -> bar().">>
+        ),
+    Expect0 =
+        <<"-spec foo(X) -> type() when X :: integer().\nfoo(X) when is_integer(X) -> bar().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "-spec foo(X) ->\n    type() when X :: integer().\nfoo(X) when is_integer(X) -> bar().\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 40),
+    Expect2 =
+        <<
+            "-spec foo(X) ->\n    type()\n    when X :: integer().\nfoo(X) when is_integer(X) ->\n    bar().\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
+
 specced_function_test_() ->
     Tokens =
         steamroller_ast:tokens(<<"-spec test(some_type()) -> other_type().\ntest(A) -> A + 1.\n">>),

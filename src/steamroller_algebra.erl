@@ -535,11 +535,11 @@ when_([{'when', _} | Tokens]) -> when__(Tokens, no_force_break, []).
 
 when__(Tokens, ForceBreak0, Acc) ->
     case exprs(Tokens) of
-        {empty, ForceBreak, Exprs, []} ->
+        {End, ForceBreak, Exprs, Rest} when End == empty orelse End == dot ->
             Expr = space(Acc ++ Exprs),
             Doc = group(cons(text(<<"when ">>), underneath(0, group(Expr, inherit)))),
             ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
-            {ForceBreak1, Doc, []};
+            {ForceBreak1, Doc, Rest};
         {End, ForceBreak, Exprs, Rest} when End == ';' orelse End == ',' ->
             ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
             when__(Rest, ForceBreak1, Acc ++ Exprs)
@@ -1279,6 +1279,12 @@ get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, [], _) ->
 get_end_of_expr([{'when', LineNum} = Token | Rest], Acc, _, KeywordStack, not_guard) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, guard);
 get_end_of_expr([{'->', LineNum} = Token | Rest], Acc, _, KeywordStack, guard) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, not_guard);
+get_end_of_expr([{dot, _} = Token | Rest], Acc, _, [], guard) ->
+    % The 'when' keyword can appear in type definitions and specs. In these cases
+    % we expect it to be terminated with a dot.
+    {lists:reverse([Token | Acc]), Rest};
+get_end_of_expr([{dot, LineNum} = Token | Rest], Acc, _, KeywordStack, guard) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, not_guard);
 get_end_of_expr([{End, LineNum} = Token | Rest], Acc, _, KeywordStack, guard)
 when End == ',' orelse End == ';' ->
