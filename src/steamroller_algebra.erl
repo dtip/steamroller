@@ -1303,25 +1303,38 @@ get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, [], no_when).
 % We consider the end of an expression to be any ',', ';', or 'dot'.
 % If we find an end-terminated keyword, we put it onto the keyword stack and continue until
 % we find the matching 'end'.
-% If we find a 'when', we ignore any commas and semicolons until the corresponding '->'.
+% If we find a 'when', we ignore any commas and semicolons until the corresponding '->',
+% unless we find a '::', which means the 'when' is part of a type spec and so is terminated by
+% a ';' or a dot.
 get_end_of_expr([], Acc, _LineNum, _KeywordStack, _When) -> {lists:reverse(Acc), []};
 get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack, _) ->
     {[Comment], Rest};
-get_end_of_expr([{comment, _, _} = Comment | Rest], Acc, _, [], _) ->
-    % This could be an in-line comment
-    % It could also happen if there are comments after the final element in a list
-    % or if you have something ludicrous like:
-    %
-    % ```
-    % X = 1
-    % % great comment
-    % ,
-    % ```
-    %
+get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, [], _) ->
+    % Inline comment - naughty naughty
     % Return the comment and put the acc back.
     % We must only do this when the keyword stack is empty otherwise we'll put the comment
     % in the wrong place.
     {[Comment], lists:reverse(Acc) ++ Rest};
+get_end_of_expr([{comment, _, _} = Comment | Rest] = Tokens, Acc, _, [], _) ->
+    case only_comments_left(Rest) of
+        true ->
+            % If there are only comments left we leave them alone. Trailing comments
+            % are handled elsewhere.
+            {lists:reverse(Acc), Tokens};
+        false ->
+            % This can happen if you have something ludicrous like:
+            %
+            % ```
+            % X = 1
+            % % great comment
+            % ,
+            % ```
+            %
+            % Return the comment and put the acc back.
+            % We must only do this when the keyword stack is empty otherwise we'll put the comment
+            % in the wrong place.
+            {[Comment], lists:reverse(Acc) ++ Rest}
+    end;
 get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _, [], _)
 when End == ',' orelse End == ';' orelse End == dot ->
     % Inline comment - naughty naughty
@@ -1443,6 +1456,11 @@ close_bracket('(') -> ')';
 close_bracket('[') -> ']';
 close_bracket('{') -> '}';
 close_bracket('<<') -> '>>'.
+
+-spec only_comments_left(tokens()) -> boolean().
+only_comments_left([]) -> true;
+only_comments_left([{comment, _, _} | Rest]) -> only_comments_left(Rest);
+only_comments_left(_) -> false.
 
 %%
 %% Testing

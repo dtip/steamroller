@@ -324,8 +324,9 @@ brackets_inline_comment_test_() ->
 
 brackets_multiline_inline_comment_test_() ->
     % Why would you do this, OTP?
+    % This is not perfect, but equally this is a silly way to comment.
     Tokens = steamroller_ast:tokens(<<"{\nflags % [line1,\n% line2,\n% line3]\n}">>),
-    Expect = <<"{\n    % [line1,\n    % line2,\n    % line3]\n    flags\n}\n">>,
+    Expect = <<"{\n    % [line1,\n    flags\n    % line2,\n    % line3]\n}\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect, Result0)].
 
@@ -1704,7 +1705,7 @@ function_inline_comment_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 10),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
-function_comment_list_test_() ->
+comment_list_test_() ->
     Tokens0 = steamroller_ast:tokens(<<"foo() ->\n    {error,\n % TODO improve\noh_no}.">>),
     Expect0 =
         <<"foo() ->\n    {\n        error,\n        % TODO improve\n        oh_no\n    }.\n">>,
@@ -1732,6 +1733,14 @@ function_comment_list_test_() ->
         ?_assertEqual(Expect2, Result2),
         ?_assertEqual(Expect3, Result3)
     ].
+
+comment_list_final_element_test_() ->
+    % Test that we do not change the order of lists when the final element is commented out.
+    % Otherwise we annoy people who temporarily comment things out and autoformat on save.
+    Tokens0 = steamroller_ast:tokens(<<"foo() -> [bar\n %baz\n].">>),
+    Expect0 = <<"foo() ->\n    [\n        bar\n        %baz\n    ].\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    [?_assertEqual(Expect0, Result0)].
 
 function_clause_comment_test_() ->
     Tokens =
@@ -1788,7 +1797,7 @@ case_comment_sadness_test_() ->
         ),
     Expect0 =
         <<
-            "foo(X) ->\n    case X of\n        hello ->\n            % A very special comment\n            world\n    end.\n"
+            "foo(X) ->\n    case X of\n        hello -> world\n        % A very special comment\n    end.\n"
         >>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
