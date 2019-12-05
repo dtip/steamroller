@@ -175,8 +175,7 @@ when Spec == spec orelse Spec == callback ->
 generate_doc_([{'-', _}, {atom, _, Spec} | Tokens], Doc0, PrevTerm)
 when Spec == spec orelse Spec == callback ->
     % Spec
-    % Re-use the function code because the syntax is identical.
-    {Group, Rest} = function(Tokens),
+    {Group, Rest} = spec(Tokens),
     Doc = cons([text(<<"-">>), text(a2b(Spec)), text(<<" ">>), Group]),
     Doc1 =
         case PrevTerm of
@@ -282,6 +281,31 @@ attribute(Att, Tokens) ->
 function(Tokens) ->
     {_ForceBreak, Clauses, Rest} = clauses(Tokens),
     {newline(Clauses), Rest}.
+
+-spec spec(tokens()) -> {doc(), tokens()}.
+spec([{atom, _, FunctionName} | Tokens]) ->
+    {ClauseForceBreak, Clauses, Rest} = clauses(Tokens),
+    Doc =
+        case length(Clauses) > 1 of
+            true ->
+                % If we have multiple clauses in a spec we want them to be properly spaced underneath each other:
+                % -spec foo(type()) -> ok;
+                %          (other()) -> error.
+                force_break(
+                    force_break,
+                    group(
+                        cons(text(a2b(FunctionName)), underneath(0, group(space(Clauses), inherit))),
+                        inherit
+                    )
+                );
+            false ->
+                % If we have multiple clauses in a spec we want to indent instead of going underneath.
+                force_break(
+                    ClauseForceBreak,
+                    group(cons(text(a2b(FunctionName)), group(space(Clauses), inherit)), inherit)
+                )
+        end,
+    {Doc, Rest}.
 
 -spec case_(tokens()) -> {force_break(), doc(), tokens()}.
 case_([{'case', _} | Tokens]) ->
@@ -534,20 +558,41 @@ begin_([{'begin', _} | Tokens]) ->
         ),
     {ForceBreak, group(Doc), Rest}.
 
--spec when_(tokens()) -> {force_break(), doc(), tokens()}.
-when_([{'when', _} | Tokens]) -> when__(Tokens, no_force_break, []).
+-spec when_(tokens()) -> {dot | ';' | empty, force_break(), doc()}.
+when_([{'when', _} | Tokens]) ->
+    case is_attribute(Tokens) of
+        true -> attribute_when_(Tokens, no_force_break, []);
+        false -> function_when_(Tokens, no_force_break, [])
+    end.
 
-when__(Tokens, ForceBreak0, Acc) ->
+-spec attribute_when_(tokens(), force_break(), list(doc())) ->
+    {dot | ';' | empty, force_break(), doc()}.
+attribute_when_(Tokens, ForceBreak0, Acc) ->
+    {End, ForceBreak, Exprs, []} = exprs(Tokens),
+    Expr = space(Acc ++ Exprs),
+    ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
+    Doc = group(cons(text(<<"when ">>), underneath(0, group(Expr, inherit)))),
+    {End, ForceBreak1, Doc}.
+
+-spec function_when_(tokens(), force_break(), list(doc())) ->
+    {dot | ';' | empty, force_break(), doc()}.
+function_when_(Tokens, ForceBreak0, Acc) ->
     case exprs(Tokens) of
-        {End, ForceBreak, Exprs, Rest} when End == empty orelse End == dot ->
+        {';', ForceBreak, Exprs, Rest} ->
+            ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
+            function_when_(Rest, ForceBreak1, Acc ++ Exprs);
+        {End, ForceBreak, Exprs, []} ->
             Expr = space(Acc ++ Exprs),
             Doc = group(cons(text(<<"when ">>), underneath(0, group(Expr, inherit)))),
             ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
-            {ForceBreak1, Doc, Rest};
-        {End, ForceBreak, Exprs, Rest} when End == ';' orelse End == ',' ->
-            ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
-            when__(Rest, ForceBreak1, Acc ++ Exprs)
+            {End, ForceBreak1, Doc}
     end.
+
+-spec is_attribute(tokens()) -> boolean().
+is_attribute([]) -> false;
+is_attribute([{'::', _} | _]) -> true;
+is_attribute([{';', _} | _]) -> false;
+is_attribute([_ | Rest]) -> is_attribute(Rest).
 
 -spec comment(string()) -> doc().
 comment(Comment) -> text(string:trim(unicode:characters_to_binary(Comment))).
@@ -735,9 +780,9 @@ expr_([{'begin', _} | _] = Tokens, Doc, ForceBreak0) ->
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_([{'when', _} | _] = Tokens, Doc, ForceBreak0) ->
-    {GroupForceBreak, Group, Rest} = when_(Tokens),
+    {End, GroupForceBreak, Group} = when_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
-    expr_(Rest, space(Doc, Group), ForceBreak1);
+    {End, ForceBreak1, space(Doc, Group)};
 expr_([{'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle records
     % #record_name{key => value}
@@ -1250,16 +1295,16 @@ remove_matching(Start, End, [Token | Rest], Acc, Stack) ->
     remove_matching(Start, End, Rest, [Token | Acc], Stack).
 
 -spec get_end_of_expr(tokens()) -> {tokens(), tokens()}.
-get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, [], not_guard).
+get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, [], no_when).
 
 % Dialyzer gets upset if we use integer() for the third arg here but that's what it is.
--spec get_end_of_expr(tokens(), tokens(), any(), list(atom()), guard | not_guard) ->
+-spec get_end_of_expr(tokens(), tokens(), any(), list(atom()), no_when | when_guard | when_type) ->
     {tokens(), tokens()}.
 % We consider the end of an expression to be any ',', ';', or 'dot'.
 % If we find an end-terminated keyword, we put it onto the keyword stack and continue until
 % we find the matching 'end'.
 % If we find a 'when', we ignore any commas and semicolons until the corresponding '->'.
-get_end_of_expr([], Acc, _LineNum, _KeywordStack, _Guard) -> {lists:reverse(Acc), []};
+get_end_of_expr([], Acc, _LineNum, _KeywordStack, _When) -> {lists:reverse(Acc), []};
 get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack, _) ->
     {[Comment], Rest};
 get_end_of_expr([{comment, _, _} = Comment | Rest], Acc, _, [], _) ->
@@ -1284,24 +1329,21 @@ when End == ',' orelse End == ';' orelse End == dot ->
     % We must only do this when the keyword stack is empty otherwise we'll put the comment
     % in the wrong place.
     {[Comment], lists:reverse([Token | Acc]) ++ Rest};
-get_end_of_expr([{End, _} = Token | Rest], Acc, _, [], not_guard)
+get_end_of_expr([{End, _} = Token | Rest], Acc, _, [], no_when)
 when End == ',' orelse End == ';' orelse End == dot ->
+    {lists:reverse([Token | Acc]), Rest};
+get_end_of_expr([{dot, _} = Token | Rest], Acc, _, [], when_guard) ->
+    {lists:reverse([Token | Acc]), Rest};
+get_end_of_expr([{End, _} = Token | Rest], Acc, _, [], when_type) when End == ';' orelse End == dot ->
     {lists:reverse([Token | Acc]), Rest};
 get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, [], _) ->
     {lists:reverse([Token | Acc]), Rest};
-get_end_of_expr([{'when', LineNum} = Token | Rest], Acc, _, KeywordStack, not_guard) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, guard);
-get_end_of_expr([{'->', LineNum} = Token | Rest], Acc, _, KeywordStack, guard) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, not_guard);
-get_end_of_expr([{dot, _} = Token | Rest], Acc, _, [], guard) ->
-    % The 'when' keyword can appear in type definitions and specs. In these cases
-    % we expect it to be terminated with a dot.
-    {lists:reverse([Token | Acc]), Rest};
-get_end_of_expr([{dot, LineNum} = Token | Rest], Acc, _, KeywordStack, guard) ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, not_guard);
-get_end_of_expr([{End, LineNum} = Token | Rest], Acc, _, KeywordStack, guard)
-when End == ',' orelse End == ';' ->
-    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, guard);
+get_end_of_expr([{'when', LineNum} = Token | Rest], Acc, _, KeywordStack, no_when) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, when_guard);
+get_end_of_expr([{'->', LineNum} = Token | Rest], Acc, _, KeywordStack, when_guard) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, no_when);
+get_end_of_expr([{'::', LineNum} = Token | Rest], Acc, _, KeywordStack, when_guard) ->
+    get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, when_type);
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack, Guard) ->
     get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack), Guard);
 get_end_of_expr(

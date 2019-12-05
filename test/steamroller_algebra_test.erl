@@ -719,6 +719,35 @@ specced_function_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+multiclause_spec_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<
+                "-spec foo(bar, X) -> Y when X :: type(), Y :: type();\n    ({baz, term()}, term()) -> term();\n    (baz, term()) -> term()."
+            >>
+        ),
+    Expect0 =
+        <<
+            "-spec foo(bar, X) -> Y when X :: type(), Y :: type();\n         ({baz, term()}, term()) -> term();\n         (baz, term()) -> term().\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "-spec foo(bar, X) ->\n             Y when X :: type(), Y :: type();\n         ({baz, term()}, term()) -> term();\n         (baz, term()) -> term().\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    % TODO This could be better
+    Expect2 =
+        <<
+            "-spec foo(bar, X) ->\n             Y\n             when X :: type(),\n                  Y :: type();\n         ({baz, term()}, term()) ->\n             term();\n         (baz, term()) -> term().\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 40),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
+
 %%
 %% Callback
 %%
