@@ -167,19 +167,21 @@ concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
 -spec generate_doc_(tokens(), doc(), previous_term()) -> doc().
 generate_doc_([], Doc, _) -> Doc;
-generate_doc_([{'-', _} = H0, {atom, _, spec} = H1, {'(', _} | Rest0], Doc, PrevTerm) ->
-    % Remove brackets from Specs
+generate_doc_([{'-', _} = H0, {atom, _, Spec} = H1, {'(', _} | Rest0], Doc, PrevTerm)
+when Spec == spec orelse Spec == callback ->
+    % Remove brackets from Specs and Callbacks
     Rest1 = remove_matching('(', ')', Rest0),
     generate_doc_([H0, H1 | Rest1], Doc, PrevTerm);
-generate_doc_([{'-', _}, {atom, _, spec} | Tokens], Doc0, PrevTerm) ->
+generate_doc_([{'-', _}, {atom, _, Spec} | Tokens], Doc0, PrevTerm)
+when Spec == spec orelse Spec == callback ->
     % Spec
     % Re-use the function code because the syntax is identical.
     {Group, Rest} = function(Tokens),
-    Spec = cons(text(<<"-spec ">>), Group),
+    Doc = cons([text(<<"-">>), text(a2b(Spec)), text(<<" ">>), Group]),
     Doc1 =
         case PrevTerm of
-            function_comment -> newline(Doc0, Spec);
-            _ -> newlines(Doc0, Spec)
+            function_comment -> newline(Doc0, Doc);
+            _ -> newlines(Doc0, Doc)
         end,
     generate_doc_(Rest, Doc1, spec);
 generate_doc_([{'-', _} = H0, {atom, _, Type} = H1, {'(', _} | Rest0], Doc, PrevTerm)

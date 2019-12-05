@@ -641,6 +641,15 @@ specced_function_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+callback_test_() ->
+    Tokens0 = steamroller_ast:tokens(<<"-callback foo(X :: bar()) -> thing().">>),
+    Expect0 = <<"-callback foo(X :: bar()) -> thing().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"-callback(foo(X :: bar()) -> thing()).">>),
+    Expect1 = <<"-callback foo(X :: bar()) -> thing().\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 basic_case_test_() ->
     Tokens =
         steamroller_ast:tokens(
