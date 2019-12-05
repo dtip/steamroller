@@ -617,6 +617,9 @@ head_and_clause([]) -> {done, force_break, empty(), []};
 head_and_clause(Tokens) -> head_and_clause(Tokens, empty()).
 
 -spec head_and_clause(tokens(), doc()) -> {continue(), force_break(), doc(), tokens()}.
+head_and_clause([{'?', _} | _] = Tokens, doc_nil) ->
+    % Macro
+    clause(Tokens);
 head_and_clause([{atom, _, Name} | Rest], Doc) ->
     % Name
     head_and_clause(Rest, cons(Doc, text(a2b(Name))));

@@ -194,22 +194,6 @@ function_long_multiclause_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 70),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
-function_macro_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> ?MACRO.">>),
-    Expect0 = <<"foo() -> ?MACRO.\n">>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"foo() ->\n    ?MACRO.\n">>,
-    Result1 = steamroller_algebra:format_tokens(Tokens, 10),
-    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
-
-function_macro_args_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(SomeVariable) -> ?MACRO(SomeVariable).">>),
-    Expect0 = <<"foo(SomeVariable) -> ?MACRO(SomeVariable).\n">>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"foo(SomeVariable) ->\n    ?MACRO(SomeVariable).\n">>,
-    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
-    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
-
 function_tuple_test_() ->
     Tokens = steamroller_ast:tokens(<<"foo() -> {error, oh_no}.">>),
     Expect0 = <<"foo() -> {error, oh_no}.\n">>,
@@ -1648,3 +1632,64 @@ comment_sadness_test_() ->
     Expect0 = <<"foo() ->\n    % why\n    % WHY\n    bar(),\n    baz().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
+
+macro_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> ?MACRO.">>),
+    Expect0 = <<"foo() -> ?MACRO.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    ?MACRO.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 10),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+macro_args_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(SomeVariable) -> ?MACRO(SomeVariable).">>),
+    Expect0 = <<"foo(SomeVariable) -> ?MACRO(SomeVariable).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(SomeVariable) ->\n    ?MACRO(SomeVariable).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+macro_no_comma_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X, Y) -> ?MACRO(X, Y) bar().">>),
+    Expect0 = <<"foo(X, Y) -> ?MACRO(X, Y) bar().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+macro_try_catch_test_() ->
+    Tokens =
+        steamroller_ast:tokens(<<"foo(X) -> try bar(X) catch ?Macro(X) handle_error(X) end.">>),
+    Expect0 = <<"foo(X) -> try bar(X) catch ?Macro(X) handle_error(X) end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "foo(X) ->\n    try\n        bar(X)\n    catch\n        ?Macro(X) handle_error(X)\n    end.\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    % FIXME This is not perfect but shouldn't happen often
+    % There should be an indent after the macro.
+    Expect2 =
+        <<
+            "foo(X) ->\n    try\n        bar(X)\n    catch\n        ?Macro(X)\n        handle_error(X)\n    end.\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 30),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
+
+macro_case_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) -> case bar(X) of ?Macro(X) ok end.">>),
+    Expect0 = <<"foo(X) -> case bar(X) of ?Macro(X) ok end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo(X) ->\n    case bar(X) of\n        ?Macro(X) ok\n    end.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    % FIXME This is not perfect but shouldn't happen often.
+    % There should be an indent after the macro.
+    Expect2 = <<"foo(X) ->\n    case bar(X) of\n        ?Macro(X)\n        ok\n    end.\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 19),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
