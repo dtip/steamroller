@@ -1614,6 +1614,19 @@ top_level_macro_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+macro_export_test_() ->
+    % FIXME remove spaces
+    Tokens = steamroller_ast:tokens(<<"-export([?MACRO/0]).">>),
+    Expect0 = <<"-export([?MACRO / 0]).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+macro_multiexpr_test_() ->
+    Tokens = steamroller_ast:tokens(<<"?MACRO() -> foo(x), ok.">>),
+    Expect0 = <<"?MACRO() -> foo(x), ok.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Record
 %%

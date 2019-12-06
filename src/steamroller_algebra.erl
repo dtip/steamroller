@@ -266,8 +266,9 @@ generate_doc_(Tokens, Doc, _PrevTerm) ->
     % Anything unhandled gets treated as an expression.
     % Things which fall through to here:
     % - Macros: can appear at the top level
-    {_End, _ForceBreak, Expr, Rest} = expr(Tokens, no_force_break),
-    generate_doc_(Rest, newline(Doc, Expr), expr).
+    {_End, ForceBreak, Exprs, Rest} = exprs(Tokens),
+    Group = force_break(ForceBreak, group(space(Exprs), inherit)),
+    generate_doc_(Rest, newline(Doc, Group), expr).
 
 %%
 %% Erlang Source Elements
@@ -738,8 +739,9 @@ head_and_clause(Rest0, Doc0) ->
     % The first case happens most of the time. The second case happens when we have
     % things like:
     % if X =:= test; X =:= other ->
-    {_End, _ForceBreak, Expr, Leftovers} = expr(Tokens, no_force_break),
-    head_and_clause(Leftovers ++ [Token | Rest1], space(Doc0, Expr)).
+    {_End, ForceBreak, Exprs, Leftovers} = exprs(Tokens),
+    Group = force_break(ForceBreak, group(space(Exprs), inherit)),
+    head_and_clause(Leftovers ++ [Token | Rest1], space(Doc0, Group)).
 
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 clause(Tokens) ->
