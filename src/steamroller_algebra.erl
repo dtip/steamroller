@@ -937,9 +937,17 @@ expr_(
         ),
     expr_(Rest, space(Doc, Fun), ForceBreak);
 expr_(
+    [{'fun', _}, {var, LineNum, Var}, {'/', LineNum}, {integer, LineNum, Arity} | Rest],
+    Doc,
+    ForceBreak
+) ->
+    % Handle `fun Var/arity`
+    Fun = cons([text(<<"fun ">>), text(v2b(Var)), text(<<"/">>), text(i2b(Arity))]),
+    expr_(Rest, space(Doc, Fun), ForceBreak);
+expr_(
     [
         {'fun', _},
-        {var, LineNum, MacroName},
+        {var, LineNum, Var},
         {':', LineNum},
         {atom, LineNum, FunctionName},
         {'/', LineNum},
@@ -953,7 +961,7 @@ expr_(
         cons(
             [
                 text(<<"fun ">>),
-                text(v2b(MacroName)),
+                text(v2b(Var)),
                 text(<<":">>),
                 text(a2b(FunctionName)),
                 text(<<"/">>),
@@ -1246,6 +1254,14 @@ get_until(End, [{C, _} = Token | Rest], Acc, [C | Stack]) when ?IS_LIST_CLOSE_CH
 get_until(End, [{C, _} = Token | Rest], Acc, Stack) when ?IS_LIST_OPEN_CHAR(C) ->
     % If we hit an open bracket we ignore until the close bracket
     get_until(End, Rest, [Token | Acc], [close_bracket(C) | Stack]);
+get_until(End, [{'fun', _} = Token, {'(', _}, {')', _}, {Op, _} | _] = Rest0, Acc, Stack)
+when Op == '|' orelse Op == dot ->
+    % 'fun' without 'end'
+    % -type x() :: fun().
+    % or
+    % -type x() :: fun() | y().
+    Rest1 = tl(Rest0),
+    get_until(End, Rest1, [Token | Acc], Stack);
 get_until(End, [{'fun', _} = Token, {'(', _}, {'(', _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun((Arg :: type) -> other_type())
@@ -1254,6 +1270,11 @@ get_until(End, [{'fun', _} = Token, {'(', _}, {'(', _} | _] = Rest0, Acc, Stack)
 get_until(End, [{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
     % 'fun' without 'end'
     % fun local/1
+    Rest1 = tl(Rest0),
+    get_until(End, Rest1, [Token | Acc], Stack);
+get_until(End, [{'fun', _} = Token, {var, _, _}, {'/', _} | _] = Rest0, Acc, Stack) ->
+    % 'fun' without 'end'
+    % fun X/1
     Rest1 = tl(Rest0),
     get_until(End, Rest1, [Token | Acc], Stack);
 get_until(End, [{'fun', _} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
@@ -1420,6 +1441,17 @@ when Op == dot orelse Op == '|' ->
 get_end_of_expr([{'fun', LineNum} = Token, {atom, _, _} | _] = Rest0, Acc, _, KeywordStack, Guard) ->
     % 'fun' without 'end'
     % fun local/1
+    Rest1 = tl(Rest0),
+    get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+get_end_of_expr(
+    [{'fun', LineNum} = Token, {var, _, _}, {'/', _} | _] = Rest0,
+    Acc,
+    _,
+    KeywordStack,
+    Guard
+) ->
+    % 'fun' without 'end'
+    % fun X/1
     Rest1 = tl(Rest0),
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr(

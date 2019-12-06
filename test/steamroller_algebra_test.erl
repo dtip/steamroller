@@ -869,6 +869,12 @@ bracketless_define_whitespace_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
+define_variable_function_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-define(MACRO(X), {X, fun X/1}).">>),
+    Expect0 = <<"-define(MACRO(X), {X, fun X/1}).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Ifdef
 %%
