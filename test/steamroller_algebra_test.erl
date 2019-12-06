@@ -1152,6 +1152,12 @@ dynamic_function_test_() ->
         ?_assertEqual(Expect5, Result5)
     ].
 
+variable_arity_test_() ->
+    Tokens0 = steamroller_ast:tokens(<<"foo(M, F, A) -> fun M:F/A.">>),
+    Expect0 = <<"foo(M, F, A) -> fun M:F/A.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Guard
 %%

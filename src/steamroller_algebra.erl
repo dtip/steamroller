@@ -63,6 +63,15 @@
     )
 ).
 -define(IS_OF_KEYWORD(C), (C == 'case' orelse C == 'try')).
+-define(IS_VALID_MODULE_TYPE(T), (T == atom orelse T == var)).
+-define(IS_VALID_FUNCTION_TYPE(T), (T == atom orelse T == var)).
+-define(IS_VALID_ARITY_TYPE(T), (T == integer orelse T == var)).
+-define(
+    IS_VALID_MFA(M, F, A),
+    (?IS_VALID_MODULE_TYPE(M) andalso ?IS_VALID_FUNCTION_TYPE(F) andalso ?IS_VALID_ARITY_TYPE(A))
+).
+-define(IS_VALID_MF(M, F), (?IS_VALID_MODULE_TYPE(M) andalso ?IS_VALID_FUNCTION_TYPE(F))).
+-define(IS_VALID_FA(F, A), (?IS_VALID_FUNCTION_TYPE(F) andalso ?IS_VALID_ARITY_TYPE(A))).
 
 %%
 %% API
@@ -577,6 +586,18 @@ fun_([{'fun', _} | Tokens]) ->
         end,
     {ForceBreak, Doc, Rest}.
 
+-spec mfa_module(token()) -> doc().
+mfa_module({atom, _, M}) -> text(a2b(M));
+mfa_module({var, _, M}) -> text(v2b(M)).
+
+-spec mfa_function(token()) -> doc().
+mfa_function({atom, _, F}) -> text(a2b(F));
+mfa_function({var, _, F}) -> text(v2b(F)).
+
+-spec mfa_arity(token()) -> doc().
+mfa_arity({integer, _, A}) -> text(i2b(A));
+mfa_arity({var, _, A}) -> text(v2b(A)).
+
 -spec begin_(tokens()) -> {force_break(), doc(), tokens()}.
 begin_([{'begin', _} | Tokens]) ->
     {BeginTokens, Rest, _} = get_until_end(Tokens),
@@ -889,25 +910,26 @@ expr_([{'fun', _}, {'(', _}, {'(', _} | _] = Tokens0, Doc, ForceBreak0) ->
 expr_(
     [
         {'fun', _},
-        {atom, LineNum, ModuleName},
+        {M, LineNum, _} = Module,
         {':', LineNum},
-        {atom, LineNum, FunctionName},
+        {F, LineNum, _} = Function,
         {'/', LineNum},
-        {integer, LineNum, Arity} | Rest
+        {A, LineNum, _} = Arity | Rest
     ],
     Doc,
     ForceBreak
-) ->
+)
+when ?IS_VALID_MFA(M, F, A) ->
     % Handle `fun module:function/arity`
     Fun =
         cons(
             [
                 text(<<"fun ">>),
-                text(a2b(ModuleName)),
+                mfa_module(Module),
                 text(<<":">>),
-                text(a2b(FunctionName)),
+                mfa_function(Function),
                 text(<<"/">>),
-                text(i2b(Arity))
+                mfa_arity(Arity)
             ]
         ),
     expr_(Rest, space(Doc, Fun), ForceBreak);
@@ -917,13 +939,14 @@ expr_(
         {'?', LineNum},
         {var, LineNum, MacroName},
         {':', LineNum},
-        {atom, LineNum, FunctionName},
+        {F, LineNum, _} = Function,
         {'/', LineNum},
-        {integer, LineNum, Arity} | Rest
+        {A, LineNum, _} = Arity | Rest
     ],
     Doc,
     ForceBreak
-) ->
+)
+when ?IS_VALID_FA(F, A) ->
     % Handle `fun ?MACRO:function/arity`
     Fun =
         cons(
@@ -932,117 +955,50 @@ expr_(
                 text(<<"?">>),
                 text(v2b(MacroName)),
                 text(<<":">>),
-                text(a2b(FunctionName)),
+                mfa_function(Function),
                 text(<<"/">>),
-                text(i2b(Arity))
+                mfa_arity(Arity)
             ]
         ),
     expr_(Rest, space(Doc, Fun), ForceBreak);
 expr_(
-    [{'fun', _}, {var, LineNum, Var}, {'/', LineNum}, {integer, LineNum, Arity} | Rest],
+    [{'fun', _}, {F, LineNum, _} = Function, {'/', LineNum}, {A, LineNum, _} = Arity | Rest],
     Doc,
     ForceBreak
-) ->
-    % Handle `fun Var/arity`
-    Fun = cons([text(<<"fun ">>), text(v2b(Var)), text(<<"/">>), text(i2b(Arity))]),
-    expr_(Rest, space(Doc, Fun), ForceBreak);
-expr_(
-    [
-        {'fun', _},
-        {var, LineNum, Var},
-        {':', LineNum},
-        {atom, LineNum, FunctionName},
-        {'/', LineNum},
-        {integer, LineNum, Arity} | Rest
-    ],
-    Doc,
-    ForceBreak
-) ->
-    % Handle `fun Var:function/arity`
-    Fun =
-        cons(
-            [
-                text(<<"fun ">>),
-                text(v2b(Var)),
-                text(<<":">>),
-                text(a2b(FunctionName)),
-                text(<<"/">>),
-                text(i2b(Arity))
-            ]
-        ),
-    expr_(Rest, space(Doc, Fun), ForceBreak);
-expr_(
-    [{'fun', _}, {atom, LineNum, FunctionName}, {'/', LineNum}, {integer, LineNum, Arity} | Rest],
-    Doc,
-    ForceBreak
-) ->
+)
+when ?IS_VALID_FA(F, A) ->
     % Handle `fun function/arity`
-    Fun = cons([text(<<"fun ">>), text(a2b(FunctionName)), text(<<"/">>), text(i2b(Arity))]),
+    Fun = cons([text(<<"fun ">>), mfa_function(Function), text(<<"/">>), mfa_arity(Arity)]),
     expr_(Rest, space(Doc, Fun), ForceBreak);
 expr_([{'fun', _} | _] = Tokens, Doc, ForceBreak0) ->
+    % Handle any 'fun' expressions which have an 'end'.
     {GroupForceBreak, Group, Rest} = fun_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
 expr_(
-    [{atom, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'(', LineNum} | _]
-        =
+    [{M, LineNum, _} = Module, {':', LineNum}, {F, LineNum, _} = Function, {'(', LineNum} | _] =
         Tokens0,
-    Doc,
+    Doc0,
     ForceBreak0
-) ->
+)
+when ?IS_VALID_MF(M, F) ->
     % Handle function calls to other modules
     % `module:fuction(Args)`
     [_, _, _ | Tokens1] = Tokens0,
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
-    Function =
-        space(Doc, cons([text(a2b(ModuleName)), text(<<":">>), text(a2b(FunctionName)), ListGroup])),
-    expr_(Rest, Function, ForceBreak1);
-expr_(
-    [{var, LineNum, ModuleName}, {':', LineNum}, {atom, LineNum, FunctionName}, {'(', LineNum} | _]
-        =
-        Tokens0,
-    Doc,
-    ForceBreak0
-) ->
-    % Handle function calls to other modules using a variable module.
-    % `Var:fuction(Args)`
-    [_, _, _ | Tokens1] = Tokens0,
-    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
-    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
-    Function =
-        space(Doc, cons([text(v2b(ModuleName)), text(<<":">>), text(a2b(FunctionName)), ListGroup])),
-    expr_(Rest, Function, ForceBreak1);
-expr_(
-    [{var, LineNum, ModuleName}, {':', LineNum}, {var, LineNum, FunctionName}, {'(', LineNum} | _] =
-        Tokens0,
-    Doc,
-    ForceBreak0
-) ->
-    % Handle function calls to other modules using a variable module and function.
-    % `Var0:Var1(Args)`
-    [_, _, _ | Tokens1] = Tokens0,
-    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
-    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
-    Function =
-        space(Doc, cons([text(v2b(ModuleName)), text(<<":">>), text(v2b(FunctionName)), ListGroup])),
-    expr_(Rest, Function, ForceBreak1);
-expr_([{atom, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
+    Doc1 =
+        space(Doc0, cons([mfa_module(Module), text(<<":">>), mfa_function(Function), ListGroup])),
+    expr_(Rest, Doc1, ForceBreak1);
+expr_([{F, LineNum, _} = Function, {'(', LineNum} | _] = Tokens0, Doc0, ForceBreak0)
+when ?IS_VALID_FUNCTION_TYPE(F) ->
     % Handle local function calls
     % `function(Args)`
     Tokens1 = tl(Tokens0),
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
-    Function = space(Doc, cons(text(a2b(FunctionName)), ListGroup)),
-    expr_(Rest, Function, ForceBreak1);
-expr_([{var, LineNum, FunctionName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
-    % Handle local function calls using variables
-    % `Var(Args)`
-    Tokens1 = tl(Tokens0),
-    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
-    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
-    Function = space(Doc, cons(text(v2b(FunctionName)), ListGroup)),
-    expr_(Rest, Function, ForceBreak1);
+    Doc1 = space(Doc0, cons(mfa_function(Function), ListGroup)),
+    expr_(Rest, Doc1, ForceBreak1);
 expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_OPEN_CHAR(C) ->
     % Handle lists
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
