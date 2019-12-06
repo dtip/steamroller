@@ -87,11 +87,5 @@ eq_({_Left, _Right}, _) ->
     false.
 
 check_for_errors([], _) -> ok;
-check_for_errors([{error, {LineNum, erl_parse, ["syntax error before: ", Str]}} | _], File) ->
-    Err =
-        list_to_binary(
-            io_lib:format("~s: Error on line ~p: syntax error before ~s", [File, LineNum, Str])
-        ),
-    {error, Err};
 check_for_errors([{error, Msg} | _], File) -> {error, {File, Msg}};
 check_for_errors([_ | Rest], File) -> check_for_errors(Rest, File).

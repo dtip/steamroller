@@ -121,6 +121,12 @@ format_files([File | Rest], Opts) ->
                 [File, IncludeFile, Line]
             ),
             format_files(Rest, Opts);
+        {error, {File, {Line, erl_parse, ["syntax error before: ", Str]}}} ->
+            rebar_api:warn(
+                "Steamroller Warn: File: ~s: Syntax error before ~s on line ~p. Skipping...",
+                [File, Str, Line]
+            ),
+            format_files(Rest, Opts);
         {error, _} = Err -> Err
     end;
 format_files([], _) -> ok.
