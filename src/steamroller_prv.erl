@@ -135,6 +135,14 @@ format_files([File | Rest], Opts) ->
                 [File, Str, Line]
             ),
             format_files(Rest, Opts);
+        {error, {File, {Line, erl_parse, Err}}} ->
+            % These errors typically mean that the sorce does not compile.
+            % Not really our problem so we warn instead of erroring.
+            rebar_api:warn(
+                "Steamroller Warn: File: ~s: erl_parse error ~p on line ~p. Skipping...",
+                [File, Err, Line]
+            ),
+            format_files(Rest, Opts);
         {error, _} = Err -> Err
     end;
 format_files([], _) -> ok.
