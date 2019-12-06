@@ -419,8 +419,8 @@ try_([{'try', _} | Tokens]) ->
                 % There is no 'of' for this 'try'
                 {exprs, text(<<"try">>), TryTokens};
             {TryArgTokens, Rest0, _} ->
-                {empty, _, TryArg, []} = expr(TryArgTokens, no_force_break),
-                {clauses, group(space(text(<<"try">>), TryArg)), Rest0}
+                {empty, _, TryArgs, []} = exprs(TryArgTokens),
+                {clauses, group(space(text(<<"try">>), space(TryArgs))), Rest0}
         end,
     {TryTokens1, AfterClauseTokens} =
         case get_until('after', Rest1) of

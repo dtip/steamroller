@@ -1414,6 +1414,20 @@ try_of_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
+try_of_multiexpression_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo() -> try true = bar(), baz() of baz -> ok catch Err -> Err end.">>
+        ),
+    Expect0 = <<"foo() -> try true = bar(), baz() of baz -> ok catch Err -> Err end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "foo() ->\n    try true = bar(), baz() of\n        baz -> ok\n    catch\n        Err -> Err\n    end.\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 try_case_test_() ->
     Tokens =
         steamroller_ast:tokens(
