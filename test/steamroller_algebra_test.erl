@@ -1906,6 +1906,18 @@ case_comment_sadness_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+try_comment_sadness_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<"foo(X) -> try bar(X)\n% Please no more\ncatch _ -> error\n% Oh no not again\nend.">>
+        ),
+    Expect0 =
+        <<
+            "foo(X) ->\n    try\n        bar(X)\n        % Please no more\n    catch\n        _ -> error\n        % Oh no not again\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% From the paper
 %%

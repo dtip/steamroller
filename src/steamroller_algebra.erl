@@ -468,7 +468,7 @@ try_([{'try', _} | Tokens]) ->
     {ForceBreak0, Doc0} =
         case TryType of
             exprs ->
-                {empty, TryForceBreak, Exprs, []} = exprs(TryTokens2),
+                {empty, TryForceBreak, Exprs} = handle_trailing_expr_comments(exprs(TryTokens2)),
                 ForceBreak =
                     case length(Exprs) > 1 of
                         true -> force_break;
@@ -658,6 +658,13 @@ handle_trailing_comments({ForceBreak, Clauses, []}) -> {ForceBreak, Clauses};
 handle_trailing_comments({_, Clauses, Comments}) ->
     CommentDocs = lists:map(fun ({comment, _, Text}) -> comment(Text) end, Comments),
     {force_break, Clauses ++ CommentDocs}.
+
+-spec handle_trailing_expr_comments({empty, force_break(), list(doc()), tokens()}) ->
+    {empty, force_break(), list(doc())}.
+handle_trailing_expr_comments({empty, ForceBreak, Exprs, []}) -> {empty, ForceBreak, Exprs};
+handle_trailing_expr_comments({empty, _, Exprs, Comments}) ->
+    CommentDocs = lists:map(fun ({comment, _, Text}) -> comment(Text) end, Comments),
+    {empty, force_break, Exprs ++ CommentDocs}.
 
 %%
 %% Generic Erlang Expressions
