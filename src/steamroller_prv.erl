@@ -121,6 +121,14 @@ format_files([File | Rest], Opts) ->
                 [File, IncludeFile, Line]
             ),
             format_files(Rest, Opts);
+        {error, {File, {Line, epp, Err}}} ->
+            % These errors typically mean that the sorce does not compile.
+            % Not really our problem so we warn instead of erroring.
+            rebar_api:warn(
+                "Steamroller Warn: File: ~s: epp error ~p on line ~p. Skipping...",
+                [File, Err, Line]
+            ),
+            format_files(Rest, Opts);
         {error, {File, {Line, erl_parse, ["syntax error before: ", Str]}}} ->
             rebar_api:warn(
                 "Steamroller Warn: File: ~s: Syntax error before ~s on line ~p. Skipping...",
