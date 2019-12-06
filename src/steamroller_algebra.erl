@@ -208,13 +208,18 @@ generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
         case {Atom, PrevTerm} of
             {_, function_comment} -> newline(Doc0, Group);
             {Atom, {attribute, Atom}} -> newline(Doc0, Group);
-            {define, {attribute, IfDef}} when IfDef == ifdef orelse IfDef == else ->
+            {define, {attribute, IfDef}}
+            when IfDef == ifdef orelse IfDef == else orelse IfDef == 'if' ->
                 newline(Doc0, Group);
             {IfDef, {attribute, define}} when IfDef == else orelse IfDef == endif ->
                 newline(Doc0, Group);
             _ -> newlines(Doc0, Group)
         end,
     generate_doc_(Rest, Doc1, {attribute, Atom});
+generate_doc_([{'-', _}, {'if' = Atom, _} | Tokens], Doc0, _) ->
+    % :'(
+    {Group, Rest} = attribute(Atom, Tokens),
+    generate_doc_(Rest, newlines(Doc0, Group), {attribute, Atom});
 generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
     % Function
     {Group, Rest} = function(Tokens),
@@ -274,6 +279,14 @@ attribute(Att, [{dot, _} | Rest]) ->
     % -else.
     % -endif.
     Attribute = group(cons([text(<<"-">>), text(a2b(Att)), text(?dot)])),
+    {Attribute, Rest};
+attribute('if', Tokens) ->
+    % Easiest to handle this here...
+    % a2b/1 will print 'if' with the single quotes.
+    % op2b/1 will print `dot` as `.`.
+    % so pattern match the 'if' and convert it to <<"if">>.
+    {_ForceBreak, Expr, [{dot, _} | Rest]} = list_group(Tokens),
+    Attribute = group(cons([text(<<"-">>), text(<<"if">>), Expr, text(?dot)])),
     {Attribute, Rest};
 attribute(Att, Tokens) ->
     {_ForceBreak, Expr, [{dot, _} | Rest]} = list_group(Tokens),

@@ -863,6 +863,18 @@ ifdef_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+if_attribute_test_() ->
+    % Apparently you can have an attribute just called `-if`.
+    % It appears to behave in the same was as `ifdef` so is probably legacy.
+    % It upsets the AST generator because `if` is a keyword so we have to handle it separately.
+    Tokens =
+        steamroller_ast:tokens(
+            <<"-if(something).\n-define(x, 1).\n-else.\n-define(x, 2).\n-endif.">>
+        ),
+    Expect0 = <<"-if(something).\n-define(x, 1).\n-else.\n-define(x, 2).\n-endif.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Case
 %%
