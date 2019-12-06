@@ -618,6 +618,25 @@ type_grouping_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+type_fun_test_() ->
+    Tokens0 = steamroller_ast:tokens(<<"-type x() :: fun().">>),
+    Expect0 = <<"-type x() :: fun().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"-type x() :: fun() | map().">>),
+    Expect1 = <<"-type x() :: fun() | map().\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    Expect2 = <<"-type x() :: fun()\n           | map().\n">>,
+    Result2 = steamroller_algebra:format_tokens(Tokens1, 20),
+    Tokens2 = steamroller_ast:tokens(<<"-type x() :: fun().\n-type y() :: foo().">>),
+    Expect3 = <<"-type x() :: fun().\n-type y() :: foo().\n">>,
+    Result3 = steamroller_algebra:format_tokens(Tokens2, 100),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2),
+        ?_assertEqual(Expect3, Result3)
+    ].
+
 opaque_test_() ->
     Tokens = steamroller_ast:tokens(<<"-opaque my_type() :: other_type().">>),
     Expect0 = <<"-opaque my_type() :: other_type().\n">>,

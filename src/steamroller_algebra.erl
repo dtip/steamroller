@@ -547,17 +547,34 @@ try_after_([{'after', _} | Tokens]) ->
 
 -spec fun_(tokens()) -> {force_break(), doc(), tokens()}.
 fun_([{'fun', _} | Tokens]) ->
-    {ClauseTokens, Rest1, _} = get_until_end(Tokens),
-    {ForceBreak, Clauses} = handle_trailing_comments(clauses(ClauseTokens)),
-    Doc =
-        force_break(
-            ForceBreak,
-            group(
-                space(nest(?indent, space([text(<<"fun">>) | Clauses])), text(<<"end">>)),
-                inherit
-            )
-        ),
-    {ForceBreak, Doc, Rest1}.
+    {ForceBreak, Doc, Rest} =
+        case get_until_end(Tokens) of
+            {[{'(', _}, {')', _}], [], {dot, _}} ->
+                % This case can happen in typedefs if the type looks like
+                % -type x() :: fun().
+                {no_force_break, text(<<"fun().">>), []};
+            {[{'(', _}, {')', _}, {'|', _} | _] = Tokens0, Rest0, End} ->
+                % This case can happen in typedefs if the type looks like
+                % -type x() :: fun() | map().
+                [_, _ | Tokens1] = Tokens0,
+                Rest1 = Tokens1 ++ [End] ++ Rest0,
+                {no_force_break, text(<<"fun()">>), Rest1};
+            {ClauseTokens, Rest0, _} ->
+                {ForceBreak0, Clauses} = handle_trailing_comments(clauses(ClauseTokens)),
+                Doc0 =
+                    force_break(
+                        ForceBreak0,
+                        group(
+                            space(
+                                nest(?indent, space([text(<<"fun">>) | Clauses])),
+                                text(<<"end">>)
+                            ),
+                            inherit
+                        )
+                    ),
+                {ForceBreak0, Doc0, Rest0}
+        end,
+    {ForceBreak, Doc, Rest}.
 
 -spec begin_(tokens()) -> {force_break(), doc(), tokens()}.
 begin_([{'begin', _} | Tokens]) ->
@@ -1384,6 +1401,20 @@ get_end_of_expr(
 ) ->
     % 'fun' without 'end'
     % fun((Arg :: type) -> other_type())
+    Rest1 = tl(Rest0),
+    get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+get_end_of_expr(
+    [{'fun', LineNum} = Token, {'(', _}, {')', _}, {Op, _} | _] = Rest0,
+    Acc,
+    _,
+    KeywordStack,
+    Guard
+)
+when Op == dot orelse Op == '|' ->
+    % 'fun' without 'end'
+    % -type x() :: fun().
+    % or
+    % -type x() :: fun() | y().
     Rest1 = tl(Rest0),
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{'fun', LineNum} = Token, {atom, _, _} | _] = Rest0, Acc, _, KeywordStack, Guard) ->
