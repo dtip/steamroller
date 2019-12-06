@@ -1667,6 +1667,28 @@ record_key_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+record_definition_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-record(state, {one :: integer(), two=2 :: integer()}).">>),
+    Expect0 = <<"-record(state, {one :: integer(), two = 2 :: integer()}).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "-record(\n    state,\n    {\n        one :: integer(),\n        two = 2 :: integer()\n    }\n).\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 40),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+record_definition_fun_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-record(state, {one :: fun(), two=2 :: integer()}).">>),
+    Expect0 = <<"-record(state, {one :: fun(), two = 2 :: integer()}).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "-record(\n    state,\n    {\n        one :: fun(),\n        two = 2 :: integer()\n    }\n).\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 %%
 %% Map
 %%
