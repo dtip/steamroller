@@ -38,7 +38,7 @@
                        | function
                        | module_comment
                        | function_comment
-                       | dot.
+                       | expr.
 
 -define(sp, <<" ">>).
 -define(nl, <<"\n">>).
@@ -228,14 +228,14 @@ generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
 generate_doc_([{C, _} | _] = Tokens, Doc0, PrevTerm) when ?IS_LIST_OPEN_CHAR(C) ->
     % List
     % If this is at the top level this is probably a config file
-    {ForceBreak, Group0, Rest} = list_group(Tokens),
+    {ForceBreak, Group0, [{dot, _} | Rest]} = list_group(Tokens),
     Group1 = force_break(ForceBreak, Group0),
     Doc1 =
         case PrevTerm of
             function_comment -> newline(Doc0, Group1);
             _ -> newlines(Doc0, Group1)
         end,
-    generate_doc_(Rest, Doc1, list);
+    generate_doc_(Rest, cons(Doc1, text(?dot)), list);
 generate_doc_([{comment, _, "%%" ++ _ = CommentText} | Rest], Doc0, PrevTerm) ->
     % Module Comment
     Comment = comment(CommentText),
@@ -257,9 +257,12 @@ generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
             _ -> newlines(Doc0, Comment)
         end,
     generate_doc_(Rest, Doc1, function_comment);
-generate_doc_([{dot, _} | Rest], Doc, _PrevTerm) ->
-    % Any undhandled dots, for example at the end of terms in config files.
-    generate_doc_(Rest, cons(Doc, text(?dot)), dot).
+generate_doc_(Tokens, Doc, _PrevTerm) ->
+    % Anything unhandled gets treated as an expression.
+    % Things which fall through to here:
+    % - Macros: can appear at the top level
+    {_End, _ForceBreak, Expr, Rest} = expr(Tokens, no_force_break),
+    generate_doc_(Rest, newline(Doc, Expr), expr).
 
 %%
 %% Erlang Source Elements

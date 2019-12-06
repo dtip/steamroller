@@ -299,24 +299,24 @@ unicode_test_() ->
 %%
 
 basic_brackets_test_() ->
-    Tokens = steamroller_ast:tokens(<<"(Arg1, Arg2)">>),
-    Expect0 = <<"(Arg1, Arg2)\n">>,
+    Tokens = steamroller_ast:tokens(<<"(Arg1, Arg2).">>),
+    Expect0 = <<"(Arg1, Arg2).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"(\n    Arg1,\n    Arg2\n)\n">>,
+    Expect1 = <<"(\n    Arg1,\n    Arg2\n).\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 1),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 brackets_comment_test_() ->
-    Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  % test\n  thing/0\n)">>),
-    Expect = <<"(\n    init/1,\n    % test\n    thing/0\n)\n">>,
+    Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  % test\n  thing/0\n).">>),
+    Expect = <<"(\n    init/1,\n    % test\n    thing/0\n).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     Result2 = steamroller_algebra:format_tokens(Tokens, 10),
     [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1), ?_assertEqual(Expect, Result2)].
 
 brackets_inline_comment_test_() ->
-    Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  thing/0 % test\n)">>),
-    Expect = <<"(\n    init/1,\n    % test\n    thing/0\n)\n">>,
+    Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  thing/0 % test\n).">>),
+    Expect = <<"(\n    init/1,\n    % test\n    thing/0\n).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
     Result2 = steamroller_algebra:format_tokens(Tokens, 10),
@@ -325,8 +325,8 @@ brackets_inline_comment_test_() ->
 brackets_multiline_inline_comment_test_() ->
     % Why would you do this, OTP?
     % This is not perfect, but equally this is a silly way to comment.
-    Tokens = steamroller_ast:tokens(<<"{\nflags % [line1,\n% line2,\n% line3]\n}">>),
-    Expect = <<"{\n    % [line1,\n    flags\n    % line2,\n    % line3]\n}\n">>,
+    Tokens = steamroller_ast:tokens(<<"{\nflags % [line1,\n% line2,\n% line3]\n}.">>),
+    Expect = <<"{\n    % [line1,\n    flags\n    % line2,\n    % line3]\n}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect, Result0)].
 
@@ -351,17 +351,45 @@ config_test_() ->
         ?_assertEqual(Expect2, Result2)
     ].
 
-nested_brackets_test_() ->
-    Tokens = steamroller_ast:tokens(<<"{foo(), {error, {oh_no, \"problem\"}}}">>),
-    Expect0 = <<"{foo(), {error, {oh_no, \"problem\"}}}\n">>,
+config_whitespace_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<
+                "{erl_opts, [debug_info, {warn_format, 1}, warn_export_all]}.\n{plugins, [steamroller]}."
+            >>
+        ),
+    Expect0 =
+        <<
+            "{erl_opts, [debug_info, {warn_format, 1}, warn_export_all]}.\n\n{plugins, [steamroller]}.\n"
+        >>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    Expect1 = <<"{\n    foo(),\n    {error, {oh_no, \"problem\"}}\n}\n">>,
+    Expect1 =
+        <<
+            "{\n    erl_opts,\n    [\n        debug_info,\n        {warn_format, 1},\n        warn_export_all\n    ]\n}.\n\n{plugins, [steamroller]}.\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 50),
+    Expect2 =
+        <<
+            "{\n    erl_opts,\n    [\n        debug_info,\n        {\n            warn_format,\n            1\n        },\n        warn_export_all\n    ]\n}.\n\n{\n    plugins,\n    [\n        steamroller\n    ]\n}.\n"
+        >>,
+    Result2 = steamroller_algebra:format_tokens(Tokens, 10),
+    [
+        ?_assertEqual(Expect0, Result0),
+        ?_assertEqual(Expect1, Result1),
+        ?_assertEqual(Expect2, Result2)
+    ].
+
+nested_brackets_test_() ->
+    Tokens = steamroller_ast:tokens(<<"{foo(), {error, {oh_no, \"problem\"}}}.">>),
+    Expect0 = <<"{foo(), {error, {oh_no, \"problem\"}}}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"{\n    foo(),\n    {error, {oh_no, \"problem\"}}\n}.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 35),
-    Expect2 = <<"{\n    foo(),\n    {\n        error,\n        {oh_no, \"problem\"}\n    }\n}\n">>,
+    Expect2 = <<"{\n    foo(),\n    {\n        error,\n        {oh_no, \"problem\"}\n    }\n}.\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens, 30),
     Expect3 =
         <<
-            "{\n    foo(),\n    {\n        error,\n        {\n            oh_no,\n            \"problem\"\n        }\n    }\n}\n"
+            "{\n    foo(),\n    {\n        error,\n        {\n            oh_no,\n            \"problem\"\n        }\n    }\n}.\n"
         >>,
     Result3 = steamroller_algebra:format_tokens(Tokens, 10),
     [
@@ -1528,6 +1556,12 @@ macro_case_test_() ->
         ?_assertEqual(Expect1, Result1),
         ?_assertEqual(Expect2, Result2)
     ].
+
+top_level_macro_test_() ->
+    Tokens = steamroller_ast:tokens(<<"?MACRO(X).">>),
+    Expect0 = <<"?MACRO(X).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
 
 %%
 %% Record
