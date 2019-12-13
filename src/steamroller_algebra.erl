@@ -314,8 +314,11 @@ function(Tokens) ->
     {newline(Clauses), Rest}.
 
 -spec spec(tokens()) -> {doc(), tokens()}.
-spec([{atom, _, FunctionName} | Tokens]) ->
-    {ClauseForceBreak, Clauses, Rest} = clauses(Tokens),
+spec(Tokens0) ->
+    {FunctionNameTokens, Tokens1, Token} = get_until('(', Tokens0),
+    Tokens2 = [Token | Tokens1],
+    {empty, _, FunctionName, []} = expr(FunctionNameTokens, no_force_break),
+    {ClauseForceBreak, Clauses, Rest} = clauses(Tokens2),
     Doc =
         case length(Clauses) > 1 of
             true ->
@@ -325,7 +328,7 @@ spec([{atom, _, FunctionName} | Tokens]) ->
                 force_break(
                     force_break,
                     group(
-                        cons(text(a2b(FunctionName)), underneath(0, group(space(Clauses), inherit))),
+                        cons(FunctionName, underneath(0, group(space(Clauses), inherit))),
                         inherit
                     )
                 );
@@ -333,7 +336,7 @@ spec([{atom, _, FunctionName} | Tokens]) ->
                 % If we have multiple clauses in a spec we want to indent instead of going underneath.
                 force_break(
                     ClauseForceBreak,
-                    group(cons(text(a2b(FunctionName)), group(space(Clauses), inherit)), inherit)
+                    group(cons(FunctionName, group(space(Clauses), inherit)), inherit)
                 )
         end,
     {Doc, Rest}.
@@ -1006,6 +1009,22 @@ when ?IS_VALID_MF(M, F) ->
     Doc1 =
         space(Doc0, cons([mfa_module(Module), text(<<":">>), mfa_function(Function), ListGroup])),
     expr_(Rest, Doc1, ForceBreak1);
+expr_(
+    [{M, LineNum, _} = Module, {':', LineNum}, {F, LineNum, _} = Function | _] = Tokens,
+    Doc0,
+    ForceBreak
+)
+when ?IS_VALID_MF(M, F) ->
+    % Handle function calls to other modules without brackets.
+    % We can get here when creating specs due to the way we split tokens in order to perform
+    % underneath alignment.
+    % We can also get here from catch syntax.
+    % `module:fuction`
+    % or
+    % `X:Y`
+    [_, _, _ | Rest] = Tokens,
+    Doc1 = space(Doc0, cons([mfa_module(Module), text(<<":">>), mfa_function(Function)])),
+    expr_(Rest, Doc1, ForceBreak);
 expr_([{F, LineNum, _} = Function, {'(', LineNum} | _] = Tokens0, Doc0, ForceBreak0)
 when ?IS_VALID_FUNCTION_TYPE(F) ->
     % Handle local function calls

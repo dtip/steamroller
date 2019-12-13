@@ -1488,7 +1488,7 @@ try_case_test_() ->
         ),
     Expect0 =
         <<
-            "foo() ->\n    try\n        case bar() of\n            test -> ok;\n            other -> error\n        end\n    catch\n        _ : Y -> throw(Y)\n    end.\n"
+            "foo() ->\n    try\n        case bar() of\n            test -> ok;\n            other -> error\n        end\n    catch\n        _:Y -> throw(Y)\n    end.\n"
         >>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
@@ -1638,6 +1638,18 @@ macro_export_test_() ->
 macro_multiexpr_test_() ->
     Tokens = steamroller_ast:tokens(<<"?MACRO() -> foo(x), ok.">>),
     Expect0 = <<"?MACRO() -> foo(x), ok.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+macro_function_call_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> ?MODULE:bar().">>),
+    Expect0 = <<"foo() -> ?MODULE:bar().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+macro_spec_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-spec ?MODULE:foo() -> bar().">>),
+    Expect0 = <<"-spec ?MODULE:foo() -> bar().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
