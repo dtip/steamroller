@@ -285,12 +285,12 @@ generate_doc_(Tokens, Doc, _PrevTerm) ->
 
 -spec attribute(atom(), tokens()) -> {doc(), tokens()}.
 attribute(Att, [{dot, _} | Rest]) ->
-    % Handle attributes without brackets
+    % Handle attributes without brackets.
     % -else.
     % -endif.
     Attribute = group(cons([text(<<"-">>), text(a2b(Att)), text(?dot)])),
     {Attribute, Rest};
-attribute('if', Tokens) ->
+attribute('if', [{'(', _} | _] = Tokens) ->
     % Easiest to handle this here...
     % a2b/1 will print 'if' with the single quotes.
     % op2b/1 will print `dot` as `.`.
@@ -298,10 +298,15 @@ attribute('if', Tokens) ->
     {_ForceBreak, Expr, [{dot, _} | Rest]} = list_group(Tokens),
     Attribute = group(cons([text(<<"-">>), text(<<"if">>), Expr, text(?dot)])),
     {Attribute, Rest};
-attribute(Att, Tokens) ->
+attribute(Att, [{'(', _} | _] = Tokens) ->
     {_ForceBreak, Expr, [{dot, _} | Rest]} = list_group(Tokens),
     Attribute = group(cons([text(<<"-">>), text(a2b(Att)), Expr, text(?dot)])),
-    {Attribute, Rest}.
+    {Attribute, Rest};
+attribute(Att, Tokens0) ->
+    % Put brackets around attributes which are missing them.
+    {AttTokens, Rest, End} = get_until(dot, Tokens0),
+    Tokens1 = [{'(', 0} | AttTokens] ++ [{')', 0}, End | Rest],
+    attribute(Att, Tokens1).
 
 -spec function(tokens()) -> {doc(), tokens()}.
 function(Tokens) ->

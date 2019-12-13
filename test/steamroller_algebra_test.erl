@@ -551,6 +551,14 @@ basic_attribute_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 1),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
+attribute_bracketless_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-module test.">>),
+    Expect0 = <<"-module(test).\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"-module(\n    test\n).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 1),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 attribute_test_() ->
     Tokens = steamroller_ast:tokens(<<"-module(test).\n\n-export([start_link/0, init/1]).">>),
     Expect0 = <<"-module(test).\n\n-export([start_link/0, init/1]).\n">>,
