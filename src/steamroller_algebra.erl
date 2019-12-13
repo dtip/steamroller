@@ -1010,6 +1010,39 @@ when ?IS_VALID_MF(M, F) ->
         space(Doc0, cons([mfa_module(Module), text(<<":">>), mfa_function(Function), ListGroup])),
     expr_(Rest, Doc1, ForceBreak1);
 expr_(
+    [
+            {M, LineNum, _} = Module,
+            {':', LineNum},
+            {'?', LineNum},
+            {F, LineNum, _} = Function,
+            {'(', LineNum} | _
+        ]
+        =
+        Tokens0,
+    Doc0,
+    ForceBreak0
+)
+when ?IS_VALID_MF(M, F) ->
+    % As above but the function name can be a macro.
+    % `module:?F(Args)`
+    [_, _, _, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Doc1 =
+        space(
+            Doc0,
+            cons(
+                [
+                    mfa_module(Module),
+                    text(<<":">>),
+                    text(<<"?">>),
+                    mfa_function(Function),
+                    ListGroup
+                ]
+            )
+        ),
+    expr_(Rest, Doc1, ForceBreak1);
+expr_(
     [{M, LineNum, _} = Module, {':', LineNum}, {F, LineNum, _} = Function | _] = Tokens,
     Doc0,
     ForceBreak
@@ -1024,6 +1057,21 @@ when ?IS_VALID_MF(M, F) ->
     % `X:Y`
     [_, _, _ | Rest] = Tokens,
     Doc1 = space(Doc0, cons([mfa_module(Module), text(<<":">>), mfa_function(Function)])),
+    expr_(Rest, Doc1, ForceBreak);
+expr_(
+    [{M, LineNum, _} = Module, {':', LineNum}, {'?', LineNum}, {F, LineNum, _} = Function | _] =
+        Tokens,
+    Doc0,
+    ForceBreak
+)
+when ?IS_VALID_MF(M, F) ->
+    % As above but the function name can be a macro.
+    [_, _, _, _ | Rest] = Tokens,
+    Doc1 =
+        space(
+            Doc0,
+            cons([mfa_module(Module), text(<<":">>), text(<<"?">>), mfa_function(Function)])
+        ),
     expr_(Rest, Doc1, ForceBreak);
 expr_([{F, LineNum, _} = Function, {'(', LineNum} | _] = Tokens0, Doc0, ForceBreak0)
 when ?IS_VALID_FUNCTION_TYPE(F) ->

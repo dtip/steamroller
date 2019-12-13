@@ -1641,17 +1641,29 @@ macro_multiexpr_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
-macro_function_call_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> ?MODULE:bar().">>),
+macro_module_function_call_test_() ->
+    Tokens0 = steamroller_ast:tokens(<<"foo() -> ?MODULE:bar().">>),
     Expect0 = <<"foo() -> ?MODULE:bar().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"foo() -> ?MODULE:?F().">>),
+    Expect1 = <<"foo() -> ?MODULE:?F().\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+macro_function_call_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo() -> ?F().">>),
+    Expect0 = <<"foo() -> ?F().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 macro_spec_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-spec ?MODULE:foo() -> bar().">>),
+    Tokens0 = steamroller_ast:tokens(<<"-spec ?MODULE:foo() -> bar().">>),
     Expect0 = <<"-spec ?MODULE:foo() -> bar().\n">>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    [?_assertEqual(Expect0, Result0)].
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"-spec ?MODULE:?F() -> bar().">>),
+    Expect1 = <<"-spec ?MODULE:?F() -> bar().\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 %%
 %% Record
