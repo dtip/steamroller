@@ -32,7 +32,7 @@ Then ask it to steamroll your code directly in an existing application:
 
 ### Vim
 
-You can use steamroller from vim with [Neoformat][https://github.com/sbdchd/neoformat].
+You can use steamroller from vim with [Neoformat](https://github.com/sbdchd/neoformat).
 
 Install Neoformat and then paste the below into your vimrc.
 
