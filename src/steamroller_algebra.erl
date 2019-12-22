@@ -867,6 +867,18 @@ expr_([{'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0, Doc
     Record = group(cons([text(<<"#">>), text(a2b(Atom)), ListGroup])),
     expr_(Rest, space(Doc, Record), ForceBreak1);
 expr_(
+    [{'#', LineNum}, {'?', LineNum}, {var, LineNum, Var}, {'{', LineNum} | _] = Tokens0,
+    Doc,
+    ForceBreak0
+) ->
+    % Handle macro records
+    % #?MACRO{key => value}
+    [_, _, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Record = group(cons([text(<<"#">>), text(<<"?">>), text(v2b(Var)), ListGroup])),
+    expr_(Rest, space(Doc, Record), ForceBreak1);
+expr_(
     [
         {var, LineNum, Var},
         {'#', LineNum},
@@ -883,6 +895,34 @@ expr_(
         group(cons([text(v2b(Var)), text(<<"#">>), text(a2b(Rec)), text(<<".">>), text(a2b(Key))])),
     expr_(Rest, space(Doc, Record), ForceBreak);
 expr_(
+    [
+        {var, LineNum, Var},
+        {'#', LineNum},
+        {'?', LineNum},
+        {var, LineNum, Macro},
+        {'.', LineNum},
+        {atom, LineNum, Key} | Rest
+    ],
+    Doc,
+    ForceBreak
+) ->
+    % Handle macro record element lookup
+    % X#?MACRO.key
+    Record =
+        group(
+            cons(
+                [
+                    text(v2b(Var)),
+                    text(<<"#">>),
+                    text(<<"?">>),
+                    text(v2b(Macro)),
+                    text(<<".">>),
+                    text(a2b(Key))
+                ]
+            )
+        ),
+    expr_(Rest, space(Doc, Record), ForceBreak);
+expr_(
     [{'#', LineNum}, {atom, LineNum, Rec}, {'.', LineNum}, {atom, LineNum, Key} | Rest],
     Doc,
     ForceBreak
@@ -890,6 +930,22 @@ expr_(
     % Handle record key
     % #record_name.key
     Record = group(cons([text(<<"#">>), text(a2b(Rec)), text(<<".">>), text(a2b(Key))])),
+    expr_(Rest, space(Doc, Record), ForceBreak);
+expr_(
+    [
+        {'#', LineNum},
+        {'?', LineNum},
+        {var, LineNum, Var},
+        {'.', LineNum},
+        {atom, LineNum, Key} | Rest
+    ],
+    Doc,
+    ForceBreak
+) ->
+    % Handle macro record key
+    % #?MACRO.key
+    Record =
+        group(cons([text(<<"#">>), text(<<"?">>), text(v2b(Var)), text(<<".">>), text(a2b(Key))])),
     expr_(Rest, space(Doc, Record), ForceBreak);
 expr_(
     [{var, LineNum, Var}, {'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0,
@@ -902,6 +958,21 @@ expr_(
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Record = group(cons([text(v2b(Var)), text(<<"#">>), text(a2b(Atom)), ListGroup])),
+    expr_(Rest, space(Doc, Record), ForceBreak1);
+expr_(
+    [{var, LineNum, Var}, {'#', LineNum}, {'?', LineNum}, {var, LineNum, Macro}, {'{', LineNum} | _]
+        =
+        Tokens0,
+    Doc,
+    ForceBreak0
+) ->
+    % Handle macro record updates
+    % Record#record_name{key => value}
+    [_, _, _, _ | Tokens1] = Tokens0,
+    {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
+    ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
+    Record =
+        group(cons([text(v2b(Var)), text(<<"#">>), text(<<"?">>), text(v2b(Macro)), ListGroup])),
     expr_(Rest, space(Doc, Record), ForceBreak1);
 expr_([{'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle maps

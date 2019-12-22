@@ -1665,6 +1665,18 @@ macro_spec_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
+macro_record_spec_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-spec foo(#?MODULE{}) -> {ok, #?MODULE{}}.">>),
+    Expect0 = <<"-spec foo(#?MODULE{}) -> {ok, #?MODULE{}}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+macro_record_element_test_() ->
+    Tokens = steamroller_ast:tokens(<<"foo(X) -> X#?MODULE.x.">>),
+    Expect0 = <<"foo(X) -> X#?MODULE.x.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Record
 %%
