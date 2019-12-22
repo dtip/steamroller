@@ -9,6 +9,7 @@
 -define(FILE_KEY, steamroll_file).
 -define(DIR_KEY, steamroll_dir).
 -define(DEFAULT_INPUTS, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]).
+-define(DEFAULT_J_FACTOR, 4).
 
 %% ===================================================================
 %% Public API
@@ -29,6 +30,7 @@ init(State) ->
                     [
                         {?FILE_KEY, $f, "file", binary, "File name to format."},
                         {?DIR_KEY, $d, "dir", string, "Dir name to format."},
+                        {j, $j, undefined, integer, "J Factor."},
                         {
                             check,
                             $c,
@@ -101,44 +103,61 @@ find_dir_files(Dir) ->
         || File <- filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)
     ].
 
-format_files([File | Rest], Opts) ->
+format_files(Files, Opts) ->
+    J = proplists:get_value(j, Opts, ?DEFAULT_J_FACTOR),
+    rebar_api:debug("Steamroller j-factor: ~p", [J]),
+    format_files_(J, J, Files, Opts).
+
+format_files_(Spare, J, [File | Rest], Opts) when Spare > 0 ->
+    Self = self(),
     rebar_api:debug("Steamrolling file: ~s", [File]),
-    case steamroller:format_file(File, Opts) of
-        ok -> format_files(Rest, Opts);
-        {error, {File, {Line, epp, {undefined, Macro, _}}}} ->
-            rebar_api:warn(
-                "Steamroller Warn: File: ~s: Undefined macro ~p on line ~p. Skipping...",
-                [File, Macro, Line]
-            ),
-            format_files(Rest, Opts);
-        {error, {File, {Line, epp, {include, file, IncludeFile}}}} ->
-            rebar_api:warn(
-                "Steamroller Warn: File: ~s: Undefined include file ~p on line ~p. Skipping...",
-                [File, IncludeFile, Line]
-            ),
-            format_files(Rest, Opts);
-        {error, {File, {Line, epp, Err}}} ->
-            % These errors typically mean that the sorce does not compile.
-            % Not really our problem so we warn instead of erroring.
-            rebar_api:warn(
-                "Steamroller Warn: File: ~s: epp error ~p on line ~p. Skipping...",
-                [File, Err, Line]
-            ),
-            format_files(Rest, Opts);
-        {error, {File, {Line, erl_parse, ["syntax error before: ", Str]}}} ->
-            rebar_api:warn(
-                "Steamroller Warn: File: ~s: Syntax error before ~s on line ~p. Skipping...",
-                [File, Str, Line]
-            ),
-            format_files(Rest, Opts);
-        {error, {File, {Line, erl_parse, Err}}} ->
-            % These errors typically mean that the sorce does not compile.
-            % Not really our problem so we warn instead of erroring.
-            rebar_api:warn(
-                "Steamroller Warn: File: ~s: erl_parse error ~p on line ~p. Skipping...",
-                [File, Err, Line]
-            ),
-            format_files(Rest, Opts);
-        {error, _} = Err -> Err
-    end;
-format_files([], _) -> ok.
+    spawn(fun () -> Self ! {steamroll, catch steamroller:format_file(File, Opts)} end),
+    format_files_(Spare - 1, J, Rest, Opts);
+format_files_(J, J, [], _) ->
+    % All workers have finished and the queue is empty.
+    % Formatting is done.
+    ok;
+format_files_(Spare0, J, Rest, Opts) ->
+    receive
+        {steamroll, Result} ->
+            Spare1 = Spare0 + 1,
+            case Result of
+                ok -> format_files_(Spare1, J, Rest, Opts);
+                {error, {File, {Line, epp, {undefined, Macro, _}}}} ->
+                    rebar_api:warn(
+                        "Steamroller Warn: File: ~s: Undefined macro ~p on line ~p. Skipping...",
+                        [File, Macro, Line]
+                    ),
+                    format_files_(Spare1, J, Rest, Opts);
+                {error, {File, {Line, epp, {include, file, IncludeFile}}}} ->
+                    rebar_api:warn(
+                        "Steamroller Warn: File: ~s: Undefined include file ~p on line ~p. Skipping...",
+                        [File, IncludeFile, Line]
+                    ),
+                    format_files_(Spare1, J, Rest, Opts);
+                {error, {File, {Line, epp, Err}}} ->
+                    % These errors typically mean that the sorce does not compile.
+                    % Not really our problem so we warn instead of erroring.
+                    rebar_api:warn(
+                        "Steamroller Warn: File: ~s: epp error ~p on line ~p. Skipping...",
+                        [File, Err, Line]
+                    ),
+                    format_files_(Spare1, J, Rest, Opts);
+                {error, {File, {Line, erl_parse, ["syntax error before: ", Str]}}} ->
+                    rebar_api:warn(
+                        "Steamroller Warn: File: ~s: Syntax error before ~s on line ~p. Skipping...",
+                        [File, Str, Line]
+                    ),
+                    format_files_(Spare1, J, Rest, Opts);
+                {error, {File, {Line, erl_parse, Err}}} ->
+                    % These errors typically mean that the sorce does not compile.
+                    % Not really our problem so we warn instead of erroring.
+                    rebar_api:warn(
+                        "Steamroller Warn: File: ~s: erl_parse error ~p on line ~p. Skipping...",
+                        [File, Err, Line]
+                    ),
+                    format_files_(Spare1, J, Rest, Opts);
+                {error, _} = Err -> Err;
+                {'EXIT', Trace} -> {error, {crash, Trace}}
+            end
+    end.

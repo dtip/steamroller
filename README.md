@@ -28,6 +28,10 @@ Then ask it to steamroll your code directly in an existing application:
     ===> Compiling steamroller
     <Steamroller Output>
 
+By default, steamroller uses a j factor of 4. To change this:
+
+    $ rebar3 steamroll -j 8
+
 ## Editor Integration
 
 ### Vim

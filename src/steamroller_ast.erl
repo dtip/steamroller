@@ -4,8 +4,6 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--define(TEMP_FILE, "steamroller_temp.erl").
-
 -type ast() :: list(erl_parse:abstract_form()).
 -type token() :: erl_scan:token().
 -type tokens() :: list(token()).
@@ -19,11 +17,12 @@ ast(Code) -> ast(Code, <<"no_file">>).
 
 -spec ast(binary(), binary() | string()) -> {ok, ast()} | {error, any()}.
 ast(Code, File) ->
-    file:write_file(?TEMP_FILE, Code),
+    TempFile = temp_file(),
+    file:write_file(TempFile, Code),
     % Add the file dir to includes so we can find any necessary headers.
     Dir = filename:dirname(File),
-    {ok, Ast} = epp:parse_file(?TEMP_FILE, [{includes, [Dir]}]),
-    file:delete(?TEMP_FILE),
+    {ok, Ast} = epp:parse_file(TempFile, [{includes, [Dir]}]),
+    file:delete(TempFile),
     case check_for_errors(Ast, File) of
         ok -> {ok, Ast};
         {error, _} = Err -> Err
@@ -89,3 +88,5 @@ eq_({_Left, _Right}, _) ->
 check_for_errors([], _) -> ok;
 check_for_errors([{error, Msg} | _], File) -> {error, {File, Msg}};
 check_for_errors([_ | Rest], File) -> check_for_errors(Rest, File).
+
+temp_file() -> "steamroller_temp" ++ pid_to_list(self()) ++ ".erl".
