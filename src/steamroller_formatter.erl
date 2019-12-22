@@ -12,11 +12,7 @@
 -spec format(binary(), list(any())) -> ok | {error, any()}.
 format(File, Opts) ->
     Check = lists:member(check, Opts),
-    LineLength =
-        case proplists:get_value(line_length, Opts) of
-            undefined -> ?default_line_length;
-            Custom -> Custom
-        end,
+    LineLength = proplists:get_value(line_length, Opts, ?default_line_length),
     case file:read_file(File) of
         {ok, Code} ->
             case format_code(Code, File, LineLength) of

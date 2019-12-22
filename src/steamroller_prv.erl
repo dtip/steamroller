@@ -83,11 +83,7 @@ format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 %% ===================================================================
 
 format_apps([App | Rest], Opts) ->
-    Inputs =
-        case proplists:get_value(inputs, Opts) of
-            undefined -> ?DEFAULT_INPUTS;
-            Custom -> Custom
-        end,
+    Inputs = proplists:get_value(inputs, Opts, ?DEFAULT_INPUTS),
     AppDir = rebar_app_info:dir(App),
     Files = lists:flatten(lists:map(fun (Input) -> find_root_files(AppDir, Input) end, Inputs)),
     case format_files(Files, Opts) of
