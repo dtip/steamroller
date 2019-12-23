@@ -1376,7 +1376,7 @@ get_until(End, [{C, _} = Token | Rest], Acc, Stack) when ?IS_LIST_OPEN_CHAR(C) -
     % If we hit an open bracket we ignore until the close bracket
     get_until(End, Rest, [Token | Acc], [close_bracket(C) | Stack]);
 get_until(End, [{'fun', _} = Token, {'(', _}, {')', _}, {Op, _} | _] = Rest0, Acc, Stack)
-when Op == '|' orelse Op == dot orelse Op == ',' orelse Op == '}' ->
+when Op == '|' orelse Op == dot orelse Op == ',' orelse Op == '}' orelse Op == ')' ->
     % 'fun' without 'end'
     % -type x() :: fun().
     % or
@@ -1556,7 +1556,7 @@ get_end_of_expr(
     KeywordStack,
     Guard
 )
-when Op == dot orelse Op == '|' orelse Op == ',' orelse Op == '}' ->
+when Op == dot orelse Op == '|' orelse Op == ',' orelse Op == '}' orelse Op == ')' ->
     % 'fun' without 'end'
     % -type x() :: fun().
     % or

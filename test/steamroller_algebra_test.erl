@@ -646,10 +646,13 @@ type_fun_test_() ->
     ].
 
 type_fun_brackets_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-type foo() :: {fun()}.">>),
+    Tokens0 = steamroller_ast:tokens(<<"-type foo() :: {fun()}.">>),
     Expect0 = <<"-type foo() :: {fun()}.\n">>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    [?_assertEqual(Expect0, Result0)].
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"-spec foo() -> fun(() -> fun()).">>),
+    Expect1 = <<"-spec foo() -> fun(() -> fun()).\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 opaque_test_() ->
     Tokens = steamroller_ast:tokens(<<"-opaque my_type() :: other_type().">>),
