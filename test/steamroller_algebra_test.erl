@@ -1677,6 +1677,20 @@ macro_record_element_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+macro_multiclause_test_() ->
+    Tokens =
+        steamroller_ast:tokens(
+            <<
+                "foo(X, Y) -> case bar(X) of ?MACRO(Y) when length(Y) >= X -> ok;\n    ?MACRO(_) -> error\nend."
+            >>
+        ),
+    Expect0 =
+        <<
+            "foo(X, Y) ->\n    case bar(X) of\n         ?MACRO(Y) when length(Y) >= X -> ok;\n         ?MACRO(_) -> error\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Record
 %%
