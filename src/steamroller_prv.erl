@@ -157,6 +157,12 @@ format_files_(Spare0, J, Rest, Opts) ->
                         [File, Err, Line]
                     ),
                     format_files_(Spare1, J, Rest, Opts);
+                {error, {File, {Line, file_io_server, Err}}} ->
+                    rebar_api:warn(
+                        "Steamroller Warn: File: ~s: file_io_server error ~p on line ~p. Skipping...",
+                        [File, Err, Line]
+                    ),
+                    format_files_(Spare1, J, Rest, Opts);
                 {error, _} = Err -> Err;
                 {'EXIT', Trace} -> {error, {crash, Trace}}
             end
