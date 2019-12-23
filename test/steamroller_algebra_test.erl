@@ -645,6 +645,12 @@ type_fun_test_() ->
         ?_assertEqual(Expect3, Result3)
     ].
 
+type_fun_brackets_test_() ->
+    Tokens = steamroller_ast:tokens(<<"-type foo() :: {fun()}.">>),
+    Expect0 = <<"-type foo() :: {fun()}.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 opaque_test_() ->
     Tokens = steamroller_ast:tokens(<<"-opaque my_type() :: other_type().">>),
     Expect0 = <<"-opaque my_type() :: other_type().\n">>,

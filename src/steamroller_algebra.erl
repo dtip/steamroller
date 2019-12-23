@@ -577,6 +577,10 @@ fun_([{'fun', _} | Tokens]) ->
                 [_, _ | Tokens1] = Tokens0,
                 Rest1 = Tokens1 ++ [End] ++ Rest0,
                 {no_force_break, text(<<"fun()">>), Rest1};
+            {[{'(', _}], [], {')', _}} ->
+                % This case can happen in typedefs if the type looks like
+                % -type x() :: {fun()}.
+                {no_force_break, text(<<"fun()">>), []};
             {[{'(', _}, {')', _}], Rest0, {',', _}} ->
                 % This case can happen in records
                 % -record(x, {y :: fun(), z}).
@@ -1372,13 +1376,15 @@ get_until(End, [{C, _} = Token | Rest], Acc, Stack) when ?IS_LIST_OPEN_CHAR(C) -
     % If we hit an open bracket we ignore until the close bracket
     get_until(End, Rest, [Token | Acc], [close_bracket(C) | Stack]);
 get_until(End, [{'fun', _} = Token, {'(', _}, {')', _}, {Op, _} | _] = Rest0, Acc, Stack)
-when Op == '|' orelse Op == dot orelse Op == ',' ->
+when Op == '|' orelse Op == dot orelse Op == ',' orelse Op == '}' ->
     % 'fun' without 'end'
     % -type x() :: fun().
     % or
     % -type x() :: fun() | y().
     % or
     % -record(x, {y :: fun(), z}).
+    % or
+    % -type x() :: {y(), fun()}.
     Rest1 = tl(Rest0),
     get_until(End, Rest1, [Token | Acc], Stack);
 get_until(End, [{'fun', _} = Token, {'(', _}, {'(', _} | _] = Rest0, Acc, Stack) ->
@@ -1550,13 +1556,15 @@ get_end_of_expr(
     KeywordStack,
     Guard
 )
-when Op == dot orelse Op == '|' orelse Op == ',' ->
+when Op == dot orelse Op == '|' orelse Op == ',' orelse Op == '}' ->
     % 'fun' without 'end'
     % -type x() :: fun().
     % or
     % -type x() :: fun() | y().
     % or
     % -record(x, {y :: fun(), z}).
+    % or
+    % -type x() :: {y(), fun()}.
     Rest1 = tl(Rest0),
     get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{'fun', LineNum} = Token, {atom, _, _} | _] = Rest0, Acc, _, KeywordStack, Guard) ->
