@@ -1723,16 +1723,22 @@ record_test_() ->
     ].
 
 record_element_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> X#rec.id.">>),
+    Tokens0 = steamroller_ast:tokens(<<"foo(X) -> X#rec.id.">>),
     Expect0 = <<"foo(X) -> X#rec.id.\n">>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    [?_assertEqual(Expect0, Result0)].
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"foo(X, Id) -> X#rec.Id.">>),
+    Expect1 = <<"foo(X, Id) -> X#rec.Id.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 record_key_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> #rec.id.">>),
-    Expect0 = <<"foo(X) -> #rec.id.\n">>,
-    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
-    [?_assertEqual(Expect0, Result0)].
+    Tokens0 = steamroller_ast:tokens(<<"foo() -> #rec.id.">>),
+    Expect0 = <<"foo() -> #rec.id.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    Tokens1 = steamroller_ast:tokens(<<"foo(Id) -> #rec.Id.">>),
+    Expect1 = <<"foo(Id) -> #rec.Id.\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 record_definition_test_() ->
     Tokens = steamroller_ast:tokens(<<"-record(state, {one :: integer(), two=2 :: integer()}).">>),

@@ -72,6 +72,7 @@
 ).
 -define(IS_VALID_MF(M, F), (?IS_VALID_MODULE_TYPE(M) andalso ?IS_VALID_FUNCTION_TYPE(F))).
 -define(IS_VALID_FA(F, A), (?IS_VALID_FUNCTION_TYPE(F) andalso ?IS_VALID_ARITY_TYPE(A))).
+-define(IS_VALID_RECORD_KEY(C), (C == atom orelse C == var)).
 
 %%
 %% API
@@ -614,6 +615,10 @@ mfa_function({var, _, F}) -> text(v2b(F)).
 mfa_arity({integer, _, A}) -> text(i2b(A));
 mfa_arity({var, _, A}) -> text(v2b(A)).
 
+-spec record_key(token()) -> doc().
+record_key({atom, _, K}) -> text(a2b(K));
+record_key({var, _, K}) -> text(v2b(K)).
+
 -spec begin_(tokens()) -> {force_break(), doc(), tokens()}.
 begin_([{'begin', _} | Tokens]) ->
     {BeginTokens, Rest, _} = get_until_end(Tokens),
@@ -893,15 +898,16 @@ expr_(
         {'#', LineNum},
         {atom, LineNum, Rec},
         {'.', LineNum},
-        {atom, LineNum, Key} | Rest
+        {K, LineNum, _} = Key | Rest
     ],
     Doc,
     ForceBreak
-) ->
+)
+when ?IS_VALID_RECORD_KEY(K) ->
     % Handle record element lookup
     % X#record_name.key
     Record =
-        group(cons([text(v2b(Var)), text(<<"#">>), text(a2b(Rec)), text(<<".">>), text(a2b(Key))])),
+        group(cons([text(v2b(Var)), text(<<"#">>), text(a2b(Rec)), text(<<".">>), record_key(Key)])),
     expr_(Rest, space(Doc, Record), ForceBreak);
 expr_(
     [
@@ -910,11 +916,12 @@ expr_(
         {'?', LineNum},
         {var, LineNum, Macro},
         {'.', LineNum},
-        {atom, LineNum, Key} | Rest
+        {K, LineNum, _} = Key | Rest
     ],
     Doc,
     ForceBreak
-) ->
+)
+when ?IS_VALID_RECORD_KEY(K) ->
     % Handle macro record element lookup
     % X#?MACRO.key
     Record =
@@ -926,19 +933,20 @@ expr_(
                     text(<<"?">>),
                     text(v2b(Macro)),
                     text(<<".">>),
-                    text(a2b(Key))
+                    record_key(Key)
                 ]
             )
         ),
     expr_(Rest, space(Doc, Record), ForceBreak);
 expr_(
-    [{'#', LineNum}, {atom, LineNum, Rec}, {'.', LineNum}, {atom, LineNum, Key} | Rest],
+    [{'#', LineNum}, {atom, LineNum, Rec}, {'.', LineNum}, {K, LineNum, _} = Key | Rest],
     Doc,
     ForceBreak
-) ->
+)
+when ?IS_VALID_RECORD_KEY(K) ->
     % Handle record key
     % #record_name.key
-    Record = group(cons([text(<<"#">>), text(a2b(Rec)), text(<<".">>), text(a2b(Key))])),
+    Record = group(cons([text(<<"#">>), text(a2b(Rec)), text(<<".">>), record_key(Key)])),
     expr_(Rest, space(Doc, Record), ForceBreak);
 expr_(
     [
@@ -946,15 +954,16 @@ expr_(
         {'?', LineNum},
         {var, LineNum, Var},
         {'.', LineNum},
-        {atom, LineNum, Key} | Rest
+        {K, LineNum, _} = Key | Rest
     ],
     Doc,
     ForceBreak
-) ->
+)
+when ?IS_VALID_RECORD_KEY(K) ->
     % Handle macro record key
     % #?MACRO.key
     Record =
-        group(cons([text(<<"#">>), text(<<"?">>), text(v2b(Var)), text(<<".">>), text(a2b(Key))])),
+        group(cons([text(<<"#">>), text(<<"?">>), text(v2b(Var)), text(<<".">>), record_key(Key)])),
     expr_(Rest, space(Doc, Record), ForceBreak);
 expr_(
     [{var, LineNum, Var}, {'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0,
@@ -976,7 +985,7 @@ expr_(
     ForceBreak0
 ) ->
     % Handle macro record updates
-    % Record#record_name{key => value}
+    % Record#?MACRO{key => value}
     [_, _, _, _ | Tokens1] = Tokens0,
     {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
