@@ -17,7 +17,7 @@ ast(Code) -> ast(Code, <<"no_file">>).
 
 -spec ast(binary(), binary() | string()) -> {ok, ast()} | {error, any()}.
 ast(Code, File) ->
-    TempFile = temp_file(),
+    TempFile = temp_file(File),
     file:write_file(TempFile, Code),
     % Add the file dir to includes so we can find any necessary headers.
     Dir = filename:dirname(File),
@@ -86,11 +86,12 @@ eq_({{{Type, _}, LeftValue}, {{Type, _}, RightValue}}, true) ->
     % special 2-tuples
     eq_(LeftValue, RightValue);
 eq_({_Left, _Right}, _) ->
-    logger:error("ast_mismatch\nLeft=~p\nRight=~p", [_Left, _Right]),
+    logger:error("ast_mismatch\nLeft= ~p\nRight=~p", [_Left, _Right]),
     false.
 
 check_for_errors([], _) -> ok;
 check_for_errors([{error, Msg} | _], File) -> {error, {File, Msg}};
 check_for_errors([_ | Rest], File) -> check_for_errors(Rest, File).
 
-temp_file() -> "steamroller_temp" ++ pid_to_list(self()) ++ ".erl".
+temp_file(File) ->
+    "steamroller_temp_" ++ pid_to_list(self()) ++ "_" ++ binary_to_list(filename:basename(File)).
