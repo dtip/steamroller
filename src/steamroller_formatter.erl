@@ -47,27 +47,33 @@ format_code(Code, File, LineLength) ->
             % Check the AST after formatting for source files.
             case steamroller_ast:ast(Code, File) of
                 {ok, OriginalAst} ->
-                    Tokens = steamroller_ast:tokens(Code),
-                    FormattedCode = steamroller_algebra:format_tokens(Tokens, LineLength),
-                    case steamroller_ast:ast(FormattedCode, File) of
-                        {ok, NewAst} ->
-                            case steamroller_ast:eq(OriginalAst, NewAst) of
-                                true -> {ok, FormattedCode};
-                                false ->
-                                    handle_formatting_error(
-                                        {error, ast_mismatch},
-                                        File,
-                                        FormattedCode
-                                    )
+                    case steamroller_ast:tokens(Code) of
+                        {ok, Tokens} ->
+                            FormattedCode = steamroller_algebra:format_tokens(Tokens, LineLength),
+                            case steamroller_ast:ast(FormattedCode, File) of
+                                {ok, NewAst} ->
+                                    case steamroller_ast:eq(OriginalAst, NewAst) of
+                                        true -> {ok, FormattedCode};
+                                        false ->
+                                            handle_formatting_error(
+                                                {error, ast_mismatch},
+                                                File,
+                                                FormattedCode
+                                            )
+                                    end;
+                                {error, _} = Err ->
+                                    handle_formatting_error(Err, File, FormattedCode)
                             end;
-                        {error, _} = Err -> handle_formatting_error(Err, File, FormattedCode)
+                        {error, Msg} -> {error, {File, Msg}}
                     end;
                 {error, _} = Err -> Err
             end;
         nomatch ->
             % Don't check the AST for config files.
-            Tokens = steamroller_ast:tokens(Code),
-            {ok, steamroller_algebra:format_tokens(Tokens, LineLength)}
+            case steamroller_ast:tokens(Code) of
+                {ok, Tokens} -> {ok, steamroller_algebra:format_tokens(Tokens, LineLength)};
+                {error, Msg} -> {error, {File, Msg}}
+            end
     end.
 
 handle_formatting_error({error, _} = Err, File, FormattedCode) ->

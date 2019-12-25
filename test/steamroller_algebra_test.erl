@@ -11,16 +11,16 @@
 %%
 
 atom_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> '{'.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> '{'.">>),
     Expect0 = <<"foo() -> '{'.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 dot_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> dot.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> dot.">>),
     Expect0 = <<"foo() -> dot.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo() -> 'dot'.">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo() -> 'dot'.">>),
     Expect1 = <<"foo() -> dot.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
@@ -30,7 +30,7 @@ dot_test_() ->
 %%
 
 basic_string_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> \"string\".">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> \"string\".">>),
     Expect0 = <<"foo() -> \"string\".\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    \"string\".\n">>,
@@ -38,7 +38,7 @@ basic_string_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 empty_string_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> \"\".">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> \"\".">>),
     Expect0 = <<"foo() -> \"\".\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     [?_assertEqual(Expect0, Result0)].
@@ -48,7 +48,7 @@ empty_string_test_() ->
 %%
 
 list_concat_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(One, Two, Three, Four) -> {[One] ++ lists:reverse(Two) ++ [Three], Four}.">>
         ),
@@ -69,7 +69,7 @@ list_concat_test_() ->
     ].
 
 list_comprehension_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"fooooooooo(X) -> [some_other_module:bar(Y) || Y <- baz(X)].">>),
     Expect0 = <<"fooooooooo(X) -> [some_other_module:bar(Y) || Y <- baz(X)].\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -91,12 +91,12 @@ list_comprehension_test_() ->
 %%
 
 char_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> $f.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> $f.">>),
     Expect0 = <<"foo() -> $f.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     Expect1 = <<"foo() -> $f.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo() -> [$a, $b, $c].">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo() -> [$a, $b, $c].">>),
     Expect2 = <<"foo() -> [$a, $b, $c].\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens1, 100),
     Expect3 = <<"foo() -> [$a, $b, $c].\n">>,
@@ -113,7 +113,7 @@ char_test_() ->
 %%
 
 basic_binary_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> <<\"binary\">>.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> <<\"binary\">>.">>),
     Expect0 = <<"foo() -> <<\"binary\">>.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    <<\"binary\">>.\n">>,
@@ -127,13 +127,13 @@ basic_binary_test_() ->
     ].
 
 empty_binary_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> <<\"\">>.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> <<\"\">>.">>),
     Expect0 = <<"foo() -> <<\"\">>.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     [?_assertEqual(Expect0, Result0)].
 
 binary_construction_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(A, B) -> <<A/binary, B/binary>>.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(A, B) -> <<A/binary, B/binary>>.">>),
     Expect0 = <<"foo(A, B) -> <<A/binary, B/binary>>.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(A, B) ->\n    <<A/binary, B/binary>>.\n">>,
@@ -147,7 +147,7 @@ binary_construction_test_() ->
     ].
 
 binary_literal_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> <<\"test\"/unicode>>.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> <<\"test\"/unicode>>.">>),
     Expect0 = <<"foo() -> <<\"test\"/unicode>>.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    <<\"test\"/unicode>>.\n">>,
@@ -155,7 +155,7 @@ binary_literal_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 binary_arg_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(<<A/binary>>) -> A.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(<<A/binary>>) -> A.">>),
     Expect0 = <<"foo(<<A/binary>>) -> A.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(<<A/binary>>) ->\n    A.\n">>,
@@ -169,7 +169,7 @@ binary_arg_test_() ->
     ].
 
 complex_binary_arg_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foooooo(<<H,B:1/binary, C/binary>>) -> <<B/binary, H/binary,C/binary>>.">>
         ),
@@ -200,13 +200,13 @@ complex_binary_arg_test_() ->
 %%
 
 slash_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> \"\\\"some string\\\"\".">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> \"\\\"some string\\\"\".">>),
     Expect0 = <<"foo() -> \"\\\"some string\\\"\".\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo() -> re:compile(\"\\\\.[he]rl$\").">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo() -> re:compile(\"\\\\.[he]rl$\").">>),
     Expect1 = <<"foo() -> re:compile(\"\\\\.[he]rl$\").\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
-    Tokens2 = steamroller_ast:tokens(<<"foo() -> re:compile(\"\\.[he]rl$\").">>),
+    {ok, Tokens2} = steamroller_ast:tokens(<<"foo() -> re:compile(\"\\.[he]rl$\").">>),
     Expect2 = <<"foo() -> re:compile(\".[he]rl$\").\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens2, 100),
     [
@@ -220,7 +220,8 @@ slash_test_() ->
 %%
 
 bool_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> true = bar(X) =:= (X > 0 andalso X < 10).">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"foo(X) -> true = bar(X) =:= (X > 0 andalso X < 10).">>),
     Expect0 = <<"foo(X) -> true = bar(X) =:= (X > 0 andalso X < 10).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(X) ->\n    true = bar(X) =:= (X > 0 andalso X < 10).\n">>,
@@ -239,7 +240,7 @@ bool_test_() ->
 %%
 
 float_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> 0.333333.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> 0.333333.">>),
     Expect0 = <<"foo() -> 0.333333.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
@@ -262,17 +263,17 @@ float_test_() ->
 % This seems like a faff so it's getting left for later.
 %
 number_base_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> 16#1f.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> 16#1f.">>),
     %Expect0 = <<"foo() -> 16#1f.\n">>,
     Expect0 = <<"foo() -> 31.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 number_e_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> 2.3e3.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> 2.3e3.">>),
     Expect0 = <<"foo() -> 2.3e3.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo() -> 2.3e-3.">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo() -> 2.3e-3.">>),
     %Expect1 = <<"foo() -> 2.3e-3.\n">>,
     Expect1 = <<"foo() -> 0.0023.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
@@ -283,13 +284,13 @@ number_e_test_() ->
 %%
 
 unicode_test_() ->
-    Tokens0 =
+    {ok, Tokens0} =
         steamroller_ast:tokens(
             <<"foo() -> 'こんにちは' = bar(\"こんにちは\"), ok."/utf8>>
         ),
     Expect0 = <<"foo() ->\n    'こんにちは' = bar(\"こんにちは\"),\n    ok.\n"/utf8>>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo() -> $ん."/utf8>>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo() -> $ん."/utf8>>),
     Expect1 = <<"foo() -> $ん.\n"/utf8>>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
@@ -299,7 +300,7 @@ unicode_test_() ->
 %%
 
 basic_brackets_test_() ->
-    Tokens = steamroller_ast:tokens(<<"(Arg1, Arg2).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"(Arg1, Arg2).">>),
     Expect0 = <<"(Arg1, Arg2).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"(\n    Arg1,\n    Arg2\n).\n">>,
@@ -307,7 +308,7 @@ basic_brackets_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 brackets_comment_test_() ->
-    Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  % test\n  thing/0\n).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"(\n  init/1,\n  % test\n  thing/0\n).">>),
     Expect = <<"(\n    init/1,\n    % test\n    thing/0\n).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
@@ -315,7 +316,7 @@ brackets_comment_test_() ->
     [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1), ?_assertEqual(Expect, Result2)].
 
 brackets_inline_comment_test_() ->
-    Tokens = steamroller_ast:tokens(<<"(\n  init/1,\n  thing/0 % test\n).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"(\n  init/1,\n  thing/0 % test\n).">>),
     Expect = <<"(\n    init/1,\n    % test\n    thing/0\n).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
@@ -325,13 +326,13 @@ brackets_inline_comment_test_() ->
 brackets_multiline_inline_comment_test_() ->
     % Why would you do this, OTP?
     % This is not perfect, but equally this is a silly way to comment.
-    Tokens = steamroller_ast:tokens(<<"{\nflags % [line1,\n% line2,\n% line3]\n}.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"{\nflags % [line1,\n% line2,\n% line3]\n}.">>),
     Expect = <<"{\n    % [line1,\n    flags\n    % line2,\n    % line3]\n}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect, Result0)].
 
 config_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"{erl_opts, [debug_info, {warn_format, 1}, warn_export_all]}.">>),
     Expect0 = <<"{erl_opts, [debug_info, {warn_format, 1}, warn_export_all]}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -352,7 +353,7 @@ config_test_() ->
     ].
 
 config_whitespace_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "{erl_opts, [debug_info, {warn_format, 1}, warn_export_all]}.\n{plugins, [steamroller]}."
@@ -380,7 +381,7 @@ config_whitespace_test_() ->
     ].
 
 nested_brackets_test_() ->
-    Tokens = steamroller_ast:tokens(<<"{foo(), {error, {oh_no, \"problem\"}}}.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"{foo(), {error, {oh_no, \"problem\"}}}.">>),
     Expect0 = <<"{foo(), {error, {oh_no, \"problem\"}}}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"{\n    foo(),\n    {error, {oh_no, \"problem\"}}\n}.\n">>,
@@ -404,7 +405,7 @@ nested_brackets_test_() ->
 %%
 
 basic_function_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> ok.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> ok.">>),
     Expect0 = <<"foo(Arg1, Arg2) -> ok.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(Arg1, Arg2) ->\n    ok.\n">>,
@@ -418,14 +419,14 @@ basic_function_test_() ->
     ].
 
 function_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> Arg3 = Arg1 + Arg2, Arg3.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> Arg3 = Arg1 + Arg2, Arg3.">>),
     Expect0 = <<"foo(Arg1, Arg2) ->\n    Arg3 = Arg1 + Arg2,\n    Arg3.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(Arg1, Arg2) ->\n    Arg3 = Arg1 + Arg2,\n    Arg3.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 30),
     Expect2 = <<"foo(Arg1, Arg2) ->\n    Arg3 =\n        Arg1 + Arg2,\n    Arg3.\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens, 22),
-    Tokens1 = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> foo, bar, baz, ok.">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> foo, bar, baz, ok.">>),
     Expect3 = <<"foo(Arg1, Arg2) ->\n    foo,\n    bar,\n    baz,\n    ok.\n">>,
     Result3 = steamroller_algebra:format_tokens(Tokens1, 100),
     [
@@ -436,7 +437,7 @@ function_test_() ->
     ].
 
 function_clause_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg1) -> error; foo(Arg1, Arg2) -> ok.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(Arg1, Arg1) -> error; foo(Arg1, Arg2) -> ok.">>),
     Expect0 = <<"foo(Arg1, Arg1) -> error;\nfoo(Arg1, Arg2) -> ok.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(Arg1, Arg1) ->\n    error;\nfoo(Arg1, Arg2) -> ok.\n">>,
@@ -453,7 +454,7 @@ function_clause_test_() ->
     ].
 
 function_long_multiclause_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "my_function(atom_1, X) -> {atom_1, X};\nmy_function(atom_2, {something, X, other_thing}) -> {something, X, yet_another_thing};\nmy_function(atom_2, X) -> X."
@@ -472,7 +473,7 @@ function_long_multiclause_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 function_tuple_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> {error, oh_no}.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> {error, oh_no}.">>),
     Expect0 = <<"foo() -> {error, oh_no}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    {error, oh_no}.\n">>,
@@ -486,7 +487,7 @@ function_tuple_test_() ->
     ].
 
 multi_function_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> Y = bar(X), baz(Y).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(X) -> Y = bar(X), baz(Y).">>),
     Expect0 = <<"foo(X) ->\n    Y = bar(X),\n    baz(Y).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Result1 = steamroller_algebra:format_tokens(Tokens, 50),
@@ -499,12 +500,13 @@ multi_function_test_() ->
     ].
 
 functions_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> Arg1 + Arg2.\nbar() -> baz.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(Arg1, Arg2) -> Arg1 + Arg2.\nbar() -> baz.">>),
     Expect0 = <<"foo(Arg1, Arg2) -> Arg1 + Arg2.\n\nbar() -> baz.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(Arg1, Arg2) ->\n    Arg1 + Arg2.\n\nbar() -> baz.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens, 30),
-    Tokens2 = steamroller_ast:tokens(<<"fooooooooo(Arg1, Arg2) -> Arg1 + Arg2.\nbar() -> baz.">>),
+    {ok, Tokens2} =
+        steamroller_ast:tokens(<<"fooooooooo(Arg1, Arg2) -> Arg1 + Arg2.\nbar() -> baz.">>),
     Expect2 = <<"fooooooooo(\n    Arg1,\n    Arg2\n) ->\n    Arg1 + Arg2.\n\nbar() -> baz.\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens2, 16),
     [
@@ -514,7 +516,7 @@ functions_test_() ->
     ].
 
 simple_module_function_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> module:bar().">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(X) -> module:bar().">>),
     Expect0 = <<"foo(X) -> module:bar().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(X) ->\n    module:bar().\n">>,
@@ -522,7 +524,7 @@ simple_module_function_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 function_head_pattern_match_test_() ->
-    Tokens = steamroller_ast:tokens(<<"long_foo({X, _} = Y) -> {bar(X), baz(Y)}.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"long_foo({X, _} = Y) -> {bar(X), baz(Y)}.">>),
     Expect0 = <<"long_foo({X, _} = Y) -> {bar(X), baz(Y)}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 =
@@ -544,7 +546,7 @@ function_head_pattern_match_test_() ->
 %%
 
 basic_attribute_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-module(test).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-module(test).">>),
     Expect0 = <<"-module(test).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"-module(\n    test\n).\n">>,
@@ -552,7 +554,7 @@ basic_attribute_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 attribute_bracketless_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-module test.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-module test.">>),
     Expect0 = <<"-module(test).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"-module(\n    test\n).\n">>,
@@ -560,7 +562,7 @@ attribute_bracketless_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 attribute_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-module(test).\n\n-export([start_link/0, init/1]).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-module(test).\n\n-export([start_link/0, init/1]).">>),
     Expect0 = <<"-module(test).\n\n-export([start_link/0, init/1]).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"-module(test).\n\n-export(\n    [start_link/0, init/1]\n).\n">>,
@@ -579,7 +581,8 @@ attribute_test_() ->
 %%
 
 type_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-type my_type() :: something | {something_else, atom()}.">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"-type my_type() :: something | {something_else, atom()}.">>),
     Expect0 = <<"-type my_type() :: something | {something_else, atom()}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"-type my_type() :: something\n                 | {something_else, atom()}.\n">>,
@@ -587,7 +590,8 @@ type_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 long_type_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-type my_type() :: one | two | three | four | five.">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"-type my_type() :: one | two | three | four | five.">>),
     Expect0 = <<"-type my_type() :: one | two | three | four | five.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 =
@@ -598,7 +602,7 @@ long_type_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 type_var_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"-type x() :: fun((Y :: other_type()) -> ok) | fun((Y :: type2()) -> ok | error).">>
         ),
@@ -613,7 +617,7 @@ type_var_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 type_bracket_removal_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-type(my_type() :: atom()).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-type(my_type() :: atom()).">>),
     Expect0 = <<"-type my_type() :: atom().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"-type my_type() :: atom().\n">>,
@@ -621,21 +625,21 @@ type_bracket_removal_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 type_grouping_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-type a() :: atom().\n\n-type b() :: atom().">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-type a() :: atom().\n\n-type b() :: atom().">>),
     Expect0 = <<"-type a() :: atom().\n-type b() :: atom().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 type_fun_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"-type x() :: fun().">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"-type x() :: fun().">>),
     Expect0 = <<"-type x() :: fun().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"-type x() :: fun() | map().">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"-type x() :: fun() | map().">>),
     Expect1 = <<"-type x() :: fun() | map().\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     Expect2 = <<"-type x() :: fun()\n           | map().\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens1, 20),
-    Tokens2 = steamroller_ast:tokens(<<"-type x() :: fun().\n-type y() :: foo().">>),
+    {ok, Tokens2} = steamroller_ast:tokens(<<"-type x() :: fun().\n-type y() :: foo().">>),
     Expect3 = <<"-type x() :: fun().\n-type y() :: foo().\n">>,
     Result3 = steamroller_algebra:format_tokens(Tokens2, 100),
     [
@@ -646,16 +650,16 @@ type_fun_test_() ->
     ].
 
 type_fun_brackets_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"-type foo() :: {fun()}.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"-type foo() :: {fun()}.">>),
     Expect0 = <<"-type foo() :: {fun()}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"-spec foo() -> fun(() -> fun()).">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"-spec foo() -> fun(() -> fun()).">>),
     Expect1 = <<"-spec foo() -> fun(() -> fun()).\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 opaque_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-opaque my_type() :: other_type().">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-opaque my_type() :: other_type().">>),
     Expect0 = <<"-opaque my_type() :: other_type().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"-opaque my_type() :: other_type().\n">>,
@@ -667,7 +671,7 @@ opaque_test_() ->
 %%
 
 basic_spec_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-spec test(some_type()) -> other_type().\n">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-spec test(some_type()) -> other_type().\n">>),
     Expect0 = <<"-spec test(some_type()) -> other_type().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"-spec test(some_type()) -> other_type().\n">>,
@@ -681,7 +685,7 @@ basic_spec_test_() ->
     ].
 
 spec_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"-spec test(some_type()) -> other_type() | {error, atom()}.\n">>),
     Expect0 = <<"-spec test(some_type()) -> other_type() | {error, atom()}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -696,7 +700,7 @@ spec_test_() ->
     ].
 
 spec_comment_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"% My first spec\n\n\n-spec test(some_type()) -> other_type().\n">>
         ),
@@ -713,7 +717,7 @@ spec_comment_test_() ->
     ].
 
 spec_bracket_removal_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"-spec(test(some_type()) -> other_type() | {error, atom()}).\n">>),
     Expect0 = <<"-spec test(some_type()) -> other_type() | {error, atom()}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -728,7 +732,7 @@ spec_bracket_removal_test_() ->
     ].
 
 spec_var_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"-spec test(X, Y) -> type() when X :: integer(), Y :: [string()].">>
         ),
@@ -746,7 +750,7 @@ spec_var_test_() ->
     ].
 
 spec_var_fun_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"-spec foo(X) -> type() when X :: integer().\nfoo(X) when is_integer(X) -> bar().">>
         ),
@@ -770,7 +774,7 @@ spec_var_fun_test_() ->
     ].
 
 specced_function_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"-spec test(some_type()) -> other_type().\ntest(A) -> A + 1.\n">>),
     Expect0 = <<"-spec test(some_type()) -> other_type().\ntest(A) -> A + 1.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -785,7 +789,7 @@ specced_function_test_() ->
     ].
 
 multiclause_spec_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "-spec foo(bar, X) -> Y when X :: type(), Y :: type();\n    ({baz, term()}, term()) -> term();\n    (baz, term()) -> term()."
@@ -818,10 +822,10 @@ multiclause_spec_test_() ->
 %%
 
 callback_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"-callback foo(X :: bar()) -> thing().">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"-callback foo(X :: bar()) -> thing().">>),
     Expect0 = <<"-callback foo(X :: bar()) -> thing().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"-callback(foo(X :: bar()) -> thing()).">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"-callback(foo(X :: bar()) -> thing()).">>),
     Expect1 = <<"-callback foo(X :: bar()) -> thing().\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
@@ -831,13 +835,13 @@ callback_test_() ->
 %%
 
 define_grouping_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-define(a, a).\n\n-define(b, b).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-define(a, a).\n\n-define(b, b).">>),
     Expect0 = <<"-define(a, a).\n-define(b, b).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 define_whitespace_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "-define(MY_MACRO(Arg), (Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8))."
@@ -863,7 +867,7 @@ define_whitespace_test_() ->
     ].
 
 bracketless_define_whitespace_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"-define(MY_MACRO(Arg), Arg == 5 orelse Arg == 6 orelse Arg == 7 orelse Arg == 8).">>
         ),
@@ -887,7 +891,7 @@ bracketless_define_whitespace_test_() ->
     ].
 
 define_variable_function_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-define(MACRO(X), {X, fun X/1}).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-define(MACRO(X), {X, fun X/1}).">>),
     Expect0 = <<"-define(MACRO(X), {X, fun X/1}).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
@@ -897,7 +901,7 @@ define_variable_function_test_() ->
 %%
 
 ifdef_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"-ifdef(something).\n-define(x, 1).\n-else.\n-define(x, 2).\n-endif.">>
         ),
@@ -909,7 +913,7 @@ if_attribute_test_() ->
     % Apparently you can have an attribute just called `-if`.
     % It appears to behave in the same was as `ifdef` so is probably legacy.
     % It upsets the AST generator because `if` is a keyword so we have to handle it separately.
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"-if(something).\n-define(x, 1).\n-else.\n-define(x, 2).\n-endif.">>
         ),
@@ -922,7 +926,7 @@ if_attribute_test_() ->
 %%
 
 basic_case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(X) -> case bar(X) of {ok, Something} -> Something; {error, _} -> oh_no end.">>
         ),
@@ -935,7 +939,7 @@ basic_case_test_() ->
     [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1)].
 
 case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "foo(X) -> case bar(X) of {ok, Y} -> Z = baz(Y), foo(Z); {error, oops} -> oops; {error, _} -> oh_no end."
@@ -949,7 +953,7 @@ case_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 matched_case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foooooooooo(X) -> Ret = case X of some_value -> great end, Ret.">>
         ),
@@ -963,7 +967,7 @@ matched_case_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 case_pattern_match_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo() -> case bar() of ok -> ok; {error, _} = Err -> Err end.">>),
     Expect =
         <<
@@ -974,7 +978,7 @@ case_pattern_match_test_() ->
     [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1)].
 
 case_fun_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "foo(X) -> case X of 0 -> fun baz/2; 1 -> fun other:bee/2; 2 -> fun ?MODULE:bop/2 end."
@@ -993,7 +997,7 @@ case_fun_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 case_fun_macro_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun ?BAR:bar/2 end.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun ?BAR:bar/2 end.">>),
     Expect0 = <<"foo() -> case X of 1 -> fun ?BAR:bar/2 end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    case X of\n        1 ->\n            fun ?BAR:bar/2\n    end.\n">>,
@@ -1001,7 +1005,7 @@ case_fun_macro_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 case_fun_var_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun X:bar/2 end.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun X:bar/2 end.">>),
     Expect0 = <<"foo() -> case X of 1 -> fun X:bar/2 end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    case X of\n        1 ->\n            fun X:bar/2\n    end.\n">>,
@@ -1009,7 +1013,8 @@ case_fun_var_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 case_fun_var_2_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun X() -> ok, X() end end.">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"foo() -> case X of 1 -> fun X() -> ok, X() end end.">>),
     Expect0 =
         <<
             "foo() ->\n    case X of\n        1 ->\n            fun\n                X() ->\n                    ok,\n                    X()\n            end\n    end.\n"
@@ -1022,7 +1027,8 @@ case_fun_var_2_test_() ->
 %%
 
 if_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo(A, B) -> if A == B -> great; true -> oh_no end.">>),
+    {ok, Tokens0} =
+        steamroller_ast:tokens(<<"foo(A, B) -> if A == B -> great; true -> oh_no end.">>),
     Expect0 =
         <<"foo(A, B) ->\n    if\n        A == B -> great;\n        true -> oh_no\n    end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
@@ -1033,7 +1039,8 @@ if_test_() ->
             "foo(A, B) ->\n    if\n        A == B ->\n            great;\n        true ->\n            oh_no\n    end.\n"
         >>,
     Result2 = steamroller_algebra:format_tokens(Tokens0, 20),
-    Tokens1 = steamroller_ast:tokens(<<"foo(A) -> if length(A) > 1 -> great; true -> oh_no end.">>),
+    {ok, Tokens1} =
+        steamroller_ast:tokens(<<"foo(A) -> if length(A) > 1 -> great; true -> oh_no end.">>),
     Expect3 =
         <<"foo(A) ->\n    if\n        length(A) > 1 -> great;\n        true -> oh_no\n    end.\n">>,
     Result3 = steamroller_algebra:format_tokens(Tokens1, 100),
@@ -1054,7 +1061,7 @@ if_test_() ->
     ].
 
 nested_case_if_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo(A, B) -> case A of test -> if B == 5 -> great end end.">>),
     Expect0 = <<"foo(A, B) -> case A of test -> if B == 5 -> great end end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1075,7 +1082,7 @@ nested_case_if_test_() ->
     ].
 
 nested_if_case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo(A, B) -> if B == 5 -> case A of test -> great end end.">>),
     Expect0 = <<"foo(A, B) -> if B == 5 -> case A of test -> great end end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1103,7 +1110,7 @@ nested_if_case_test_() ->
 %%
 
 anon_function_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foooooooooo(X) -> lists:any(fun (Y) -> Y == thing end, X).">>),
     Expect0 = <<"foooooooooo(X) -> lists:any(fun (Y) -> Y == thing end, X).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1121,7 +1128,7 @@ anon_function_test_() ->
     ].
 
 anon_function_multicase_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> fun (test) -> ok; (_) -> error end.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> fun (test) -> ok; (_) -> error end.">>),
     Expect0 = <<"foo() -> fun (test) -> ok; (_) -> error end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    fun (test) -> ok; (_) -> error end.\n">>,
@@ -1135,7 +1142,7 @@ anon_function_multicase_test_() ->
     ].
 
 nested_fun_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo(X) -> fun() -> case X of 1 -> ok; 0 -> error end end.">>),
     Expect0 =
         <<
@@ -1145,14 +1152,15 @@ nested_fun_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 dynamic_function_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foooooooooo(X) -> lists:any(fun local/1, X).">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foooooooooo(X) -> lists:any(fun local/1, X).">>),
     Expect0 = <<"foooooooooo(X) -> lists:any(fun local/1, X).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     Expect1 = <<"foooooooooo(X) ->\n    lists:any(fun local/1, X).\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens0, 30),
     Expect2 = <<"foooooooooo(X) ->\n    lists:any(\n        fun local/1,\n        X\n    ).\n">>,
     Result2 = steamroller_algebra:format_tokens(Tokens0, 20),
-    Tokens1 = steamroller_ast:tokens(<<"foooooooooo(X) -> lists:any(fun module:func/1, X).">>),
+    {ok, Tokens1} =
+        steamroller_ast:tokens(<<"foooooooooo(X) -> lists:any(fun module:func/1, X).">>),
     Expect3 = <<"foooooooooo(X) -> lists:any(fun module:func/1, X).\n">>,
     Result3 = steamroller_algebra:format_tokens(Tokens1, 100),
     Expect4 = <<"foooooooooo(X) ->\n    lists:any(fun module:func/1, X).\n">>,
@@ -1170,7 +1178,7 @@ dynamic_function_test_() ->
     ].
 
 variable_arity_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo(M, F, A) -> fun M:F/A.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo(M, F, A) -> fun M:F/A.">>),
     Expect0 = <<"foo(M, F, A) -> fun M:F/A.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     [?_assertEqual(Expect0, Result0)].
@@ -1180,7 +1188,7 @@ variable_arity_test_() ->
 %%
 
 when_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo(X) when is_atom(X) -> atom; foo(X) when X =< 10 -> ok.">>),
     Expect0 = <<"foo(X) when is_atom(X) -> atom;\nfoo(X) when X =< 10 -> ok.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1195,7 +1203,7 @@ when_test_() ->
     ].
 
 guard_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) when is_atom(X), X == test -> ok.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(X) when is_atom(X), X == test -> ok.">>),
     Expect0 = <<"foo(X) when is_atom(X), X == test -> ok.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(X)\nwhen is_atom(X), X == test ->\n    ok.\n">>,
@@ -1209,7 +1217,7 @@ guard_test_() ->
     ].
 
 guard_sequence_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) when X == test; X == other -> ok.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(X) when X == test; X == other -> ok.">>),
     Expect0 = <<"foo(X) when X == test; X == other -> ok.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(X)\nwhen X == test; X == other ->\n    ok.\n">>,
@@ -1223,7 +1231,7 @@ guard_sequence_test_() ->
     ].
 
 guarded_case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(X) -> case X of X when X == test orelse X == other -> ok; _ -> error end">>
         ),
@@ -1249,7 +1257,7 @@ guarded_case_test_() ->
     ].
 
 guarded_case_equation_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "foo(X) -> Y = case X of X when X == test orelse X == other -> ok; _ -> error end, Y."
@@ -1263,7 +1271,7 @@ guarded_case_equation_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 if_guard_sequence_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(X) -> if X =:= test; X =:= not_test -> ok; true -> error end.">>
         ),
@@ -1280,7 +1288,7 @@ if_guard_sequence_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 multi_guard_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(X) when is_integer(X) andalso X > 200 andalso X < 500 -> big_integer.">>
         ),
@@ -1301,7 +1309,7 @@ multi_guard_test_() ->
     ].
 
 grouped_multi_guard_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(X) when is_integer(X) andalso (X > 200 orelse X < 0) -> maybe_negative.">>
         ),
@@ -1326,7 +1334,8 @@ grouped_multi_guard_test_() ->
 %%
 
 begin_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-define(macro(Thing),\n begin\n (Thing + 1)\n end).">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"-define(macro(Thing),\n begin\n (Thing + 1)\n end).">>),
     Expect0 = <<"-define(macro(Thing), begin (Thing + 1) end).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"-define(\n    macro(Thing),\n    begin\n        (Thing + 1)\n    end\n).\n">>,
@@ -1334,7 +1343,7 @@ begin_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 begin_list_comprehension_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(Pids) -> [begin unlink(Pid), exit(Pid, kill) end || Pid <- Pids].">>
         ),
@@ -1357,7 +1366,7 @@ begin_list_comprehension_test_() ->
     ].
 
 begin_case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo(X) -> begin case X of test -> ok; other -> error end end.">>),
     Expect0 =
         <<
@@ -1371,7 +1380,7 @@ begin_case_test_() ->
 %%
 
 send_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(Pid) -> Pid ! message.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(Pid) -> Pid ! message.">>),
     Expect0 = <<"foo(Pid) -> Pid ! message.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(Pid) ->\n    Pid ! message.\n">>,
@@ -1379,7 +1388,7 @@ send_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 receive_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "foo() -> receive\n  X when is_integer(X) -> X + 1;\n  Y -> {ok, Y}\n  after\n  100 -> error\n end"
@@ -1398,7 +1407,7 @@ receive_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 empty_receive_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> receive\n  after X -> timeout\n end.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> receive\n  after X -> timeout\n end.">>),
     Expect0 = <<"foo() -> receive after X -> timeout end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    receive after X -> timeout end.\n">>,
@@ -1412,7 +1421,7 @@ empty_receive_test_() ->
     ].
 
 nested_receive_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo() -> receive message -> receive after 0 -> ok end end">>),
     Expect0 = <<"foo() -> receive message -> receive after 0 -> ok end end\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1434,7 +1443,8 @@ nested_receive_test_() ->
 %%
 
 try_catch_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> try bar(), baz() catch Y -> {caught, Y} end">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"foo() -> try bar(), baz() catch Y -> {caught, Y} end">>),
     Expect0 =
         <<
             "foo() ->\n    try\n        bar(),\n        baz()\n    catch\n        Y -> {caught, Y}\n    end\n"
@@ -1448,13 +1458,14 @@ try_catch_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 catch_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> catch bar(), catch baz(), 5 + 5.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> catch bar(), catch baz(), 5 + 5.">>),
     Expect0 = <<"foo() ->\n    catch bar(),\n    catch baz(),\n    5 + 5.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 try_internal_catch_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> try X = (catch bar()), 2 div 0 after baz() end">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"foo() -> try X = (catch bar()), 2 div 0 after baz() end">>),
     Expect0 =
         <<
             "foo() ->\n    try\n        X = (catch bar()),\n        2 div 0\n    after\n        baz()\n    end\n"
@@ -1463,7 +1474,7 @@ try_internal_catch_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 try_of_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo() -> try bar() of X -> {ok, X} catch Y -> {caught, Y} end">>),
     Expect0 = <<"foo() -> try bar() of X -> {ok, X} catch Y -> {caught, Y} end\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1475,7 +1486,7 @@ try_of_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 try_of_multiexpression_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo() -> try true = bar(), baz() of baz -> ok catch Err -> Err end.">>
         ),
@@ -1489,7 +1500,7 @@ try_of_multiexpression_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 try_case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "foo() -> try case bar() of test -> ok; other -> error end catch _:Y -> throw(Y) end."
@@ -1503,7 +1514,7 @@ try_case_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 nested_try_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo() -> try\n try bar(), baz() catch X -> raise(X) end\ncatch Y -> oh_no\nend.">>
         ),
@@ -1515,14 +1526,14 @@ nested_try_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 try_after_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> try\n bar()\nafter\n baz(), ok\nend">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> try\n bar()\nafter\n baz(), ok\nend">>),
     Expect0 =
         <<"foo() ->\n    try\n        bar()\n    after\n        baz(),\n        ok\n    end\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 try_of_after_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo() -> try bar() of ok -> ok; error -> oh_no\nafter\n baz(), ok\nend">>
         ),
@@ -1534,7 +1545,7 @@ try_of_after_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 try_receive_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "foo() -> try receive ok -> ok; oh_no -> throw(oh_no) after 0 -> ok end catch _ -> ok end"
@@ -1548,14 +1559,14 @@ try_receive_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 after_case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo() -> receive after case {x} of {x} -> 0 end -> ok end.">>),
     Expect0 = <<"foo() -> receive after case {x} of {x} -> 0 end -> ok end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 try_fun_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(X) -> try\n Y = bar(fun () -> X:do() end), Y()\n after ok = baz() end.">>
         ),
@@ -1571,7 +1582,7 @@ try_fun_test_() ->
 %%
 
 macro_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> ?MACRO.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> ?MACRO.">>),
     Expect0 = <<"foo() -> ?MACRO.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo() ->\n    ?MACRO.\n">>,
@@ -1579,7 +1590,7 @@ macro_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 macro_args_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(SomeVariable) -> ?MACRO(SomeVariable).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(SomeVariable) -> ?MACRO(SomeVariable).">>),
     Expect0 = <<"foo(SomeVariable) -> ?MACRO(SomeVariable).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(SomeVariable) ->\n    ?MACRO(SomeVariable).\n">>,
@@ -1587,13 +1598,13 @@ macro_args_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 macro_no_comma_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X, Y) -> ?MACRO(X, Y) bar().">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(X, Y) -> ?MACRO(X, Y) bar().">>),
     Expect0 = <<"foo(X, Y) -> ?MACRO(X, Y) bar().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 macro_try_catch_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo(X) -> try bar(X) catch ?Macro(X) handle_error(X) end.">>),
     Expect0 = <<"foo(X) -> try bar(X) catch ?Macro(X) handle_error(X) end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1616,7 +1627,7 @@ macro_try_catch_test_() ->
     ].
 
 macro_case_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> case bar(X) of ?Macro(X) ok end.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(X) -> case bar(X) of ?Macro(X) ok end.">>),
     Expect0 = <<"foo(X) -> case bar(X) of ?Macro(X) ok end.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 = <<"foo(X) ->\n    case bar(X) of\n        ?Macro(X) ok\n    end.\n">>,
@@ -1632,62 +1643,62 @@ macro_case_test_() ->
     ].
 
 top_level_macro_test_() ->
-    Tokens = steamroller_ast:tokens(<<"?MACRO(X).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"?MACRO(X).">>),
     Expect0 = <<"?MACRO(X).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 macro_export_test_() ->
     % FIXME remove spaces
-    Tokens = steamroller_ast:tokens(<<"-export([?MACRO/0]).">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-export([?MACRO/0]).">>),
     Expect0 = <<"-export([?MACRO / 0]).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 macro_multiexpr_test_() ->
-    Tokens = steamroller_ast:tokens(<<"?MACRO() -> foo(x), ok.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"?MACRO() -> foo(x), ok.">>),
     Expect0 = <<"?MACRO() -> foo(x), ok.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 macro_module_function_call_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> ?MODULE:bar().">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> ?MODULE:bar().">>),
     Expect0 = <<"foo() -> ?MODULE:bar().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo() -> ?MODULE:?F().">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo() -> ?MODULE:?F().">>),
     Expect1 = <<"foo() -> ?MODULE:?F().\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 macro_function_call_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> ?F().">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> ?F().">>),
     Expect0 = <<"foo() -> ?F().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 macro_spec_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"-spec ?MODULE:foo() -> bar().">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"-spec ?MODULE:foo() -> bar().">>),
     Expect0 = <<"-spec ?MODULE:foo() -> bar().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"-spec ?MODULE:?F() -> bar().">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"-spec ?MODULE:?F() -> bar().">>),
     Expect1 = <<"-spec ?MODULE:?F() -> bar().\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 macro_record_spec_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-spec foo(#?MODULE{}) -> {ok, #?MODULE{}}.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"-spec foo(#?MODULE{}) -> {ok, #?MODULE{}}.">>),
     Expect0 = <<"-spec foo(#?MODULE{}) -> {ok, #?MODULE{}}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 macro_record_element_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo(X) -> X#?MODULE.x.">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(X) -> X#?MODULE.x.">>),
     Expect0 = <<"foo(X) -> X#?MODULE.x.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 macro_multiclause_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "foo(X, Y) -> case bar(X) of ?MACRO(Y) when length(Y) >= X -> ok;\n    ?MACRO(_) -> error\nend."
@@ -1705,7 +1716,7 @@ macro_multiclause_test_() ->
 %%
 
 record_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo() -> State = #state{test=123}, State#state{other=456}.">>),
     Expect0 = <<"foo() ->\n    State = #state{test = 123},\n    State#state{other = 456}.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1723,25 +1734,26 @@ record_test_() ->
     ].
 
 record_element_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo(X) -> X#rec.id.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo(X) -> X#rec.id.">>),
     Expect0 = <<"foo(X) -> X#rec.id.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo(X, Id) -> X#rec.Id.">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo(X, Id) -> X#rec.Id.">>),
     Expect1 = <<"foo(X, Id) -> X#rec.Id.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 record_key_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> #rec.id.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> #rec.id.">>),
     Expect0 = <<"foo() -> #rec.id.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
-    Tokens1 = steamroller_ast:tokens(<<"foo(Id) -> #rec.Id.">>),
+    {ok, Tokens1} = steamroller_ast:tokens(<<"foo(Id) -> #rec.Id.">>),
     Expect1 = <<"foo(Id) -> #rec.Id.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 record_definition_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-record(state, {one :: integer(), two=2 :: integer()}).">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"-record(state, {one :: integer(), two=2 :: integer()}).">>),
     Expect0 = <<"-record(state, {one :: integer(), two = 2 :: integer()}).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 =
@@ -1752,7 +1764,8 @@ record_definition_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 record_definition_fun_test_() ->
-    Tokens = steamroller_ast:tokens(<<"-record(state, {one :: fun(), two=2 :: integer()}).">>),
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"-record(state, {one :: fun(), two=2 :: integer()}).">>),
     Expect0 = <<"-record(state, {one :: fun(), two = 2 :: integer()}).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     Expect1 =
@@ -1767,7 +1780,7 @@ record_definition_fun_test_() ->
 %%
 
 map_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo() -> X = #{test => 123, other => 456}, X#{\"test\" => 789}.">>
         ),
@@ -1792,16 +1805,16 @@ map_test_() ->
 
 comment_test_() ->
     Expect0 = <<"% Hello I am a comment and I don't change length\n">>,
-    Tokens0 = steamroller_ast:tokens(Expect0),
+    {ok, Tokens0} = steamroller_ast:tokens(Expect0),
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     Result1 = steamroller_algebra:format_tokens(Tokens0, 50),
     Result2 = steamroller_algebra:format_tokens(Tokens0, 10),
     Expect1 = <<"% Hello\n% World\n">>,
-    Tokens1 = steamroller_ast:tokens(Expect1),
+    {ok, Tokens1} = steamroller_ast:tokens(Expect1),
     Result3 = steamroller_algebra:format_tokens(Tokens1, 100),
     Result4 = steamroller_algebra:format_tokens(Tokens1, 20),
     Result5 = steamroller_algebra:format_tokens(Tokens1, 1),
-    Tokens2 = steamroller_ast:tokens(<<"% Comment   \n">>),
+    {ok, Tokens2} = steamroller_ast:tokens(<<"% Comment   \n">>),
     Expect2 = <<"% Comment\n">>,
     Result6 = steamroller_algebra:format_tokens(Tokens2, 100),
     Result7 = steamroller_algebra:format_tokens(Tokens2, 20),
@@ -1819,7 +1832,7 @@ comment_test_() ->
     ].
 
 attribute_inbetween_comment_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"-module(test).\n\n% Comment\n-export([start_link/0, init/1]).">>),
     Expect0 = <<"-module(test).\n\n% Comment\n-export([start_link/0, init/1]).\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
@@ -1862,7 +1875,7 @@ attribute_inbetween_comment_test_() ->
 % ```
 %
 attribute_comment_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"-module(test).\n\n-export([start_link/0,\n    % comment\n    init/1]).">>
         ),
@@ -1876,7 +1889,7 @@ attribute_comment_test_() ->
     [?_assertEqual(Expect, Result0), ?_assertEqual(Expect, Result1), ?_assertEqual(Expect, Result2)].
 
 function_comment_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo() ->\n    % Temporary workaround (2010-01-11)\n    {error, oh_no}.">>
         ),
@@ -1890,7 +1903,7 @@ function_comment_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 function_inline_comment_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo() ->\n    X + Y, % Temporary workaround (2010-01-11)\n    {error, oh_no}.">>
         ),
@@ -1905,14 +1918,14 @@ function_inline_comment_test_() ->
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 comment_list_test_() ->
-    Tokens0 = steamroller_ast:tokens(<<"foo() ->\n    {error,\n % TODO improve\noh_no}.">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() ->\n    {error,\n % TODO improve\noh_no}.">>),
     Expect0 =
         <<"foo() ->\n    {\n        error,\n        % TODO improve\n        oh_no\n    }.\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     Expect1 =
         <<"foo() ->\n    {\n        error,\n        % TODO improve\n        oh_no\n    }.\n">>,
     Result1 = steamroller_algebra:format_tokens(Tokens0, 1),
-    Tokens1 =
+    {ok, Tokens1} =
         steamroller_ast:tokens(
             <<"foo() ->\n    Error = 1 + 2,\n    {error, \n% TODO improve\nError}.">>
         ),
@@ -1936,13 +1949,13 @@ comment_list_test_() ->
 comment_list_final_element_test_() ->
     % Test that we do not change the order of lists when the final element is commented out.
     % Otherwise we annoy people who temporarily comment things out and autoformat on save.
-    Tokens0 = steamroller_ast:tokens(<<"foo() -> [bar\n %baz\n].">>),
+    {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> [bar\n %baz\n].">>),
     Expect0 = <<"foo() ->\n    [\n        bar\n        %baz\n    ].\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
     [?_assertEqual(Expect0, Result0)].
 
 function_clause_comment_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(Arg1, Arg1) -> error;\n% Hello World\nfoo(Arg1, Arg2) -> ok.">>
         ),
@@ -1962,7 +1975,7 @@ function_clause_comment_test_() ->
     ].
 
 commented_case_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<
                 "foo(X) -> {Y, Z} = case X of\n    some_value ->\n        % Comment\n        {1, 2}\n    end."
@@ -1976,7 +1989,7 @@ commented_case_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 empty_receive_comment_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(<<"foo() -> receive\n  % comment\n  after X -> timeout\n end.">>),
     Expect0 =
         <<"foo() ->\n    receive\n        % comment\n    after\n        X -> timeout\n    end.\n">>,
@@ -1984,13 +1997,13 @@ empty_receive_comment_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 comment_sadness_test_() ->
-    Tokens = steamroller_ast:tokens(<<"foo() -> bar()\n% why\n% WHY\n, baz().">>),
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> bar()\n% why\n% WHY\n, baz().">>),
     Expect0 = <<"foo() ->\n    % why\n    % WHY\n    bar(),\n    baz().\n">>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
 case_comment_sadness_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(X) -> case X of hello -> world\n% A very special comment\nend.">>
         ),
@@ -2002,7 +2015,7 @@ case_comment_sadness_test_() ->
     [?_assertEqual(Expect0, Result0)].
 
 try_comment_sadness_test_() ->
-    Tokens =
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"foo(X) -> try bar(X)\n% Please no more\ncatch _ -> error\n% Oh no not again\nend.">>
         ),

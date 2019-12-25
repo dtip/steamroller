@@ -163,6 +163,12 @@ format_files_(Spare0, J, Rest, Opts) ->
                         [File, Err, Line]
                     ),
                     format_files_(Spare1, J, Rest, Opts);
+                {error, {File, <<"source code is not unicode">>}} ->
+                    rebar_api:warn(
+                        "Steamroller Warn: File: ~s: source code is not unicode. Skipping...",
+                        [File]
+                    ),
+                    format_files_(Spare1, J, Rest, Opts);
                 {error, _} = Err -> Err;
                 {'EXIT', Trace} -> {error, {crash, Trace}}
             end

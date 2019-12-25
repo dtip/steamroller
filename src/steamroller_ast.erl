@@ -28,13 +28,17 @@ ast(Code, File) ->
         {error, _} = Err -> Err
     end.
 
--spec tokens(binary()) -> tokens().
+-spec tokens(binary()) -> {ok, tokens()} | {error, binary()}.
 tokens(Code) ->
-    % Comments are not included in the AST created by epp:parse_file.
-    % Neither are most of the attributes (things like `-define(BLAH, blah).`).
-    % We'll need them to generate formatted code.
-    {ok, Scanned, _} = erl_scan:string(unicode:characters_to_list(Code), 0, [return_comments]),
-    Scanned.
+    case unicode:characters_to_list(Code) of
+        {error, _, _} -> {error, <<"source code is not unicode">>};
+        Unicode ->
+            % Comments are not included in the AST created by epp:parse_file.
+            % Neither are most of the attributes (things like `-define(BLAH, blah).`).
+            % We'll need them to generate formatted code.
+            {ok, Scanned, _} = erl_scan:string(Unicode, 0, [return_comments]),
+            {ok, Scanned}
+    end.
 
 -spec eq(ast(), ast()) -> boolean().
 eq(Ast0, Ast1) -> lists:foldl(fun eq_/2, true, lists:zip(Ast0, Ast1)).
