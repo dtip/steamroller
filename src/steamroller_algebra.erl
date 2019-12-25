@@ -344,31 +344,68 @@ spec(Tokens0) ->
 
 -spec case_(tokens()) -> {force_break(), doc(), tokens()}.
 case_([{'case', _} | Tokens]) ->
-    {CaseArgTokens, Rest0, _} = get_until_of(Tokens),
-    {empty, _, CaseArg, []} = expr(CaseArgTokens, no_force_break),
+    {CaseArg, CaseArgForceBreak, Rest0} = case_arg(Tokens),
     {CaseClauseTokens, Rest1, _} = get_until_end(Rest0),
     {CaseForceBreak, Clauses} = handle_trailing_comments(clauses(CaseClauseTokens)),
     ForceBreak =
         case length(Clauses) > 1 of
             true -> force_break;
-            false -> CaseForceBreak
+            false -> resolve_force_break([CaseArgForceBreak, CaseForceBreak])
         end,
     GroupedClauses = force_break(ForceBreak, group(space(Clauses), inherit)),
-    Doc =
-        force_break(
-            ForceBreak,
-            group(
-                space(
-                    cons(
-                        group(space(text(<<"case">>), CaseArg)),
-                        nest(?indent, space(text(<<" of">>), GroupedClauses))
-                    ),
-                    text(<<"end">>)
-                ),
-                inherit
-            )
-        ),
+    CaseBody =
+        case CaseArgForceBreak of
+            % Nesting and grouping are not playing nicely here.
+            % The way indentation works means that we have to use `indent()` on the doc
+            % before the one we want to be indented.
+            % The grouping we require does not appear to allow this.
+            % There is probably a smarter way of doing what we want but the solution here works
+            % so it's fine for now.
+            force_break ->
+                group(
+                    force_break(
+                        CaseArgForceBreak,
+                        group(
+                            space(
+                                nest(?indent, space(text(<<"case">>), CaseArg)),
+                                group(
+                                    nest(
+                                        ?indent,
+                                        force_break(
+                                            ForceBreak,
+                                            group(space(text(<<"of">>), GroupedClauses), inherit)
+                                        )
+                                    )
+                                )
+                            ),
+                            inherit
+                        )
+                    )
+                );
+            no_force_break ->
+                cons(
+                    group(space(text(<<"case">>), CaseArg)),
+                    nest(?indent, space(text(<<" of">>), GroupedClauses))
+                )
+        end,
+    Doc = force_break(ForceBreak, group(space(CaseBody, text(<<"end">>)), inherit)),
     {ForceBreak, Doc, Rest1}.
+
+-spec case_arg(tokens()) -> {doc(), force_break(), tokens()}.
+case_arg(Tokens) ->
+    {CaseArgTokens, Rest, _} = get_until_of(Tokens),
+    {CaseArg, ForceBreak} = case_arg_(CaseArgTokens, no_force_break, empty()),
+    {CaseArg, ForceBreak, Rest}.
+
+-spec case_arg_(tokens(), force_break(), doc()) -> {doc(), force_break()}.
+case_arg_(CaseArgTokens, ForceBreak, Doc0) ->
+    case expr(CaseArgTokens, no_force_break) of
+        {comment, _, CaseArg, Rest} -> case_arg_(Rest, force_break, space(Doc0, CaseArg));
+        {empty, _, CaseArg, []} -> {group(space(Doc0, CaseArg), inherit), ForceBreak};
+        {empty, _, CaseArg, Rest} ->
+            Comments = comments(Rest),
+            {group(space([Doc0, CaseArg | Comments]), inherit), force_break}
+    end.
 
 -spec if_(tokens()) -> {force_break(), doc(), tokens()}.
 if_([{'if', _} | Tokens]) ->
@@ -673,18 +710,21 @@ is_attribute([_ | Rest]) -> is_attribute(Rest).
 -spec comment(string()) -> doc().
 comment(Comment) -> text(string:trim(unicode:characters_to_binary(Comment))).
 
+-spec comments(tokens()) -> list(doc()).
+comments(Comments) -> lists:map(fun ({comment, _, Text}) -> comment(Text) end, Comments).
+
 -spec handle_trailing_comments({force_break(), list(doc()), tokens()}) ->
     {force_break(), list(doc())}.
 handle_trailing_comments({ForceBreak, Clauses, []}) -> {ForceBreak, Clauses};
 handle_trailing_comments({_, Clauses, Comments}) ->
-    CommentDocs = lists:map(fun ({comment, _, Text}) -> comment(Text) end, Comments),
+    CommentDocs = comments(Comments),
     {force_break, Clauses ++ CommentDocs}.
 
 -spec handle_trailing_expr_comments({empty, force_break(), list(doc()), tokens()}) ->
     {empty, force_break(), list(doc())}.
 handle_trailing_expr_comments({empty, ForceBreak, Exprs, []}) -> {empty, ForceBreak, Exprs};
 handle_trailing_expr_comments({empty, _, Exprs, Comments}) ->
-    CommentDocs = lists:map(fun ({comment, _, Text}) -> comment(Text) end, Comments),
+    CommentDocs = comments(Comments),
     {empty, force_break, Exprs ++ CommentDocs}.
 
 %%

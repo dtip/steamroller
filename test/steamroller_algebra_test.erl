@@ -2014,6 +2014,23 @@ case_comment_sadness_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+case_arg_comment_test_() ->
+    {ok, Tokens0} =
+        steamroller_ast:tokens(<<"foo(X) -> case % Comment\n X of hello -> world end.">>),
+    Expect0 =
+        <<
+            "foo(X) ->\n    case\n        % Comment\n        X\n    of\n        hello -> world\n    end.\n"
+        >>,
+    Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+    {ok, Tokens1} =
+        steamroller_ast:tokens(<<"foo(X) -> case X\n  % Comment\n of hello -> world end.">>),
+    Expect1 =
+        <<
+            "foo(X) ->\n    case\n        X\n        % Comment\n    of\n        hello -> world\n    end.\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 try_comment_sadness_test_() ->
     {ok, Tokens} =
         steamroller_ast:tokens(
