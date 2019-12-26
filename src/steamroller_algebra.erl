@@ -751,9 +751,15 @@ equation(Equals, Expr, ForceBreak) ->
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{Open, _} | Rest0]) when ?IS_LIST_OPEN_CHAR(Open) ->
     Close = close_bracket(Open),
-    {Tokens, Rest1, _} = get_until(Close, Rest0),
-    {ForceBreak, ListGroup} = brackets(Tokens, op2b(Open), op2b(Close)),
-    {ForceBreak, ListGroup, Rest1}.
+    case get_until(Close, Rest0) of
+        {Tokens, Rest1, {Close, _}} ->
+            {ForceBreak, ListGroup} = brackets(Tokens, op2b(Open), op2b(Close)),
+            {ForceBreak, ListGroup, Rest1};
+        {_Tokens, _Rest, {dot, _}} ->
+            % This is probably due to a funky macro.
+            % We could handle it properly but it's more effort than it's worth right now.
+            throw({complaint, reached_dot_before_closing_bracket})
+    end.
 
 -spec brackets(tokens(), binary(), binary()) -> {force_break(), doc()}.
 brackets([], Open, Close) -> {no_force_break, group(cons(text(Open), text(Close)))};
@@ -1424,21 +1430,37 @@ repeat_(Acc, Bin, Times) -> repeat_(<<Acc/binary, Bin/binary>>, Bin, Times - 1).
 get_until_end(Tokens) -> get_until('end', Tokens).
 
 -spec get_until(atom(), tokens()) -> {tokens(), tokens(), token()}.
-get_until(End, Tokens) -> get_until(End, Tokens, [], []).
+get_until(End, Tokens) -> get_until(End, Tokens, [], [], []).
 
--spec get_until(atom(), tokens(), tokens(), list(atom())) -> {tokens(), tokens(), token()}.
-get_until(_End, [Token], Acc, _Stack) -> {lists:reverse(Acc), [], Token};
-get_until(End, [{End, _} = Token | Rest], Acc, []) -> {lists:reverse(Acc), Rest, Token};
-get_until(End, [{'end', _} = Token | Rest], Acc, [Keyword | Stack])
+-spec get_until(atom(), tokens(), tokens(), list(atom()), list(atom())) ->
+    {tokens(), tokens(), token()}.
+get_until(_End, [Token], Acc, _BracketStack, _KeywordStack) -> {lists:reverse(Acc), [], Token};
+get_until(_End, [{dot, _} = Token | Rest], Acc, _, _) ->
+    % An unexpected dot probably means there's an unused macro which has invalid syntax.
+    {lists:reverse(Acc), Rest, Token};
+get_until(End, [{End, _} = Token | Rest], Acc, [], _KeywordStack) when ?IS_LIST_CLOSE_CHAR(End) ->
+    % The keyword stack is not necessarily empty here.
+    % If it's not empty then we probably have some funny macro syntax.
+    % That's dealt with elsewhere.
+    {lists:reverse(Acc), Rest, Token};
+get_until(End, [{End, _} = Token | Rest], Acc, [], []) -> {lists:reverse(Acc), Rest, Token};
+get_until(End, [{'end', _} = Token | Rest], Acc, BracketStack, [Keyword | KeywordStack])
 when ?IS_TERMINATED_KEYWORD(Keyword) ->
-    get_until(End, Rest, [Token | Acc], Stack);
-get_until(End, [{C, _} = Token | Rest], Acc, [C | Stack]) when ?IS_LIST_CLOSE_CHAR(C) ->
+    get_until(End, Rest, [Token | Acc], BracketStack, KeywordStack);
+get_until(End, [{C, _} = Token | Rest], Acc, [C | BracketStack], KeywordStack)
+when ?IS_LIST_CLOSE_CHAR(C) ->
     % Close bracket
-    get_until(End, Rest, [Token | Acc], Stack);
-get_until(End, [{C, _} = Token | Rest], Acc, Stack) when ?IS_LIST_OPEN_CHAR(C) ->
+    get_until(End, Rest, [Token | Acc], BracketStack, KeywordStack);
+get_until(End, [{C, _} = Token | Rest], Acc, BracketStack, KeywordStack) when ?IS_LIST_OPEN_CHAR(C) ->
     % If we hit an open bracket we ignore until the close bracket
-    get_until(End, Rest, [Token | Acc], [close_bracket(C) | Stack]);
-get_until(End, [{'fun', _} = Token, {'(', _}, {')', _}, {Op, _} | _] = Rest0, Acc, Stack)
+    get_until(End, Rest, [Token | Acc], [close_bracket(C) | BracketStack], KeywordStack);
+get_until(
+    End,
+    [{'fun', _} = Token, {'(', _}, {')', _}, {Op, _} | _] = Rest0,
+    Acc,
+    BracketStack,
+    KeywordStack
+)
 when Op == '|' orelse Op == dot orelse Op == ',' orelse Op == '}' orelse Op == ')' ->
     % 'fun' without 'end'
     % -type x() :: fun().
@@ -1449,45 +1471,77 @@ when Op == '|' orelse Op == dot orelse Op == ',' orelse Op == '}' orelse Op == '
     % or
     % -type x() :: {y(), fun()}.
     Rest1 = tl(Rest0),
-    get_until(End, Rest1, [Token | Acc], Stack);
-get_until(End, [{'fun', _} = Token, {'(', _}, {'(', _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+get_until(
+    End,
+    [{'fun', _} = Token, {'(', _}, {'(', _} | _] = Rest0,
+    Acc,
+    BracketStack,
+    KeywordStack
+) ->
     % 'fun' without 'end'
     % fun((Arg :: type) -> other_type())
     Rest1 = tl(Rest0),
-    get_until(End, Rest1, [Token | Acc], Stack);
-get_until(End, [{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+get_until(End, [{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, BracketStack, KeywordStack) ->
     % 'fun' without 'end'
     % fun local/1
     Rest1 = tl(Rest0),
-    get_until(End, Rest1, [Token | Acc], Stack);
-get_until(End, [{'fun', _} = Token, {var, _, _}, {'/', _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+get_until(
+    End,
+    [{'fun', _} = Token, {var, _, _}, {'/', _} | _] = Rest0,
+    Acc,
+    BracketStack,
+    KeywordStack
+) ->
     % 'fun' without 'end'
     % fun X/1
     Rest1 = tl(Rest0),
-    get_until(End, Rest1, [Token | Acc], Stack);
-get_until(End, [{'fun', _} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+get_until(
+    End,
+    [{'fun', _} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0,
+    Acc,
+    BracketStack,
+    KeywordStack
+) ->
     % 'fun' without 'end'
     % fun ?MACRO:x/1
     Rest1 = tl(Rest0),
-    get_until(End, Rest1, [Token | Acc], Stack);
-get_until(End, [{'fun', _} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+get_until(
+    End,
+    [{'fun', _} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0,
+    Acc,
+    BracketStack,
+    KeywordStack
+) ->
     % 'fun' without 'end'
     % fun ?MACRO/1
     Rest1 = tl(Rest0),
-    get_until(End, Rest1, [Token | Acc], Stack);
-get_until(End, [{'fun', _} = Token, {var, _, _}, {':', _} | _] = Rest0, Acc, Stack) ->
+    get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+get_until(
+    End,
+    [{'fun', _} = Token, {var, _, _}, {':', _} | _] = Rest0,
+    Acc,
+    BracketStack,
+    KeywordStack
+) ->
     % 'fun' without 'end'
     % fun Var:x/1
     Rest1 = tl(Rest0),
-    get_until(End, Rest1, [Token | Acc], Stack);
-get_until(End, [{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_TERMINATED_KEYWORD(Keyword) ->
+    get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+get_until(End, [{Keyword, _} = Token | Rest], Acc, BracketStack, KeywordStack)
+when ?IS_TERMINATED_KEYWORD(Keyword) ->
     % If a 'fun' keyword gets through to here then we expect it to have an end.
     % We need to be a bit careful, something like this is valid syntax:
     %
     % `fun F() -> do_stuff end`
     %
-    get_until(End, Rest, [Token | Acc], [Keyword | Stack]);
-get_until(End, [Token | Rest], Acc, Stack) -> get_until(End, Rest, [Token | Acc], Stack).
+    get_until(End, Rest, [Token | Acc], BracketStack, [Keyword | KeywordStack]);
+get_until(End, [Token | Rest], Acc, BracketStack, KeywordStack) ->
+    get_until(End, Rest, [Token | Acc], BracketStack, KeywordStack).
 
 -spec get_until_of(tokens()) -> {tokens(), tokens(), token()}.
 get_until_of(Tokens) -> get_until_of(Tokens, [], []).

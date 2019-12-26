@@ -34,7 +34,20 @@ format(File, Opts) ->
                             File,
                             <<
                                 "There seems to be a partial case statement in this file. ",
-                                "Possibly within an unused macro."
+                                "Probably within an unused macro."
+                            >>
+                        }
+                    };
+                {complaint, reached_dot_before_closing_bracket} ->
+                    {
+                        error,
+                        {
+                            complaint,
+                            File,
+                            <<
+                                "There seems to be unbalanced brackets in this file. ",
+                                "Probably within a macro. ",
+                                "Steamroller currently does not support this."
                             >>
                         }
                     };

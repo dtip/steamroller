@@ -910,6 +910,14 @@ define_partial_case_test_() ->
     Result0 = (catch (steamroller_algebra:format_tokens(Tokens, 100))),
     [?_assertEqual(Expect0, Result0)].
 
+define_unbalanced_brackets_test_() ->
+    % Might handle this properly at some stage.
+    % Not really convinced macros like this should be encouraged.
+    {ok, Tokens} = steamroller_ast:tokens(<<"-define(foo,;foo -> foo().">>),
+    Expect0 = {complaint, reached_dot_before_closing_bracket},
+    Result0 = (catch steamroller_algebra:format_tokens(Tokens, 100)),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Ifdef
 %%
