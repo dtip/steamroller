@@ -903,6 +903,13 @@ define_variable_function_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+define_partial_case_test_() ->
+    % Please don't do this ever.
+    {ok, Tokens} = steamroller_ast:tokens(<<"-define(WHY(X), case X of\n\nfoo(X)).">>),
+    Expect0 = {complaint, partial_case_statement},
+    Result0 = (catch (steamroller_algebra:format_tokens(Tokens, 100))),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Ifdef
 %%

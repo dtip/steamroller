@@ -345,8 +345,15 @@ spec(Tokens0) ->
 -spec case_(tokens()) -> {force_break(), doc(), tokens()}.
 case_([{'case', _} | Tokens]) ->
     {CaseArg, CaseArgForceBreak, Rest0} = case_arg(Tokens),
-    {CaseClauseTokens, Rest1, _} = get_until_end(Rest0),
-    {CaseForceBreak, Clauses} = handle_trailing_comments(clauses(CaseClauseTokens)),
+    {{CaseForceBreak, Clauses}, Rest1} =
+        case get_until_end(Rest0) of
+            {CaseClauseTokens, Rest, {'end', _}} ->
+                {handle_trailing_comments(clauses(CaseClauseTokens)), Rest};
+            {_, _, _} ->
+                % Our 'case' is missing and 'end'. This is likely because someone has put
+                % invalid syntax inside an unused macro.
+                throw({complaint, partial_case_statement})
+        end,
     ForceBreak =
         case length(Clauses) > 1 of
             true -> force_break;

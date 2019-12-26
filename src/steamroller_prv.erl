@@ -80,6 +80,12 @@ do(State) ->
 
 -spec format_error(any()) -> iolist().
 format_error(Reason) when is_binary(Reason) -> io_lib:format("Steamroller Error: ~s", [Reason]);
+format_error({File, Reason}) when is_binary(File) andalso is_binary(Reason) ->
+    io_lib:format("Steamroller Error: File: ~s: ~s", [File, Reason]);
+format_error({complaint, File, Reason}) when is_binary(File) andalso is_binary(Reason) ->
+    io_lib:format("Steamroller Error: File: ~s: ~s", [File, Reason]);
+format_error({complaint, File, Reason}) when is_binary(File) ->
+    io_lib:format("Steamroller Error: File: ~s: ~p", [File, Reason]);
 format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 
 %% ===================================================================
@@ -196,11 +202,14 @@ format_files_(Workers0, J, Files, Opts) ->
                         [File, Err, Line]
                     ),
                     format_files_(Workers1, J, Files, Opts);
-                {error, {File, <<"source code is not unicode">>}} ->
-                    rebar_api:warn(
-                        "Steamroller Warn: File: ~s: source code is not unicode. Skipping...",
-                        [File]
-                    ),
+                {error, {File, <<"source code is not unicode">> = Err}} ->
+                    rebar_api:warn("Steamroller Warn: File: ~s: ~s. Skipping...", [File, Err]),
+                    format_files_(Workers1, J, Files, Opts);
+                {error, {complaint, File, Err}} when is_binary(Err) ->
+                    rebar_api:warn("Steamroller Warn: File: ~s: ~s Skipping...", [File, Err]),
+                    format_files_(Workers1, J, Files, Opts);
+                {error, {complaint, File, Err}} ->
+                    rebar_api:warn("Steamroller Warn: File: ~s: ~p. Skipping...", [File, Err]),
                     format_files_(Workers1, J, Files, Opts);
                 {error, _} = Err ->
                     steamroller_worker_sup:terminate_children(),

@@ -15,14 +15,30 @@ format(File, Opts) ->
     LineLength = proplists:get_value(line_length, Opts, ?default_line_length),
     case file:read_file(File) of
         {ok, Code} ->
-            case format_code(Code, File, LineLength) of
-                {ok, Code} -> ok;
-                {ok, FormattedCode} ->
-                    case Check of
-                        true -> {error, <<"Check failed: code needs to be formatted.">>};
-                        false -> file:write_file(File, FormattedCode)
-                    end;
-                {error, _} = Err -> Err
+            try
+                case format_code(Code, File, LineLength) of
+                    {ok, Code} -> ok;
+                    {ok, FormattedCode} ->
+                        case Check of
+                            true -> {error, <<"Check failed: code needs to be formatted.">>};
+                            false -> file:write_file(File, FormattedCode)
+                        end;
+                    {error, _} = Err -> Err
+                end
+            catch
+                {complaint, partial_case_statement} ->
+                    {
+                        error,
+                        {
+                            complaint,
+                            File,
+                            <<
+                                "There seems to be a partial case statement in this file. ",
+                                "Possibly within an unused macro."
+                            >>
+                        }
+                    };
+                {complaint, Reason} -> {error, {complaint, File, Reason}}
             end;
         {error, enoent} -> {error, <<"file does not exist">>};
         {error, eisdir} -> {error, <<"that's a directory">>};
