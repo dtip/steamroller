@@ -751,6 +751,13 @@ spec_var_test_() ->
 
 spec_var_fun_test_() ->
     {ok, Tokens} =
+        steamroller_ast:tokens(<<"-spec foo(F, A) -> any() when F :: fun(), A :: list().">>),
+    Expect0 = <<"-spec foo(F, A) -> any() when F :: fun(), A :: list().\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+specced_function_when_test_() ->
+    {ok, Tokens} =
         steamroller_ast:tokens(
             <<"-spec foo(X) -> type() when X :: integer().\nfoo(X) when is_integer(X) -> bar().">>
         ),

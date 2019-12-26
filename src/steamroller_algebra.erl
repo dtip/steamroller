@@ -605,10 +605,12 @@ try_after_([{'after', _} | Tokens]) ->
 fun_([{'fun', _} | Tokens]) ->
     {ForceBreak, Doc, Rest} =
         case get_until_end(Tokens) of
-            {[{'(', _}, {')', _}], [], {dot, _}} ->
+            {[{'(', _}, {')', _}], [], {dot, _} = End} ->
                 % This case can happen in typedefs if the type looks like
                 % -type x() :: fun().
-                {no_force_break, text(<<"fun().">>), []};
+                % Put the dot back so that we pick it up as the end token of the
+                % expression. Otherwise we thing the expression is `empty`.
+                {no_force_break, text(<<"fun()">>), [End]};
             {[{'(', _}, {')', _}, {'|', _} | _] = Tokens0, Rest0, End} ->
                 % This case can happen in typedefs if the type looks like
                 % -type x() :: fun() | map().
@@ -619,10 +621,14 @@ fun_([{'fun', _} | Tokens]) ->
                 % This case can happen in typedefs if the type looks like
                 % -type x() :: {fun()}.
                 {no_force_break, text(<<"fun()">>), []};
-            {[{'(', _}, {')', _}], Rest0, {',', _}} ->
-                % This case can happen in records
+            {[{'(', _}, {')', _}], Rest0, {',', _} = End} ->
+                % This case can happen in records and specs:
                 % -record(x, {y :: fun(), z}).
-                {no_force_break, text(<<"fun(),">>), Rest0};
+                % or
+                % -spec x(X) -> Y() when X :: fun(), Y :: any().
+                % Put the comma back so that we pick it up as the end token of the
+                % expression. Otherwise we thing the expression is `empty`.
+                {no_force_break, text(<<"fun()">>), [End | Rest0]};
             {ClauseTokens, Rest0, _} ->
                 {ForceBreak0, Clauses} = handle_trailing_comments(clauses(ClauseTokens)),
                 Doc0 =
@@ -1119,7 +1125,8 @@ when ?IS_VALID_FA(F, A) ->
     Fun = cons([text(<<"fun ">>), mfa_function(Function), text(<<"/">>), mfa_arity(Arity)]),
     expr_(Rest, space(Doc, Fun), ForceBreak);
 expr_([{'fun', _} | _] = Tokens, Doc, ForceBreak0) ->
-    % Handle any 'fun' expressions which have an 'end'.
+    % Handle any 'fun' expressions which have an 'end' and a few other special cases
+    % without an `end`.
     {GroupForceBreak, Group, Rest} = fun_(Tokens),
     ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
     expr_(Rest, space(Doc, Group), ForceBreak1);
