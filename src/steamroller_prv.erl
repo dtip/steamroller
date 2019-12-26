@@ -112,10 +112,10 @@ format_files(Files, Opts) ->
     rebar_api:debug("Steamroller j-factor: ~p", [J]),
     AvailableWorkers = lists:seq(1, J),
     % We want to process header files first and then the rest.
-    % This is to avoid races where we format a header file at the same time
-    % as an .erl file which imports it. These races upset erl_parse and cause alleged
-    % syntax errors to appear in the .erl file, which results in the `formatter_broke_the_code`
-    % error message.
+    % This is to avoid races where we format a header file at the same time as an .erl
+    % file which imports it. These races upset erl_parse and cause alleged syntax errors
+    % to appear in the .erl file, which results in the `formatter_broke_the_code` error
+    % message.
     case format_files_(AvailableWorkers, J, Headers, Opts) of
         ok -> format_files_(AvailableWorkers, J, OtherFiles, Opts);
         Err -> Err
