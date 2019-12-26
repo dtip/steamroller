@@ -109,6 +109,16 @@ format_files(Files, Opts) ->
     {Headers, OtherFiles} = steamroller_utils:split_header_files(Files),
     {ok, _} = steamroller_worker_sup:start_link(Opts),
     J = proplists:get_value(j, Opts, ?DEFAULT_J_FACTOR),
+    case J of
+        J when J > 1 ->
+            rebar_api:warn("Using a J-factor greater than 1 may make autoformatting unstable.", []),
+            rebar_api:warn("If you see errors, try using the default J-factor of 1.", []),
+            rebar_api:warn(
+                "If errors persist, please report them: https://github.com/old-reliable/steamroller",
+                []
+            );
+        _ -> ok
+    end,
     rebar_api:debug("Steamroller j-factor: ~p", [J]),
     rebar_api:debug("Steamroller headers: ~p", [Headers]),
     rebar_api:debug("Steamroller others: ~p", [OtherFiles]),
