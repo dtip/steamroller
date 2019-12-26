@@ -106,11 +106,50 @@ find_dir_files(Dir) ->
     ].
 
 format_files(Files, Opts) ->
+    {Headers, OtherFiles} = split_header_files(Files),
     {ok, _} = steamroller_worker_sup:start_link(Opts),
     J = proplists:get_value(j, Opts, ?DEFAULT_J_FACTOR),
     rebar_api:debug("Steamroller j-factor: ~p", [J]),
     AvailableWorkers = lists:seq(1, J),
-    format_files_(AvailableWorkers, J, Files, Opts).
+    % We want to process header files first and then the rest.
+    % This is to avoid races where we format a header file at the same time
+    % as an .erl file which imports it. These races upset erl_parse and cause alleged
+    % syntax errors to appear in the .erl file, which results in the `formatter_broke_the_code`
+    % error message.
+    case format_files_(AvailableWorkers, J, Headers, Opts) of
+        ok -> format_files_(AvailableWorkers, J, OtherFiles, Opts);
+        Err -> Err
+    end.
+
+split_header_files(Files) ->
+    Sorted = sort_files(Files),
+    SplitFun =
+        fun
+            (X) ->
+                Size = byte_size(X) - 3,
+                case X of
+                    <<_:Size / binary, "hrl">> -> true;
+                    _ -> false
+                end
+        end,
+    lists:splitwith(SplitFun, Sorted).
+
+sort_files(Files) ->
+    % Return .hrl files first
+    SortFun =
+        fun
+            (Left, Right) ->
+                FileSize = byte_size(Right) - 3,
+                PrevSize = byte_size(Left) - 3,
+                case {Left, Right} of
+                    {<<_:PrevSize / binary, "hrl">>, <<_:FileSize / binary, "erl">>} -> true;
+                    {<<_:PrevSize / binary, "erl">>, <<_:FileSize / binary, "hrl">>} -> false;
+                    _ -> Left =< Right
+                end
+        end,
+    Sorted = lists:sort(SortFun, Files),
+    rebar_api:debug("Sorted=~p", [Sorted]),
+    Sorted.
 
 format_files_([Worker | Workers], J, [File | Rest], Opts) ->
     rebar_api:debug("Steamrolling file: ~s", [File]),

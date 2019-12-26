@@ -94,4 +94,5 @@ check_for_errors([{error, Msg} | _], File) -> {error, {File, Msg}};
 check_for_errors([_ | Rest], File) -> check_for_errors(Rest, File).
 
 temp_file(File) ->
-    "steamroller_temp_" ++ pid_to_list(self()) ++ "_" ++ binary_to_list(filename:basename(File)).
+    F = binary:replace(File, <<"/">>, <<"_">>, [global]),
+    "steamroller_temp_" ++ pid_to_list(self()) ++ "_" ++ binary_to_list(F).
