@@ -73,7 +73,9 @@ do(State) ->
         ok ->
             rebar_api:info("Steamrolling done.", []),
             {ok, State};
-        {error, Err} -> {error, format_error(Err)}
+        {error, Err} ->
+            cleanup_temp_files(),
+            {error, format_error(Err)}
     end.
 
 -spec format_error(any()) -> iolist().
@@ -104,37 +106,38 @@ find_dir_files(Dir) ->
     ].
 
 format_files(Files, Opts) ->
+    {ok, _} = steamroller_worker_sup:start_link(Opts),
     J = proplists:get_value(j, Opts, ?DEFAULT_J_FACTOR),
     rebar_api:debug("Steamroller j-factor: ~p", [J]),
-    format_files_(J, J, Files, Opts).
+    AvailableWorkers = lists:seq(1, J),
+    format_files_(AvailableWorkers, J, Files, Opts).
 
-format_files_(Spare, J, [File | Rest], Opts) when Spare > 0 ->
-    Self = self(),
+format_files_([Worker | Workers], J, [File | Rest], Opts) ->
     rebar_api:debug("Steamrolling file: ~s", [File]),
-    spawn(fun () -> Self ! {steamroll, catch steamroller:format_file(File, Opts)} end),
-    format_files_(Spare - 1, J, Rest, Opts);
-format_files_(J, J, [], _) ->
+    steamroller_worker:format_file(Worker, File, Opts, self()),
+    format_files_(Workers, J, Rest, Opts);
+format_files_(Workers, J, [], _) when length(Workers) == J ->
     % All workers have finished and the queue is empty.
     % Formatting is done.
     ok;
-format_files_(Spare0, J, Rest, Opts) ->
+format_files_(Workers0, J, Files, Opts) ->
     receive
-        {steamroll, Result} ->
-            Spare1 = Spare0 + 1,
+        {steamroll, {worker_id, Id}, Result} ->
+            Workers1 = [Id | Workers0],
             case Result of
-                ok -> format_files_(Spare1, J, Rest, Opts);
+                ok -> format_files_(Workers1, J, Files, Opts);
                 {error, {File, {Line, epp, {undefined, Macro, _}}}} ->
                     rebar_api:warn(
                         "Steamroller Warn: File: ~s: Undefined macro ~p on line ~p. Skipping...",
                         [File, Macro, Line]
                     ),
-                    format_files_(Spare1, J, Rest, Opts);
+                    format_files_(Workers1, J, Files, Opts);
                 {error, {File, {Line, epp, {include, file, IncludeFile}}}} ->
                     rebar_api:warn(
                         "Steamroller Warn: File: ~s: Undefined include file ~p on line ~p. Skipping...",
                         [File, IncludeFile, Line]
                     ),
-                    format_files_(Spare1, J, Rest, Opts);
+                    format_files_(Workers1, J, Files, Opts);
                 {error, {File, {Line, epp, Err}}} ->
                     % These errors typically mean that the sorce does not compile.
                     % Not really our problem so we warn instead of erroring.
@@ -142,13 +145,13 @@ format_files_(Spare0, J, Rest, Opts) ->
                         "Steamroller Warn: File: ~s: epp error ~p on line ~p. Skipping...",
                         [File, Err, Line]
                     ),
-                    format_files_(Spare1, J, Rest, Opts);
+                    format_files_(Workers1, J, Files, Opts);
                 {error, {File, {Line, erl_parse, ["syntax error before: ", Str]}}} ->
                     rebar_api:warn(
                         "Steamroller Warn: File: ~s: Syntax error before ~s on line ~p. Skipping...",
                         [File, Str, Line]
                     ),
-                    format_files_(Spare1, J, Rest, Opts);
+                    format_files_(Workers1, J, Files, Opts);
                 {error, {File, {Line, erl_parse, Err}}} ->
                     % These errors typically mean that the sorce does not compile.
                     % Not really our problem so we warn instead of erroring.
@@ -156,20 +159,26 @@ format_files_(Spare0, J, Rest, Opts) ->
                         "Steamroller Warn: File: ~s: erl_parse error ~p on line ~p. Skipping...",
                         [File, Err, Line]
                     ),
-                    format_files_(Spare1, J, Rest, Opts);
+                    format_files_(Workers1, J, Files, Opts);
                 {error, {File, {Line, file_io_server, Err}}} ->
                     rebar_api:warn(
                         "Steamroller Warn: File: ~s: file_io_server error ~p on line ~p. Skipping...",
                         [File, Err, Line]
                     ),
-                    format_files_(Spare1, J, Rest, Opts);
+                    format_files_(Workers1, J, Files, Opts);
                 {error, {File, <<"source code is not unicode">>}} ->
                     rebar_api:warn(
                         "Steamroller Warn: File: ~s: source code is not unicode. Skipping...",
                         [File]
                     ),
-                    format_files_(Spare1, J, Rest, Opts);
-                {error, _} = Err -> Err;
-                {'EXIT', Trace} -> {error, {crash, Trace}}
+                    format_files_(Workers1, J, Files, Opts);
+                {error, _} = Err ->
+                    steamroller_worker_sup:terminate_children(),
+                    Err;
+                {'EXIT', Trace} ->
+                    steamroller_worker_sup:terminate_children(),
+                    {error, {crash, Trace}}
             end
     end.
+
+cleanup_temp_files() -> [file:delete(File) || File <- filelib:wildcard("steamroller_temp_*", ".")].
