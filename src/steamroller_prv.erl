@@ -9,7 +9,7 @@
 -define(FILE_KEY, steamroll_file).
 -define(DIR_KEY, steamroll_dir).
 -define(DEFAULT_INPUTS, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]).
--define(DEFAULT_J_FACTOR, 4).
+-define(DEFAULT_J_FACTOR, 1).
 
 %% ===================================================================
 %% Public API
@@ -116,6 +116,10 @@ format_files(Files, Opts) ->
     % file which imports it. These races upset erl_parse and cause alleged syntax errors
     % to appear in the .erl file, which results in the `formatter_broke_the_code` error
     % message.
+    % There seem to be further races here and they're not especially worth fixing at
+    % the moment - parallelism is meant to be a quick implementation to aid development
+    % speed.
+    % For stable formatting of an entire repo, run with a J factor of 1.
     case format_files_(AvailableWorkers, J, Headers, Opts) of
         ok -> format_files_(AvailableWorkers, J, OtherFiles, Opts);
         Err -> Err
