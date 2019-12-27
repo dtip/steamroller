@@ -71,8 +71,24 @@ test_format(Code) -> format_code(Code, <<"test.erl">>, ?default_line_length).
 -spec format_code(binary(), binary(), integer()) -> {ok, binary()} | {error, any()}.
 format_code(Code, File, LineLength) ->
     {ok, R} = re:compile("\\.[he]rl$"),
-    case re:run(File, R) of
-        {match, _} ->
+    % This is a last resort for unhappy files. It's an awful solution.
+    ASTCheckSkipFiles =
+        [
+            % This file contains the line
+            % `-l(?LINE)`
+            % and this line is moved by the autoformatter.
+            % But the ?LINE macro is special and is converted into an integer by `epp`.
+            % We end up with
+            % `{attribute,20,l,20},`
+            % in the pre-formatted AST and
+            % `{attribute,21,l,21},`
+            % in the post-formatted AST.
+            % Pretty sure this is fine so lets skip the AST check.
+            <<"erlang/otp/lib/stdlib/test/epp_SUITE_data/mac3.erl">>
+        ],
+    NoMatch = fun (IgnoreFile) -> nomatch == binary:match(File, IgnoreFile) end,
+    case {re:run(File, R), lists:all(NoMatch, ASTCheckSkipFiles)} of
+        {{match, _}, true} ->
             % Check the AST after formatting for source files.
             case steamroller_ast:ast(Code, File) of
                 {ok, OriginalAst} ->
@@ -97,8 +113,8 @@ format_code(Code, File, LineLength) ->
                     end;
                 {error, _} = Err -> Err
             end;
-        nomatch ->
-            % Don't check the AST for config files.
+        _ ->
+            % Don't check the AST for config files and for files in our ignore list.
             case steamroller_ast:tokens(Code) of
                 {ok, Tokens} -> {ok, steamroller_algebra:format_tokens(Tokens, LineLength)};
                 {error, Msg} -> {error, {File, Msg}}
