@@ -195,6 +195,13 @@ complex_binary_arg_test_() ->
         ?_assertEqual(Expect3, Result3)
     ].
 
+binary_size_integer_test_() ->
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"foo(X, Size) -> <<Y:Size/binary, _/binary>> = X, Y.">>),
+    Expect0 = <<"foo(X, Size) ->\n    <<Y:Size/binary, _/binary>> = X,\n    Y.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Escape
 %%

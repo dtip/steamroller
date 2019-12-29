@@ -73,6 +73,7 @@
 -define(IS_VALID_MF(M, F), (?IS_VALID_MODULE_TYPE(M) andalso ?IS_VALID_FUNCTION_TYPE(F))).
 -define(IS_VALID_FA(F, A), (?IS_VALID_FUNCTION_TYPE(F) andalso ?IS_VALID_ARITY_TYPE(A))).
 -define(IS_VALID_RECORD_KEY(C), (C == atom orelse C == var)).
+-define(IS_VALID_BINARY_SIZE(S), (S == integer orelse S == var)).
 
 %%
 %% API
@@ -669,6 +670,10 @@ mfa_arity({var, _, A}) -> text(v2b(A)).
 record_key({atom, _, K}) -> text(a2b(K));
 record_key({var, _, K}) -> text(v2b(K)).
 
+-spec binary_size(token()) -> doc().
+binary_size({integer, _, S}) -> text(i2b(S));
+binary_size({var, _, S}) -> text(v2b(S)).
+
 -spec begin_(tokens()) -> {force_break(), doc(), tokens()}.
 begin_([{'begin', _} | Tokens]) ->
     {BeginTokens, Rest, _} = get_until_end(Tokens),
@@ -1067,6 +1072,29 @@ expr_([{var, LineNum, Var}, {'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, 
     ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
     Map = group(cons([text(v2b(Var)), text(<<"#">>), ListGroup])),
     expr_(Rest, space(Doc, Map), ForceBreak1);
+expr_([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
+    % Handle binary matching
+    % <<Thing/binary>>
+    TermDoc = cons([text(v2b(Var)), text(<<"/">>), text(a2b(Atom))]),
+    expr_(Rest, space(Doc, TermDoc), ForceBreak);
+expr_([{string, _, String}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
+    % Handle binary literals
+    % <<"hello"/utf8>>
+    TermDoc = cons([text(s2b(String)), text(<<"/">>), text(a2b(Atom))]),
+    expr_(Rest, space(Doc, TermDoc), ForceBreak);
+expr_(
+    [{var, _, Var}, {':', _}, {S, _, _} = Size, {'/', _}, {atom, _, Atom} | Rest],
+    Doc,
+    ForceBreak
+)
+when ?IS_VALID_BINARY_SIZE(S) ->
+    % Handle more binary matching
+    % <<Thing:1/binary, Rest/binary>>
+    % or
+    % <<Thing:Size/binary, Rest/binary>>
+    TermDoc =
+        cons([text(v2b(Var)), text(<<":">>), binary_size(Size), text(<<"/">>), text(a2b(Atom))]),
+    expr_(Rest, space(Doc, TermDoc), ForceBreak);
 expr_([{'fun', _}, {'(', _}, {'(', _} | _] = Tokens0, Doc, ForceBreak0) ->
     % Handle 'fun((Arg :: type()) -> other_type())'
     Tokens1 = tl(Tokens0),
@@ -1271,26 +1299,6 @@ expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
     % some_fun/1
     FunctionDoc = cons([text(a2b(Atom)), text(<<"/">>), text(i2b(Int))]),
     expr_(Rest, space(Doc, FunctionDoc), ForceBreak);
-expr_([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
-    % Handle binary matching
-    % <<Thing/binary>>
-    TermDoc = cons([text(v2b(Var)), text(<<"/">>), text(a2b(Atom))]),
-    expr_(Rest, space(Doc, TermDoc), ForceBreak);
-expr_([{string, _, String}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
-    % Handle binary literals
-    % <<"hello"/utf8>>
-    TermDoc = cons([text(s2b(String)), text(<<"/">>), text(a2b(Atom))]),
-    expr_(Rest, space(Doc, TermDoc), ForceBreak);
-expr_(
-    [{var, _, Var}, {':', _}, {integer, _, Integer}, {'/', _}, {atom, _, Atom} | Rest],
-    Doc,
-    ForceBreak
-) ->
-    % Handle more binary matching
-    % <<Thing:1/binary, Rest/binary>>
-    TermDoc =
-        cons([text(v2b(Var)), text(<<":">>), text(i2b(Integer)), text(<<"/">>), text(a2b(Atom))]),
-    expr_(Rest, space(Doc, TermDoc), ForceBreak);
 expr_([{atom, _, Atom} | Rest], Doc, ForceBreak) ->
     expr_(Rest, space(Doc, text(a2b(Atom))), ForceBreak);
 expr_([{var, _, Var} | Rest], Doc, ForceBreak) ->

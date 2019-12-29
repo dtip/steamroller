@@ -8,7 +8,7 @@ split_header_files(Files) -> split_header_files(Files, [], []).
 split_header_files([File | Rest], Headers, Others) ->
     Size = byte_size(File) - 3,
     case File of
-        <<_:Size / binary, "hrl">> -> split_header_files(Rest, [File | Headers], Others);
+        <<_:Size/binary, "hrl">> -> split_header_files(Rest, [File | Headers], Others);
         _ -> split_header_files(Rest, Headers, [File | Others])
     end;
 split_header_files([], Headers, Others) ->
