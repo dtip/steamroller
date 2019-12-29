@@ -311,9 +311,10 @@ attribute(Att, Tokens0) ->
     attribute(Att, Tokens1).
 
 -spec function(tokens()) -> {doc(), tokens()}.
-function(Tokens) ->
-    {_ForceBreak, Clauses, Rest} = clauses(Tokens),
-    {newline(Clauses), Rest}.
+function(Tokens0) ->
+    {FunctionTokens, Tokens1, Token} = get_until(dot, Tokens0),
+    {_ForceBreak, Clauses, []} = clauses(FunctionTokens ++ [Token]),
+    {newline(Clauses), Tokens1}.
 
 -spec spec(tokens()) -> {doc(), tokens()}.
 spec(Tokens0) ->
@@ -896,6 +897,8 @@ exprs(Tokens, Acc0, ForceBreak0) ->
 expr(Tokens, ForceBreak0) ->
     {ExprTokens, Rest} = get_end_of_expr(Tokens),
     {End, ForceBreak1, Expr} = expr_(ExprTokens, empty(), ForceBreak0),
+    case {ExprTokens, Rest} of %    {[], []} -> throw({fuck, End});
+_ -> ok end,
     {End, ForceBreak1, group(Expr), Rest}.
 
 -spec expr_(tokens(), doc(), force_break()) ->

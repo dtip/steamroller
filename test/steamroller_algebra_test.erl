@@ -1762,6 +1762,12 @@ macro_multiclause_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+macro_function_clause_test_() ->
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo(ok) -> ok; ?MACRO.">>),
+    Expect0 = <<"foo(ok) -> ok;\n?MACRO.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 %%
 %% Record
 %%
