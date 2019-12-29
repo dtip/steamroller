@@ -1435,6 +1435,28 @@ receive_test_() ->
     Result1 = steamroller_algebra:format_tokens(Tokens, 30),
     [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
+single_case_receive_test_() ->
+    {ok, Tokens} =
+        steamroller_ast:tokens(
+            <<"foo() -> receive\n  Y -> {ok, Y}\n  after\n  100 -> error\n end">>
+        ),
+    Expect0 = <<"foo() -> receive Y -> {ok, Y} after 100 -> error end\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 =
+        <<
+            "foo() ->\n    receive\n        Y -> {ok, Y}\n    after\n        100 -> error\n    end\n"
+        >>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
+receive_without_after_test_() ->
+    {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> receive\n  Y -> {ok, Y}\n  end">>),
+    Expect0 = <<"foo() -> receive Y -> {ok, Y} end\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    Expect1 = <<"foo() ->\n    receive Y -> {ok, Y} end\n">>,
+    Result1 = steamroller_algebra:format_tokens(Tokens, 30),
+    [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
+
 empty_receive_test_() ->
     {ok, Tokens} = steamroller_ast:tokens(<<"foo() -> receive\n  after X -> timeout\n end.">>),
     Expect0 = <<"foo() -> receive after X -> timeout end.\n">>,
@@ -2022,6 +2044,28 @@ empty_receive_comment_test_() ->
         steamroller_ast:tokens(<<"foo() -> receive\n  % comment\n  after X -> timeout\n end.">>),
     Expect0 =
         <<"foo() ->\n    receive\n        % comment\n    after\n        X -> timeout\n    end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+receive_comment_test_() ->
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"foo() -> receive {msg, Msg} -> {ok, Msg}\n %Comment\n end.">>),
+    Expect0 =
+        <<"foo() ->\n    receive\n        {msg, Msg} -> {ok, Msg}\n        %Comment\n    end.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
+receive_after_comment_test_() ->
+    {ok, Tokens} =
+        steamroller_ast:tokens(
+            <<
+                "foo() -> receive {msg, Msg} -> {ok, Msg} after 15 -> % Comment\n {error, timeout}\n %Comment\n end."
+            >>
+        ),
+    Expect0 =
+        <<
+            "foo() ->\n    receive\n        {msg, Msg} -> {ok, Msg}\n    after\n        15 ->\n            % Comment\n            {error, timeout}\n        %Comment\n    end.\n"
+        >>,
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 

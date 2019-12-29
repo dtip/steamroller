@@ -444,11 +444,11 @@ receive_([{'receive', _} | Tokens]) ->
             {R, A, Token} -> {R, [Token | A]}
         end,
     {ReceiveForceBreak, Clauses} = handle_trailing_comments(clauses(ReceiveClauseTokens1)),
-    After = after_(AfterClauseTokens),
+    {AfterForceBreak, After} = after_(AfterClauseTokens),
     ForceBreak =
         case length(Clauses) > 1 of
             true -> force_break;
-            false -> ReceiveForceBreak
+            false -> resolve_force_break([ReceiveForceBreak, AfterForceBreak])
         end,
     GroupedClauses = force_break(ForceBreak, group(space(Clauses), inherit)),
     Doc =
@@ -467,8 +467,8 @@ receive_([{'receive', _} | Tokens]) ->
         ),
     {ForceBreak, Doc, Rest}.
 
--spec after_(tokens()) -> doc().
-after_([]) -> empty();
+-spec after_(tokens()) -> {force_break(), doc()}.
+after_([]) -> {no_force_break, empty()};
 after_([{'after', _} | Tokens]) ->
     {AfterForceBreak, Clauses} = handle_trailing_comments(clauses(Tokens)),
     ForceBreak =
@@ -482,7 +482,7 @@ after_([{'after', _} | Tokens]) ->
             ForceBreak,
             group(nest(?indent, space(text(<<"after">>), GroupedClauses)), inherit)
         ),
-    Doc.
+    {ForceBreak, Doc}.
 
 % 'try' can have an 'of' followed by heads and clauses or it can have no 'of' and instead
 % be followed by expressions.
