@@ -2,8 +2,6 @@
 
 -export([format/2, format_code/1, test_format/1]).
 
--include_lib("kernel/include/logger.hrl").
-
 -define(CRASHDUMP, "steamroller.crashdump").
 -define(default_line_length, 100).
 
