@@ -2,8 +2,6 @@
 
 -export([ast/1, ast/2, tokens/1, eq/2]).
 
--include_lib("kernel/include/logger.hrl").
-
 -type ast() :: list(erl_parse:abstract_form()).
 -type token() :: erl_scan:token().
 -type tokens() :: list(token()).
@@ -86,7 +84,7 @@ eq_({{{Type, _}, LeftValue}, {{Type, _}, RightValue}}, true) ->
     % special 2-tuples
     eq_(LeftValue, RightValue);
 eq_({_Left, _Right}, _) ->
-    logger:error("ast_mismatch\nLeft= ~p\nRight=~p", [_Left, _Right]),
+    io:format("[error] ast_mismatch\nLeft= ~p\nRight=~p~n", [_Left, _Right]),
     false.
 
 check_for_errors([], _) -> ok;
