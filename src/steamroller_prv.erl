@@ -108,10 +108,10 @@ find_root_files(Dir, Input) ->
     [list_to_binary(filename:join(Dir, File)) || File <- filelib:wildcard(Input, Dir)].
 
 find_dir_files(Dir) ->
-    [
-        list_to_binary(filename:join(Dir, File))
-        || File <- filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)
-    ].
+    lists:filtermap(
+        fun ("_" ++ _) -> false; (File) -> {true, list_to_binary(filename:join(Dir, File))} end,
+        filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)
+    ).
 
 format_files(Files, Opts) ->
     {Headers, OtherFiles} = steamroller_utils:split_header_files(Files),
