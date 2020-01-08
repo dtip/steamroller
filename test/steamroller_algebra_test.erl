@@ -938,6 +938,13 @@ ifdef_test_() ->
     Result0 = steamroller_algebra:format_tokens(Tokens, 100),
     [?_assertEqual(Expect0, Result0)].
 
+ifdef_funniness_test_() ->
+    {ok, Tokens} =
+        steamroller_ast:tokens(<<"-ifdef(X).\nfoo().\n{ok, Y} = bar().\nY:baz().\n-endif.">>),
+    Expect0 = <<"-ifdef(X).\n\nfoo().\n\n{ok, Y} = bar().\n\nY:baz().\n\n-endif.\n">>,
+    Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+    [?_assertEqual(Expect0, Result0)].
+
 if_attribute_test_() ->
     % Apparently you can have an attribute just called `-if`.
     % It appears to behave in the same was as `ifdef` so is probably legacy.

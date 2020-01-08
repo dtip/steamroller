@@ -241,17 +241,6 @@ generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
             _ -> newlines(Doc0, Group)
         end,
     generate_doc_(Rest, Doc1, function);
-generate_doc_([{C, _} | _] = Tokens, Doc0, PrevTerm) when ?IS_LIST_OPEN_CHAR(C) ->
-    % List
-    % If this is at the top level this is probably a config file
-    {ForceBreak, Group0, [{dot, _} | Rest]} = list_group(Tokens),
-    Group1 = force_break(ForceBreak, Group0),
-    Doc1 =
-        case PrevTerm of
-            function_comment -> newline(Doc0, Group1);
-            _ -> newlines(Doc0, Group1)
-        end,
-    generate_doc_(Rest, cons(Doc1, text(?dot)), list);
 generate_doc_([{comment, _, "%%" ++ _ = CommentText} | Rest], Doc0, PrevTerm) ->
     % Module Comment
     Comment = comment(CommentText),
@@ -273,13 +262,18 @@ generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
             _ -> newlines(Doc0, Comment)
         end,
     generate_doc_(Rest, Doc1, function_comment);
-generate_doc_(Tokens, Doc, _PrevTerm) ->
+generate_doc_(Tokens, Doc0, PrevTerm) ->
     % Anything unhandled gets treated as an expression.
     % Things which fall through to here:
     % - Macros: can appear at the top level
     {_End, ForceBreak, Exprs, Rest} = exprs(Tokens),
     Group = force_break(ForceBreak, group(space(Exprs), inherit)),
-    generate_doc_(Rest, newline(Doc, Group), expr).
+    Doc1 =
+        case PrevTerm of
+            function_comment -> newline(Doc0, Group);
+            _ -> newlines(Doc0, Group)
+        end,
+    generate_doc_(Rest, Doc1, expr).
 
 %%
 %% Erlang Source Elements
@@ -312,9 +306,21 @@ attribute(Att, Tokens0) ->
 
 -spec function(tokens()) -> {doc(), tokens()}.
 function(Tokens0) ->
-    {FunctionTokens, Tokens1, Token} = get_until(dot, Tokens0),
-    {_ForceBreak, Clauses, []} = clauses(FunctionTokens ++ [Token]),
-    {newline(Clauses), Tokens1}.
+    {FunctionTokens0, Tokens1, Token} = get_until(dot, Tokens0),
+    FunctionTokens1 = FunctionTokens0 ++ [Token],
+    Doc =
+        case {get_until('->', FunctionTokens1), get_until('::', FunctionTokens1)} of
+            {{_, _, {dot, _}}, {_, _, {dot, _}}} ->
+                % This is not actually a function with clauses.
+                % We can get here if there is funny code inside an ifdef.
+                % Process it as a normal expression.
+                {_End, ForceBreak, Exprs, []} = exprs(FunctionTokens1),
+                force_break(ForceBreak, group(space(Exprs), inherit));
+            _ ->
+                {_ForceBreak, Clauses, []} = clauses(FunctionTokens1),
+                newline(Clauses)
+        end,
+    {Doc, Tokens1}.
 
 -spec spec(tokens()) -> {doc(), tokens()}.
 spec(Tokens0) ->
