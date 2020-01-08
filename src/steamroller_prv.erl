@@ -238,4 +238,4 @@ includes(RebarOpts, State, ArgOpts) ->
             undefined -> [];
             WildCard -> filelib:wildcard(WildCard)
         end,
-    [RootInclude | Src] ++ DepIncludes ++ ExtraIncludes.
+    [RootInclude, Deps | Src] ++ DepIncludes ++ ExtraIncludes.
