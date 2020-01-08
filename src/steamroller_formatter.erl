@@ -4,6 +4,7 @@
 
 -define(CRASHDUMP, "steamroller.crashdump").
 -define(default_line_length, 100).
+-define(default_includes, []).
 
 %% API
 
@@ -11,10 +12,11 @@
 format(File, Opts) ->
     Check = lists:member(check, Opts),
     LineLength = proplists:get_value(line_length, Opts, ?default_line_length),
+    Includes = proplists:get_value(includes, Opts, ?default_includes),
     case file:read_file(File) of
         {ok, Code} ->
             try
-                case format_code(Code, File, LineLength) of
+                case format_code(Code, File, LineLength, Includes) of
                     {ok, Code} -> ok;
                     {ok, FormattedCode} ->
                         case Check of
@@ -57,17 +59,18 @@ format(File, Opts) ->
     end.
 
 -spec format_code(binary()) -> ok | {error, any()}.
-format_code(Code) -> format_code(Code, <<"no_file">>, ?default_line_length).
+format_code(Code) -> format_code(Code, <<"no_file">>, ?default_line_length, ?default_includes).
 
 % For testing.
 % We give the file a proper name so that we compare the ASTs.
 -spec test_format(binary()) -> ok | {error, any()}.
-test_format(Code) -> format_code(Code, <<"test.erl">>, ?default_line_length).
+test_format(Code) -> format_code(Code, <<"test.erl">>, ?default_line_length, ?default_includes).
 
 %% Internal
 
--spec format_code(binary(), binary(), integer()) -> {ok, binary()} | {error, any()}.
-format_code(Code, File, LineLength) ->
+-spec format_code(binary(), binary(), integer(), list(file:name_all())) ->
+    {ok, binary()} | {error, any()}.
+format_code(Code, File, LineLength, Includes) ->
     {ok, R} = re:compile("\\.[he]rl$"),
     % This is a last resort for unhappy files. It's an awful solution.
     ASTCheckSkipFiles =
@@ -88,12 +91,12 @@ format_code(Code, File, LineLength) ->
     case {re:run(File, R), lists:all(NoMatch, ASTCheckSkipFiles)} of
         {{match, _}, true} ->
             % Check the AST after formatting for source files.
-            case steamroller_ast:ast(Code, File) of
+            case steamroller_ast:ast(Code, File, Includes) of
                 {ok, OriginalAst} ->
                     case steamroller_ast:tokens(Code) of
                         {ok, Tokens} ->
                             FormattedCode = steamroller_algebra:format_tokens(Tokens, LineLength),
-                            case steamroller_ast:ast(FormattedCode, File) of
+                            case steamroller_ast:ast(FormattedCode, File, Includes) of
                                 {ok, NewAst} ->
                                     case steamroller_ast:eq(OriginalAst, NewAst) of
                                         true -> {ok, FormattedCode};

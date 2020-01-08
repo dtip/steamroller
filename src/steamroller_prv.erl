@@ -51,11 +51,13 @@ do(State) ->
     % No idea why a two-element tuple is returned here.
     {ArgOpts, _} = rebar_state:command_parsed_args(State),
     RebarOpts = rebar_state:opts(State),
-    Opts =
+    Includes = includes(RebarOpts, State),
+    Opts0 =
         case dict:find(steamroller, RebarOpts) of
             {ok, ConfigOpts} -> ArgOpts ++ ConfigOpts;
             error -> ArgOpts
         end,
+    Opts = Opts0 ++ [{includes, Includes}],
     Result =
         case {lists:keyfind(?FILE_KEY, 1, Opts), lists:keyfind(?DIR_KEY, 1, Opts)} of
             {{?FILE_KEY, File}, _} ->
@@ -221,3 +223,11 @@ format_files_(Workers0, J, Files, Opts) ->
     end.
 
 cleanup_temp_files() -> [file:delete(File) || File <- filelib:wildcard("steamroller_temp_*", ".")].
+
+includes(RebarOpts, State) ->
+    Src = rebar_dir:all_src_dirs(RebarOpts, ["src"], []),
+    Deps = rebar_dir:deps_dir(State),
+    Root = rebar_dir:root_dir(State),
+    RootInclude = filename:join(Root, "include"),
+    DepIncludes = filelib:wildcard(filename:join(Deps, "**/include"), Root),
+    [RootInclude | Src] ++ DepIncludes.

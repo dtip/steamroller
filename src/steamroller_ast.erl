@@ -1,6 +1,6 @@
 -module(steamroller_ast).
 
--export([ast/1, ast/2, tokens/1, eq/2]).
+-export([ast/1, ast/3, tokens/1, eq/2]).
 
 -type ast() :: list(erl_parse:abstract_form()).
 -type token() :: erl_scan:token().
@@ -11,15 +11,15 @@
 %% API
 
 -spec ast(binary()) -> {ok, ast()} | {error, any()}.
-ast(Code) -> ast(Code, <<"no_file">>).
+ast(Code) -> ast(Code, <<"no_file">>, []).
 
--spec ast(binary(), binary() | string()) -> {ok, ast()} | {error, any()}.
-ast(Code, File) ->
+-spec ast(binary(), binary() | string(), list(file:name_all())) -> {ok, ast()} | {error, any()}.
+ast(Code, File, Includes) ->
     TempFile = temp_file(File),
     file:write_file(TempFile, Code),
-    % Add the file dir to includes so we can find any necessary headers.
+    % Add the file dir to includes so we can find necessary headers.
     Dir = filename:dirname(File),
-    {ok, Ast} = epp:parse_file(TempFile, [{includes, [Dir]}]),
+    {ok, Ast} = epp:parse_file(TempFile, [{includes, [Dir | Includes]}]),
     file:delete(TempFile),
     case check_for_errors(Ast, File) of
         ok -> {ok, Ast};
