@@ -8,6 +8,7 @@
 -define(DEPS, [app_discovery]).
 -define(FILE_KEY, steamroll_file).
 -define(DIR_KEY, steamroll_dir).
+-define(INCLUDES_KEY, steamroll_includes).
 -define(DEFAULT_INPUTS, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]).
 -define(DEFAULT_J_FACTOR, 1).
 
@@ -30,6 +31,7 @@ init(State) ->
                     [
                         {?FILE_KEY, $f, "file", binary, "File name to format."},
                         {?DIR_KEY, $d, "dir", string, "Dir name to format."},
+                        {?INCLUDES_KEY, $i, "includes", string, "Wildcard includes path."},
                         {j, $j, undefined, integer, "J Factor."},
                         {
                             check,
@@ -51,7 +53,8 @@ do(State) ->
     % No idea why a two-element tuple is returned here.
     {ArgOpts, _} = rebar_state:command_parsed_args(State),
     RebarOpts = rebar_state:opts(State),
-    Includes = includes(RebarOpts, State),
+    Includes = includes(RebarOpts, State, ArgOpts),
+    rebar_api:debug("Steamroller Includes: ~p", [Includes]),
     Opts0 =
         case dict:find(steamroller, RebarOpts) of
             {ok, ConfigOpts} -> ArgOpts ++ ConfigOpts;
@@ -224,10 +227,15 @@ format_files_(Workers0, J, Files, Opts) ->
 
 cleanup_temp_files() -> [file:delete(File) || File <- filelib:wildcard("steamroller_temp_*", ".")].
 
-includes(RebarOpts, State) ->
+includes(RebarOpts, State, ArgOpts) ->
     Src = rebar_dir:all_src_dirs(RebarOpts, ["src"], []),
     Deps = rebar_dir:deps_dir(State),
     Root = rebar_dir:root_dir(State),
     RootInclude = filename:join(Root, "include"),
     DepIncludes = filelib:wildcard(filename:join(Deps, "**/include"), Root),
-    [RootInclude | Src] ++ DepIncludes.
+    ExtraIncludes =
+        case proplists:get_value(?INCLUDES_KEY, ArgOpts, undefined) of
+            undefined -> [];
+            WildCard -> filelib:wildcard(WildCard)
+        end,
+    [RootInclude | Src] ++ DepIncludes ++ ExtraIncludes.
