@@ -50,7 +50,9 @@ autocmd BufWritePre rebar.config,*.[he]rl,*.app.src Neoformat steamroller
 
 ### Visual Studio Code
 
-You can use steamroller from Visual Studio Code with the [Erlang Formatter](https://marketplace.visualstudio.com/items?itemName=szTheory.erlang-formatter) extension.
+You can use steamroller from Visual Studio Code with the
+[Erlang Formatter](https://marketplace.visualstudio.com/items?itemName=szTheory.erlang-formatter)
+extension created by [szTheory](https://github.com/szTheory).
 
 ## CI
 
