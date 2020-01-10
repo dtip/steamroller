@@ -118,7 +118,11 @@ find_dir_files(Dir) ->
 
 format_files(Files, Opts) ->
     {Headers, OtherFiles} = steamroller_utils:split_header_files(Files),
-    {ok, _} = steamroller_worker_sup:start_link(Opts),
+    ok =
+        case steamroller_worker_sup:start_link(Opts) of
+            {ok, _} -> ok;
+            {error, {already_started, _}} -> ok
+        end,
     J = proplists:get_value(j, Opts, ?DEFAULT_J_FACTOR),
     case J of
         J when J > 1 ->
