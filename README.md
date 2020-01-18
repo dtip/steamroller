@@ -18,15 +18,17 @@ Steamroller should be used as part of your CI to enforce a consistent style acro
 ## Use
 
 Add steamroller to your rebar config:
-
-    {plugins, [steamroller]}.
+```erlang
+{plugins, [steamroller]}.
+```
 
 Then ask it to steamroll your code directly in an existing application:
-
-    $ rebar3 steamroll
-    ===> Fetching steamroller
-    ===> Compiling steamroller
-    <Steamroller Output>
+```sh
+$ rebar3 steamroll
+===> Fetching steamroller
+===> Compiling steamroller
+<Steamroller Output>
+```
 
 ## Editor Integration
 
@@ -62,28 +64,66 @@ To check that code is properly formatted as part of your CI:
 
 The exit code will be non-zero if the code has not been formatted before being committed.
 
+## Build & Run
+
+```sh
+$ git clone https://github.com/old-reliable/steamroller.git
+$ cd steamroller
+$ make
+```
+
 ## Build
 
-    $ rebar3 compile
+```sh
+$ make compile
+```
+
+## Run
+
+```sh
+$ make run
+```
+
+## Clean project
+
+```sh
+$ make clean
+```
 
 ## Test
 
-    $ rebar3 test
+```sh
+$ make test
+```
 
 ## Dialyzer
 
 Dialyzer is Erlang's static analysis tool.
+```sh
+$ make dialyzer
+```
 
-    $ rebar3 dialyzer
+## Generate documentation
+
+```sh
+$ make doc
+```
+
+## Hex publish
+
+```sh
+$ make publish
+```
 
 ## Local Development
 
 In order to use steamroller locally on itself you need to symlink the repo into the \_checkouts
 directory:
-
-    cd $local_steamroller_repo
-    mkdir _checkouts
-    ln -s $PWD ./_checkouts/steamroller
+```sh
+cd $local_steamroller_repo
+mkdir _checkouts
+ln -s $PWD ./_checkouts/steamroller
+```
 
 Rebar3 will use the version of steamroller in the \_checkouts directory with higher priority than
 the version specified in the rebar.config. There's a line in the rebar.config (see `overrides`)
