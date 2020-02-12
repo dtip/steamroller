@@ -803,7 +803,9 @@ head_and_clause([{'::', _} | Rest0], Doc) ->
   % Altenative End (for Type definitions)
   {Continue, ForceBreak, Clause, Rest1} = clause(Rest0),
   Doc1 =
-    cons([Doc, text(<<" :: ">>), force_break(ForceBreak, underneath(- 2, group(Clause, inherit)))]),
+    cons([Doc, text(<<" :: ">>), force_break(ForceBreak, underneath(-2, group(Clause, inherit)))]),
+  Doc1 =
+    cons([Doc, text(<<" :: ">>), force_break(ForceBreak, underneath(-2, group(Clause, inherit)))]),
   {Continue, ForceBreak, Doc1, Rest1};
 head_and_clause(Rest0, Doc0) ->
   {Tokens, Rest1, Token} = get_until('->', Rest0),
@@ -1237,6 +1239,28 @@ expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
 expr_([{End, _}], Doc, ForceBreak) ->
   % Handle the expression end character
   {End, ForceBreak, cons(Doc, text(op2b(End)))};
+expr_([{integer, _, Integer0}, {'-', _}, {integer, _, Integer1} | Rest], Doc0, ForceBreak) ->
+  % Subtraction: integers
+  Doc1 = space([Doc0, text(i2b(Integer0)), text(op2b('-')), text(i2b(Integer1))]),
+  expr_(Rest, Doc1, ForceBreak);
+expr_([{var, _, Var}, {'-', _}, {integer, _, Integer} | Rest], Doc0, ForceBreak) ->
+  % Subtraction: variables
+  Doc1 = space([Doc0, text(v2b(Var)), text(op2b('-')), text(i2b(Integer))]),
+  expr_(Rest, Doc1, ForceBreak);
+expr_([{Op, _}, {'-', _}, {integer, _, Integer} | Rest], Doc0, ForceBreak) ->
+  % Negative integer
+  Bin = i2b(Integer),
+  Doc1 = space([Doc0, text(op2b(Op)), text(<<"-", Bin/binary>>)]),
+  expr_(Rest, Doc1, ForceBreak);
+expr_([{'-', _}, {integer, _, Integer} | Rest], doc_nil = Doc0, ForceBreak) ->
+  % Negative integer
+  Bin = i2b(Integer),
+  Doc1 = space(Doc0, text(<<"-", Bin/binary>>)),
+  expr_(Rest, Doc1, ForceBreak);
+expr_([{'-', _}, {integer, _, Integer} | Rest], Doc0, ForceBreak) ->
+  % Subtraction: functions
+  Doc1 = space([Doc0, text(op2b('-')), text(i2b(Integer))]),
+  expr_(Rest, Doc1, ForceBreak);
 expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
   % Handle function arity expressions
   % some_fun/1

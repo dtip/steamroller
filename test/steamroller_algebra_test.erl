@@ -246,6 +246,34 @@ float_test_() ->
   [?_assertEqual(Expect0, Result0)].
 
 %%
+%% Integer
+%%
+
+negative_integer_test_() ->
+  {ok, Tokens0} = steamroller_ast:tokens(<<"foo() -> -2.">>),
+  Expect0 = <<"foo() -> -2.\n">>,
+  Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+  {ok, Tokens1} = steamroller_ast:tokens(<<"foo() -> 1 * -2.">>),
+  Expect1 = <<"foo() -> 1 * -2.\n">>,
+  Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+  {ok, Tokens2} = steamroller_ast:tokens(<<"foo() -> 1 - 2.">>),
+  Expect2 = <<"foo() -> 1 - 2.\n">>,
+  Result2 = steamroller_algebra:format_tokens(Tokens2, 100),
+  {ok, Tokens3} = steamroller_ast:tokens(<<"foo(X) -> X - 2.">>),
+  Expect3 = <<"foo(X) -> X - 2.\n">>,
+  Result3 = steamroller_algebra:format_tokens(Tokens3, 100),
+  {ok, Tokens4} = steamroller_ast:tokens(<<"foo() -> bar() - 2.">>),
+  Expect4 = <<"foo() -> bar() - 2.\n">>,
+  Result4 = steamroller_algebra:format_tokens(Tokens4, 100),
+  [
+    ?_assertEqual(Expect0, Result0),
+    ?_assertEqual(Expect1, Result1),
+    ?_assertEqual(Expect2, Result2),
+    ?_assertEqual(Expect3, Result3),
+    ?_assertEqual(Expect4, Result4)
+  ].
+
+%%
 %% Number Syntax
 %%
 
