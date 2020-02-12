@@ -11,15 +11,15 @@
 start_link(Opts) -> supervisor:start_link({local, ?MODULE}, ?MODULE, Opts).
 
 init(Opts) ->
-    NumWorkers = proplists:get_value(j, Opts, ?DEFAULT_NUM_WORKERS),
-    RestartStrategy = #{strategy => one_for_one, intensity => 5, period => 60},
-    Children = [child(Id) || Id <- lists:seq(1, NumWorkers)],
-    {ok, {RestartStrategy, Children}}.
+  NumWorkers = proplists:get_value(j, Opts, ?DEFAULT_NUM_WORKERS),
+  RestartStrategy = #{strategy => one_for_one, intensity => 5, period => 60},
+  Children = [child(Id) || Id <- lists:seq(1, NumWorkers)],
+  {ok, {RestartStrategy, Children}}.
 
 terminate_children() ->
-    CountChildren = supervisor:count_children(?MODULE),
-    NumWorkers = proplists:get_value(workers, CountChildren),
-    [supervisor:terminate_child(?MODULE, id(Id)) || Id <- lists:seq(1, NumWorkers)].
+  CountChildren = supervisor:count_children(?MODULE),
+  NumWorkers = proplists:get_value(workers, CountChildren),
+  [supervisor:terminate_child(?MODULE, id(Id)) || Id <- lists:seq(1, NumWorkers)].
 
 %% Internal
 

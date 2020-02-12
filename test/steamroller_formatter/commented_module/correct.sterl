@@ -9,11 +9,11 @@
 -module(test).
 
 -export(
-    [
-        foo/1,
-        % for testing
-        bar/2
-    ]
+  [
+    foo/1,
+    % for testing
+    bar/2
+  ]
 ).
 
 % What a great macro!
