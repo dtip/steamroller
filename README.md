@@ -9,9 +9,9 @@ Steamroller is an opinionated Erlang code formatter. Uniformity is inevitable.
 
 Upset your colleagues by autoformatting their code.
 
-This rebar3 plugin is early stage but could be used in production if you're brave. The Erlang
-abstract syntax tree is checked before and after formatting to make sure that the formatted file
-is equivalent to the original.
+This rebar3 plugin is still under development but should be considered reasonably stable. The
+Erlang abstract syntax tree is checked before and after formatting to make sure that the formatted
+file is equivalent to the original.
 
 Steamroller should be used as part of your CI to enforce a consistent style across your codebase.
 
@@ -27,6 +27,20 @@ Then ask it to steamroll your code directly in an existing application:
     ===> Fetching steamroller
     ===> Compiling steamroller
     <Steamroller Output>
+
+## Configure
+
+Steamroller comes with sensible default configuration. If you want, you can configure the line
+length, indent, and input files from your rebar config:
+
+    {
+      steamroller,
+      [
+        {line_length, 100},
+        {indent, 2},
+        {inputs, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]}
+      ]
+    }.
 
 ## Editor Integration
 
