@@ -49,6 +49,7 @@
 -define(IS_LIST_CLOSE_CHAR(C), (C == ')' orelse C == '}' orelse C == ']' orelse C == '>>')).
 -define(IS_EQUALS(C), (C == '=' orelse C == '==' orelse C == '=:=' orelse C == '=/=')).
 -define(IS_BOOL_CONCATENATOR(C), (C == 'andalso' orelse C == 'orelse')).
+-define(IS_NUMBER(C), (C == integer orelse C == float)).
 -define(
   IS_TERMINATED_KEYWORD(C),
   % 'fun' is not always terminated with 'end'.
@@ -1239,27 +1240,28 @@ expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
 expr_([{End, _}], Doc, ForceBreak) ->
   % Handle the expression end character
   {End, ForceBreak, cons(Doc, text(op2b(End)))};
-expr_([{integer, _, Integer0}, {'-', _}, {integer, _, Integer1} | Rest], Doc0, ForceBreak) ->
-  % Subtraction: integers
-  Doc1 = space([Doc0, text(i2b(Integer0)), text(op2b('-')), text(i2b(Integer1))]),
+expr_([{Type0, _, _} = Num0, {'-', _}, {Type1, _, _} = Num1 | Rest], Doc0, ForceBreak)
+when ?IS_NUMBER(Type0) andalso ?IS_NUMBER(Type1) ->
+  % Subtraction: numbers
+  Doc1 = space([Doc0, text(n2b(Num0)), text(op2b('-')), text(n2b(Num1))]),
   expr_(Rest, Doc1, ForceBreak);
-expr_([{var, _, Var}, {'-', _}, {integer, _, Integer} | Rest], Doc0, ForceBreak) ->
+expr_([{var, _, Var}, {'-', _}, {Type, _, _} = Num | Rest], Doc0, ForceBreak) when ?IS_NUMBER(Type) ->
   % Subtraction: variables
-  Doc1 = space([Doc0, text(v2b(Var)), text(op2b('-')), text(i2b(Integer))]),
+  Doc1 = space([Doc0, text(v2b(Var)), text(op2b('-')), text(n2b(Num))]),
   expr_(Rest, Doc1, ForceBreak);
-expr_([{Op, _}, {'-', _}, {integer, _, Integer} | Rest], Doc0, ForceBreak) ->
-  % Negative integer
-  Bin = i2b(Integer),
+expr_([{Op, _}, {'-', _}, {Type, _, _} = Num | Rest], Doc0, ForceBreak) when ?IS_NUMBER(Type) ->
+  % Negative number
+  Bin = n2b(Num),
   Doc1 = space([Doc0, text(op2b(Op)), text(<<"-", Bin/binary>>)]),
   expr_(Rest, Doc1, ForceBreak);
-expr_([{'-', _}, {integer, _, Integer} | Rest], doc_nil = Doc0, ForceBreak) ->
-  % Negative integer
-  Bin = i2b(Integer),
+expr_([{'-', _}, {Type, _, _} = Num | Rest], doc_nil = Doc0, ForceBreak) when ?IS_NUMBER(Type) ->
+  % Negative number
+  Bin = n2b(Num),
   Doc1 = space(Doc0, text(<<"-", Bin/binary>>)),
   expr_(Rest, Doc1, ForceBreak);
-expr_([{'-', _}, {integer, _, Integer} | Rest], Doc0, ForceBreak) ->
+expr_([{'-', _}, {Type, _, _} = Num | Rest], Doc0, ForceBreak) when ?IS_NUMBER(Type) ->
   % Subtraction: functions
-  Doc1 = space([Doc0, text(op2b('-')), text(i2b(Integer))]),
+  Doc1 = space([Doc0, text(op2b('-')), text(n2b(Num))]),
   expr_(Rest, Doc1, ForceBreak);
 expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
   % Handle function arity expressions
@@ -1378,6 +1380,10 @@ i2b(Integer) -> integer_to_binary(Integer).
 
 -spec f2b(float()) -> binary().
 f2b(Float) -> list_to_binary(io_lib:format("~p", [Float])).
+
+-spec n2b(token()) -> binary().
+n2b({integer, _, Integer}) -> i2b(Integer);
+n2b({float, _, Float}) -> f2b(Float).
 
 -spec c2b(integer()) -> binary().
 c2b(Char) -> unicode:characters_to_binary(io_lib:write_char(Char)).
