@@ -92,5 +92,18 @@ check_for_errors([{error, Msg} | _], File) -> {error, {File, Msg}};
 check_for_errors([_ | Rest], File) -> check_for_errors(Rest, File).
 
 temp_file(File) ->
-  F = binary:replace(File, <<"/">>, <<"_">>, [global]),
-  "steamroller_temp_" ++ pid_to_list(self()) ++ "_" ++ binary_to_list(F).
+  Temp = "steamroller_temp_" ++ pid_to_list(self()) ++ "_" ++ binary_to_list(File),
+  lists:map(
+    fun
+      (X)
+      when X >= $a andalso X =< $z;
+           X >= $A andalso X =< $Z;
+           X >= $0 andalso X =< $9;
+           X =:= $_;
+           X =:= $-;
+           X =:= $. ->
+        X;
+      (_) -> $_
+    end,
+    Temp
+  ).
