@@ -45,21 +45,9 @@ publish () {
     sleep 1m
 }
 
-docs () {
-    exec 3>$pipe
-    sleep 1s
-    echo $HEXPM_LOCAL_PASSWORD > $pipe
-    sleep 1m
-}
-
 # Publish
 publish &
 rebar3 hex publish < $pipe
-exec 3>&-
-
-# Docs
-docs &
-rebar3 hex docs < $pipe
 exec 3>&-
 
 # Why is this necessary
