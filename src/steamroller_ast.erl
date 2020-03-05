@@ -1,25 +1,27 @@
 -module(steamroller_ast).
 
--export([ast/1, ast/3, tokens/1, eq/2]).
+-export([ast/1, ast/4, tokens/1, eq/2]).
 
 -type ast() :: list(erl_parse:abstract_form()).
 -type token() :: erl_scan:token().
 -type tokens() :: list(token()).
+-type macros() :: list(atom() | {atom(), term()}).
 
--export_type([token/0, tokens/0]).
+-export_type([token/0, tokens/0, macros/0]).
 
 %% API
 
 -spec ast(binary()) -> {ok, ast()} | {error, any()}.
-ast(Code) -> ast(Code, <<"no_file">>, []).
+ast(Code) -> ast(Code, <<"no_file">>, [], []).
 
--spec ast(binary(), binary() | string(), list(file:name_all())) -> {ok, ast()} | {error, any()}.
-ast(Code, File, Includes) ->
+-spec ast(binary(), binary() | string(), list(file:name_all()), macros()) ->
+  {ok, ast()} | {error, any()}.
+ast(Code, File, Includes, Macros) ->
   TempFile = temp_file(File),
   file:write_file(TempFile, Code),
   % Add the file dir to includes so we can find necessary headers.
   Dir = filename:dirname(File),
-  {ok, Ast} = epp:parse_file(TempFile, [{includes, [Dir | Includes]}]),
+  {ok, Ast} = epp:parse_file(TempFile, [{includes, [Dir | Includes]}, {macros, Macros}]),
   file:delete(TempFile),
   case check_for_errors(Ast, File) of
     ok -> {ok, Ast};

@@ -48,13 +48,18 @@ do(State) ->
   {ArgOpts, _} = rebar_state:command_parsed_args(State),
   RebarOpts = rebar_state:opts(State),
   Includes = includes(RebarOpts, State, ArgOpts),
+  Macros = macros(RebarOpts),
   rebar_api:debug("Steamroller Includes: ~p", [Includes]),
+  rebar_api:debug("Steamroller Macros: ~p", [Macros]),
+  % This essentially serves as an integration test to make sure we can format files which
+  % include macros which are defined in the rebar.config
+  rebar_api:debug("Steamroller Test Macro: ~p", [?TEST_MACRO]),
   Opts0 =
     case dict:find(steamroller, RebarOpts) of
       {ok, ConfigOpts} -> ArgOpts ++ ConfigOpts;
       error -> ArgOpts
     end,
-  Opts = Opts0 ++ [{includes, Includes}],
+  Opts = Opts0 ++ [{includes, Includes}, {macros, Macros}],
   maybe_set_indent(Opts),
   Result =
     case {lists:keyfind(?FILE_KEY, 1, Opts), lists:keyfind(?DIR_KEY, 1, Opts)} of
@@ -234,6 +239,13 @@ includes(RebarOpts, State, ArgOpts) ->
       WildCard -> filelib:wildcard(WildCard)
     end,
   [RootInclude, Deps | Src] ++ DepIncludes ++ ExtraIncludes.
+
+macros(RebarOpts) ->
+  case dict:find(erl_opts, RebarOpts) of
+    {ok, ErlOpts} ->
+      lists:filtermap(fun ({d, Macro, _}) -> {true, Macro}; (_) -> false end, ErlOpts);
+    _ -> []
+  end.
 
 maybe_set_indent(Opts) ->
   case proplists:get_value(indent, Opts) of
