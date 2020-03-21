@@ -28,10 +28,12 @@ ast(Code, File, Includes, Macros) ->
     {error, _} = Err -> Err
   end.
 
+
 -spec tokens(binary()) -> {ok, tokens()} | {error, binary()}.
 tokens(Code) ->
   case unicode:characters_to_list(Code) of
     {error, _, _} -> {error, <<"source code is not unicode">>};
+
     Unicode ->
       % Comments are not included in the AST created by epp:parse_file.
       % Neither are most of the attributes (things like `-define(BLAH, blah).`).
@@ -39,6 +41,7 @@ tokens(Code) ->
       {ok, Scanned, _} = erl_scan:string(Unicode, 0, [return_comments]),
       {ok, Scanned}
   end.
+
 
 -spec eq(ast(), ast()) -> boolean().
 eq(Ast0, Ast1) -> lists:foldl(fun eq_/2, true, lists:zip(Ast0, Ast1)).
@@ -49,6 +52,7 @@ eq(Ast0, Ast1) -> lists:foldl(fun eq_/2, true, lists:zip(Ast0, Ast1)).
 eq_(_, false) -> false;
 eq_({Left, Right}, true) when is_list(Left) andalso is_list(Right) -> eq(Left, Right);
 eq_({Element, Element}, true) -> true;
+
 eq_(
   {
     {Type, _, LeftName, LeftValue0, LeftValue1, LeftValue2},
@@ -61,6 +65,7 @@ eq_(
   R2 = eq_({LeftValue0, RightValue0}, R1),
   R3 = eq_({LeftValue1, RightValue1}, R2),
   eq_({LeftValue2, RightValue2}, R3);
+
 eq_(
   {{Type, _, LeftName, LeftValue0, LeftValue1}, {Type, _, RightName, RightValue0, RightValue1}},
   true
@@ -69,25 +74,32 @@ eq_(
   R1 = eq_({LeftName, RightName}, true),
   R2 = eq_({LeftValue0, RightValue0}, R1),
   eq_({LeftValue1, RightValue1}, R2);
+
 eq_({{Type, _, LeftName, LeftValue}, {Type, _, RightName, RightValue}}, true) ->
   % 4-tuples
   R1 = eq_({LeftName, RightName}, true),
   eq_({LeftValue, RightValue}, R1);
+
 eq_({{integer, LeftLine, LeftLine}, {integer, RightLine, RightLine}}, true) ->
   % Not exactly sure what these are but we occasionally get them.
   true;
+
 eq_({{Type, _LeftLine, LeftValue}, {Type, _RightLine, RightValue}}, true) ->
   % 3-tuples
   eq_({LeftValue, RightValue}, true);
+
 eq_({{Type, _}, {Type, _}}, true) ->
   % 2-tuples
   true;
+
 eq_({{{Type, _}, LeftValue}, {{Type, _}, RightValue}}, true) ->
   % special 2-tuples
   eq_(LeftValue, RightValue);
+
 eq_({_Left, _Right}, _) ->
   io:format("[error] ast_mismatch\nLeft= ~p\nRight=~p~n", [_Left, _Right]),
   false.
+
 
 check_for_errors([], _) -> ok;
 check_for_errors([{error, Msg} | _], File) -> {error, {File, Msg}};

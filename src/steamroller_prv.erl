@@ -42,6 +42,7 @@ init(State) ->
     ),
   {ok, rebar_state:add_provider(State, Provider)}.
 
+
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
   % No idea why a two-element tuple is returned here.
@@ -66,10 +67,12 @@ do(State) ->
       {{?FILE_KEY, File}, _} ->
         rebar_api:info("Steamrolling file: ~s", [File]),
         steamroller:format_file(File, Opts);
+
       {_, {?DIR_KEY, Dir}} ->
         rebar_api:info("Steamrolling dir: ~s", [Dir]),
         Files = find_dir_files(Dir),
         format_files(Files, Opts);
+
       _ ->
         rebar_api:info("Steamrolling code...", []),
         format_apps(rebar_state:project_apps(State), Opts)
@@ -78,10 +81,12 @@ do(State) ->
     ok ->
       rebar_api:info("Steamrolling done.", []),
       {ok, State};
+
     {error, Err} ->
       cleanup_temp_files(),
       {error, format_error(Err)}
   end.
+
 
 -spec format_error(any()) -> iolist().
 format_error(Reason) when is_binary(Reason) -> io_lib:format("Steamroller Error: ~s", [Reason]);
@@ -105,7 +110,9 @@ format_apps([App | Rest], Opts) ->
     ok -> format_apps(Rest, Opts);
     {error, _} = Err -> Err
   end;
+
 format_apps([], _) -> ok.
+
 
 find_root_files(Dir, Input) ->
   [list_to_binary(filename:join(Dir, File)) || File <- filelib:wildcard(Input, Dir)].
@@ -128,6 +135,7 @@ format_files(Files, Opts) ->
         "If errors persist, please report them: https://github.com/old-reliable/steamroller",
         []
       );
+
     _ -> ok
   end,
   rebar_api:debug("Steamroller j-factor: ~p", [J]),
@@ -153,32 +161,38 @@ format_files(Files, Opts) ->
     Err -> Err
   end.
 
+
 format_files_([Worker | Workers], J, [File | Rest], Opts) ->
   rebar_api:debug("Steamrolling file: ~s", [File]),
   steamroller_worker:format_file(Worker, File, Opts, self()),
   format_files_(Workers, J, Rest, Opts);
+
 format_files_(Workers, J, [], _) when length(Workers) == J ->
   % All workers have finished and the queue is empty.
   % Formatting is done.
   ok;
+
 format_files_(Workers0, J, Files, Opts) ->
   receive
     {steamroll, {worker_id, Id}, Result} ->
       Workers1 = [Id | Workers0],
       case Result of
         ok -> format_files_(Workers1, J, Files, Opts);
+
         {error, {File, {Line, epp, {undefined, Macro, _}}}} ->
           rebar_api:warn(
             "Steamroller Warn: File: ~s: Undefined macro ~p on line ~p. Skipping...",
             [File, Macro, Line]
           ),
           format_files_(Workers1, J, Files, Opts);
+
         {error, {File, {Line, epp, {include, file, IncludeFile}}}} ->
           rebar_api:warn(
             "Steamroller Warn: File: ~s: Undefined include file ~p on line ~p. Skipping...",
             [File, IncludeFile, Line]
           ),
           format_files_(Workers1, J, Files, Opts);
+
         {error, {File, {Line, epp, Err}}} ->
           % These errors typically mean that the sorce does not compile.
           % Not really our problem so we warn instead of erroring.
@@ -187,12 +201,14 @@ format_files_(Workers0, J, Files, Opts) ->
             [File, Err, Line]
           ),
           format_files_(Workers1, J, Files, Opts);
+
         {error, {File, {Line, erl_parse, ["syntax error before: ", Str]}}} ->
           rebar_api:warn(
             "Steamroller Warn: File: ~s: Syntax error before ~s on line ~p. Skipping...",
             [File, Str, Line]
           ),
           format_files_(Workers1, J, Files, Opts);
+
         {error, {File, {Line, erl_parse, Err}}} ->
           % These errors typically mean that the sorce does not compile.
           % Not really our problem so we warn instead of erroring.
@@ -201,29 +217,36 @@ format_files_(Workers0, J, Files, Opts) ->
             [File, Err, Line]
           ),
           format_files_(Workers1, J, Files, Opts);
+
         {error, {File, {Line, file_io_server, Err}}} ->
           rebar_api:warn(
             "Steamroller Warn: File: ~s: file_io_server error ~p on line ~p. Skipping...",
             [File, Err, Line]
           ),
           format_files_(Workers1, J, Files, Opts);
+
         {error, {File, <<"source code is not unicode">> = Err}} ->
           rebar_api:warn("Steamroller Warn: File: ~s: ~s. Skipping...", [File, Err]),
           format_files_(Workers1, J, Files, Opts);
+
         {error, {complaint, File, Err}} when is_binary(Err) ->
           rebar_api:warn("Steamroller Warn: File: ~s: ~s Skipping...", [File, Err]),
           format_files_(Workers1, J, Files, Opts);
+
         {error, {complaint, File, Err}} ->
           rebar_api:warn("Steamroller Warn: File: ~s: ~p. Skipping...", [File, Err]),
           format_files_(Workers1, J, Files, Opts);
+
         {error, _} = Err ->
           steamroller_worker_sup:terminate_children(),
           Err;
+
         {'EXIT', Trace} ->
           steamroller_worker_sup:terminate_children(),
           {error, {crash, Trace}}
       end
   end.
+
 
 cleanup_temp_files() -> [file:delete(File) || File <- filelib:wildcard("steamroller_temp_*", ".")].
 
@@ -240,6 +263,7 @@ includes(RebarOpts, State, ArgOpts) ->
     end,
   [RootInclude, Deps | Src] ++ DepIncludes ++ ExtraIncludes.
 
+
 macros(RebarOpts) ->
   case dict:find(erl_opts, RebarOpts) of
     {ok, ErlOpts} ->
@@ -247,10 +271,12 @@ macros(RebarOpts) ->
     _ -> []
   end.
 
+
 maybe_set_indent(Opts) ->
   case proplists:get_value(indent, Opts) of
     undefined ->
       % We'll use the default value
       ok;
+
     Indent -> application:set_env(steamroller, indent, Indent)
   end.
