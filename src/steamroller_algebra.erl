@@ -183,11 +183,13 @@ concat(X, Y, Break) -> cons(X, cons(break(Break), Y)).
 
 -spec generate_doc_(tokens(), doc(), previous_term()) -> doc().
 generate_doc_([], Doc, _) -> Doc;
+
 generate_doc_([{'-', _} = H0, {atom, _, Spec} = H1, {'(', _} | Rest0], Doc, PrevTerm)
 when Spec == spec orelse Spec == callback ->
   % Remove brackets from Specs and Callbacks
   Rest1 = remove_matching('(', ')', Rest0),
   generate_doc_([H0, H1 | Rest1], Doc, PrevTerm);
+
 generate_doc_([{'-', _}, {atom, _, Spec} | Tokens], Doc0, PrevTerm)
 when Spec == spec orelse Spec == callback ->
   % Spec
@@ -199,11 +201,13 @@ when Spec == spec orelse Spec == callback ->
       _ -> newlines(Doc0, Doc)
     end,
   generate_doc_(Rest, Doc1, spec);
+
 generate_doc_([{'-', _} = H0, {atom, _, Type} = H1, {'(', _} | Rest0], Doc, PrevTerm)
 when Type == type orelse Type == opaque ->
   % Remove brackets from Types
   Rest1 = remove_matching('(', ')', Rest0),
   generate_doc_([H0, H1 | Rest1], Doc, PrevTerm);
+
 generate_doc_([{'-', _}, {atom, _, Type} | Tokens], Doc0, PrevTerm)
 when Type == type orelse Type == opaque ->
   % Type
@@ -216,6 +220,7 @@ when Type == type orelse Type == opaque ->
       _ -> newlines(Doc0, Spec)
     end,
   generate_doc_(Rest, Doc1, type);
+
 generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
   % Module Attribute
   {Group, Rest} = attribute(Atom, Tokens),
@@ -229,10 +234,12 @@ generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
       _ -> newlines(Doc0, Group)
     end,
   generate_doc_(Rest, Doc1, {attribute, Atom});
+
 generate_doc_([{'-', _}, {'if' = Atom, _} | Tokens], Doc0, _) ->
   % :'(
   {Group, Rest} = attribute(Atom, Tokens),
   generate_doc_(Rest, newlines(Doc0, Group), {attribute, Atom});
+
 generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
   % Function
   {Group, Rest} = function(Tokens),
@@ -242,6 +249,7 @@ generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
       _ -> newlines(Doc0, Group)
     end,
   generate_doc_(Rest, Doc1, function);
+
 generate_doc_([{comment, _, "%%" ++ _ = CommentText} | Rest], Doc0, PrevTerm) ->
   % Module Comment
   Comment = comment(CommentText),
@@ -252,6 +260,7 @@ generate_doc_([{comment, _, "%%" ++ _ = CommentText} | Rest], Doc0, PrevTerm) ->
       _ -> newlines(Doc0, Comment)
     end,
   generate_doc_(Rest, Doc1, module_comment);
+
 generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
   % Function Comment
   Comment = comment(CommentText),
@@ -262,6 +271,7 @@ generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
       _ -> newlines(Doc0, Comment)
     end,
   generate_doc_(Rest, Doc1, function_comment);
+
 generate_doc_(Tokens, Doc0, PrevTerm) ->
   % Anything unhandled gets treated as an expression.
   % Things which fall through to here:
@@ -286,6 +296,7 @@ attribute(Att, [{dot, _} | Rest]) ->
   % -endif.
   Attribute = group(cons([text(<<"-">>), text(a2b(Att)), text(?dot)])),
   {Attribute, Rest};
+
 attribute('if', [{'(', _} | _] = Tokens) ->
   % Easiest to handle this here...
   % a2b/1 will print 'if' with the single quotes.
@@ -294,10 +305,12 @@ attribute('if', [{'(', _} | _] = Tokens) ->
   {_ForceBreak, Expr, [{dot, _} | Rest]} = list_group(Tokens),
   Attribute = group(cons([text(<<"-">>), text(<<"if">>), Expr, text(?dot)])),
   {Attribute, Rest};
+
 attribute(Att, [{'(', _} | _] = Tokens) ->
   {_ForceBreak, Expr, [{dot, _} | Rest]} = list_group(Tokens),
   Attribute = group(cons([text(<<"-">>), text(a2b(Att)), Expr, text(?dot)])),
   {Attribute, Rest};
+
 attribute(Att, Tokens0) ->
   % Put brackets around attributes which are missing them.
   {AttTokens, Rest, End} = get_until(dot, Tokens0),
@@ -316,6 +329,7 @@ function(Tokens0) ->
         % Process it as a normal expression.
         {_End, ForceBreak, Exprs, []} = exprs(FunctionTokens1),
         force_break(ForceBreak, group(space(Exprs), inherit));
+
       _ ->
         {_ForceBreak, Clauses, []} = clauses(FunctionTokens1),
         newline(Clauses)
@@ -338,6 +352,7 @@ spec(Tokens0) ->
           force_break,
           group(cons(FunctionName, underneath(0, group(space(Clauses), inherit))), inherit)
         );
+
       false ->
         % If we have multiple clauses in a spec we want to indent instead of going underneath.
         force_break(
@@ -354,6 +369,7 @@ case_([{'case', _} | Tokens]) ->
     case get_until_end(Rest0) of
       {CaseClauseTokens, Rest, {'end', _}} ->
         {handle_trailing_comments(clauses(CaseClauseTokens)), Rest};
+
       {_, _, _} ->
         % Our 'case' is missing and 'end'. This is likely because someone has put
         % invalid syntax inside an unused macro.
@@ -411,6 +427,7 @@ case_arg_(CaseArgTokens, ForceBreak, Doc0) ->
   case expr(CaseArgTokens, no_force_break) of
     {comment, _, CaseArg, Rest} -> case_arg_(Rest, force_break, space(Doc0, CaseArg));
     {empty, _, CaseArg, []} -> {group(space(Doc0, CaseArg), inherit), ForceBreak};
+
     {empty, _, CaseArg, Rest} ->
       Comments = comments(Rest),
       {group(space([Doc0, CaseArg | Comments]), inherit), force_break}
@@ -461,6 +478,7 @@ receive_([{'receive', _} | Tokens]) ->
 
 -spec after_(tokens()) -> {force_break(), doc()}.
 after_([]) -> {no_force_break, empty()};
+
 after_([{'after', _} | Tokens]) ->
   {AfterForceBreak, Clauses} = handle_trailing_comments(clauses(Tokens)),
   ForceBreak =
@@ -484,6 +502,7 @@ try_([{'try', _} | Tokens]) ->
       {_, [], _} ->
         % There is no 'of' for this 'try'
         {exprs, text(<<"try">>), TryTokens};
+
       {TryArgTokens, Rest0, _} ->
         {empty, _, TryArgs, []} = exprs(TryArgTokens),
         {clauses, group(space(text(<<"try">>), space(TryArgs))), Rest0}
@@ -493,6 +512,7 @@ try_([{'try', _} | Tokens]) ->
       {Tokens0, [], EndToken0} ->
         % No 'after'
         {Tokens0 ++ [EndToken0], []};
+
       {Tokens0, Rest2, EndToken0} ->
         % Found 'after'. EndToken is the after token.
         {Tokens0, [EndToken0 | Rest2]}
@@ -502,6 +522,7 @@ try_([{'try', _} | Tokens]) ->
       {Tokens1, [], EndToken1} ->
         % No 'catch'
         {Tokens1 ++ [EndToken1], []};
+
       {Tokens1, Rest3, EndToken1} ->
         % Found 'catch'. EndToken is the catch token.
         {Tokens1, [EndToken1 | Rest3]}
@@ -527,6 +548,7 @@ try_([{'try', _} | Tokens]) ->
             )
           ),
         {ForceBreak, Doc};
+
       clauses ->
         {TryForceBreak, Clauses} = handle_trailing_comments(clauses(TryTokens2)),
         ForceBreak =
@@ -556,6 +578,7 @@ try_([{'try', _} | Tokens]) ->
 
 -spec try_catch_(tokens()) -> doc().
 try_catch_([]) -> empty();
+
 try_catch_([{'catch', _} | Tokens]) ->
   {CatchForceBreak, Clauses} = handle_trailing_comments(clauses(Tokens)),
   ForceBreak =
@@ -570,6 +593,7 @@ try_catch_([{'catch', _} | Tokens]) ->
 
 -spec try_after_(tokens()) -> {force_break(), doc()}.
 try_after_([]) -> {no_force_break, empty()};
+
 try_after_([{'after', _} | Tokens]) ->
   {empty, AfterForceBreak, Exprs, []} = exprs(Tokens),
   ForceBreak =
@@ -592,16 +616,19 @@ fun_([{'fun', _} | Tokens]) ->
         % Put the dot back so that we pick it up as the end token of the
         % expression. Otherwise we thing the expression is `empty`.
         {no_force_break, text(<<"fun()">>), [End]};
+
       {[{'(', _}, {')', _}, {'|', _} | _] = Tokens0, Rest0, End} ->
         % This case can happen in typedefs if the type looks like
         % -type x() :: fun() | map().
         [_, _ | Tokens1] = Tokens0,
         Rest1 = Tokens1 ++ [End] ++ Rest0,
         {no_force_break, text(<<"fun()">>), Rest1};
+
       {[{'(', _}], [], {')', _}} ->
         % This case can happen in typedefs if the type looks like
         % -type x() :: {fun()}.
         {no_force_break, text(<<"fun()">>), []};
+
       {[{'(', _}, {')', _}], Rest0, {',', _} = End} ->
         % This case can happen in records and specs:
         % -record(x, {y :: fun(), z}).
@@ -610,6 +637,7 @@ fun_([{'fun', _} | Tokens]) ->
         % Put the comma back so that we pick it up as the end token of the
         % expression. Otherwise we thing the expression is `empty`.
         {no_force_break, text(<<"fun()">>), [End | Rest0]};
+
       {ClauseTokens, Rest0, _} ->
         {ForceBreak0, Clauses} = handle_trailing_comments(clauses(ClauseTokens)),
         Doc0 =
@@ -679,6 +707,7 @@ function_when_(Tokens, ForceBreak0, Acc) ->
     {';', ForceBreak, Exprs, Rest} ->
       ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
       function_when_(Rest, ForceBreak1, Acc ++ Exprs);
+
     {End, ForceBreak, Exprs, []} ->
       Expr = space(Acc ++ Exprs),
       Doc = group(cons(text(<<"when ">>), underneath(0, group(Expr, inherit)))),
@@ -701,6 +730,7 @@ comments(Comments) -> lists:map(fun ({comment, _, Text}) -> comment(Text) end, C
 -spec handle_trailing_comments({force_break(), list(doc()), tokens()}) ->
   {force_break(), list(doc())}.
 handle_trailing_comments({ForceBreak, Clauses, []}) -> {ForceBreak, Clauses};
+
 handle_trailing_comments({_, Clauses, Comments}) ->
   CommentDocs = comments(Comments),
   {force_break, Clauses ++ CommentDocs}.
@@ -708,6 +738,7 @@ handle_trailing_comments({_, Clauses, Comments}) ->
 -spec handle_trailing_expr_comments({empty, force_break(), list(doc()), tokens()}) ->
   {empty, force_break(), list(doc())}.
 handle_trailing_expr_comments({empty, ForceBreak, Exprs, []}) -> {empty, ForceBreak, Exprs};
+
 handle_trailing_expr_comments({empty, _, Exprs, Comments}) ->
   CommentDocs = comments(Comments),
   {empty, force_break, Exprs ++ CommentDocs}.
@@ -727,6 +758,7 @@ list_group([{Open, _} | Rest0]) when ?IS_LIST_OPEN_CHAR(Open) ->
     {Tokens, Rest1, {Close, _}} ->
       {ForceBreak, ListGroup} = brackets(Tokens, op2b(Open), op2b(Close)),
       {ForceBreak, ListGroup, Rest1};
+
     {_Tokens, _Rest, {dot, _}} ->
       % This is probably due to a funky macro.
       % We could handle it properly but it's more effort than it's worth right now.
@@ -735,6 +767,7 @@ list_group([{Open, _} | Rest0]) when ?IS_LIST_OPEN_CHAR(Open) ->
 
 -spec brackets(tokens(), binary(), binary()) -> {force_break(), doc()}.
 brackets([], Open, Close) -> {no_force_break, group(cons(text(Open), text(Close)))};
+
 brackets(Tokens, Open, Close) ->
   {ForceBreak, ListElements} = list_elements(Tokens),
   Doc =
@@ -748,6 +781,7 @@ list_elements(Tokens) -> list_elements(Tokens, empty(), no_force_break).
 
 -spec list_elements(tokens(), doc(), force_break()) -> {force_break(), doc()}.
 list_elements([], Doc, ForceBreak) -> {ForceBreak, Doc};
+
 list_elements(Tokens, Doc, ForceBreak0) ->
   {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0),
   list_elements(Rest, space(Doc, group(Expr)), ForceBreak1).
@@ -759,10 +793,21 @@ clauses(Tokens) -> clauses(Tokens, [], []).
 -spec clauses(tokens(), list(doc()), list(force_break())) -> {force_break(), list(doc()), tokens()}.
 clauses(Tokens, Acc0, ForceBreaks0) ->
   {Continue, ClauseForceBreak, Clause, Rest0} = head_and_clause(Tokens),
-  Acc1 = [Clause | Acc0],
+  Acc1 =
+    case {ForceBreaks0, ClauseForceBreak} of
+      {[no_force_break | _], force_break} -> [Clause, text(<<>>) | Acc0];
+      _ -> [Clause | Acc0]
+    end,
   ForceBreaks1 = [ClauseForceBreak | ForceBreaks0],
   case Continue of
-    continue -> clauses(Rest0, Acc1, ForceBreaks1);
+    continue ->
+      Acc2 =
+        case ClauseForceBreak of
+          force_break -> [text(<<>>) | Acc1];
+          no_force_break -> Acc1
+        end,
+      clauses(Rest0, Acc2, ForceBreaks1);
+
     done ->
       ForceBreak = resolve_force_break(ForceBreaks1),
       {ForceBreak, lists:reverse(Acc1), Rest0}
@@ -779,20 +824,25 @@ head_and_clause([{'?', _} | _] = Tokens, doc_nil) ->
     true ->
       % This is a hack so the doc_nil above no longer matches.
       head_and_clause(Tokens, cons(empty(), empty()));
+
     false -> clause(Tokens)
   end;
+
 head_and_clause([{atom, _, Name} | Rest], Doc) ->
   % Name
   head_and_clause(Rest, cons(Doc, text(a2b(Name))));
+
 head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_OPEN_CHAR(C) ->
   % Args
   {_ForceBreak, Group, Rest} = list_group(Tokens),
   head_and_clause(Rest, cons(Doc, Group));
+
 head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
   % Handle any comments between function clauses.
   {Continue, ForceBreak, Doc1, Tokens} = head_and_clause(Rest),
   Doc2 = newline([Doc0, comment(Comment), Doc1]),
   {Continue, ForceBreak, Doc2, Tokens};
+
 head_and_clause([{'->', _} | Rest0], Doc0) ->
   % End
   {Continue, ForceBreak, Clause, Rest1} = clause(Rest0),
@@ -800,6 +850,7 @@ head_and_clause([{'->', _} | Rest0], Doc0) ->
     force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Clause), inherit))),
   Doc1 = group(cons(group(Doc0), ClauseGroup)),
   {Continue, ForceBreak, Doc1, Rest1};
+
 head_and_clause([{'::', _} | Rest0], Doc) ->
   % Altenative End (for Type definitions)
   {Continue, ForceBreak, Clause, Rest1} = clause(Rest0),
@@ -808,6 +859,7 @@ head_and_clause([{'::', _} | Rest0], Doc) ->
   Doc1 =
     cons([Doc, text(<<" :: ">>), force_break(ForceBreak, underneath(-2, group(Clause, inherit)))]),
   {Continue, ForceBreak, Doc1, Rest1};
+
 head_and_clause(Rest0, Doc0) ->
   {Tokens, Rest1, Token} = get_until('->', Rest0),
   % We expect this to come back with either:
@@ -832,6 +884,7 @@ clause(Tokens) ->
     end,
   case Exprs of
     [Expr] -> {Continue, ForceBreak, Expr, Rest};
+
     _ ->
       % Force indentation for multi-expression clauses
       {Continue, force_break, space(Exprs), Rest}
@@ -861,10 +914,12 @@ expr(Tokens, ForceBreak0) ->
 -spec expr_(tokens(), doc(), force_break()) ->
   {dot | ';' | ',' | empty | comment, force_break(), doc()}.
 expr_([], Doc, ForceBreak) -> {empty, ForceBreak, Doc};
+
 expr_([{'?', _} | Rest0], Doc, ForceBreak0) ->
   % Handle macros
   {End, ForceBreak1, Expr, []} = expr(Rest0, ForceBreak0),
   {End, ForceBreak1, space(Doc, cons(text(<<"?">>), Expr))};
+
 expr_([{var, LineNum, MacroName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
   % Handle macros which take arguments
   Tokens1 = tl(Tokens0),
@@ -872,30 +927,37 @@ expr_([{var, LineNum, MacroName}, {'(', LineNum} | _] = Tokens0, Doc, ForceBreak
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Macro = space(Doc, cons(text(v2b(MacroName)), ListGroup)),
   expr_(Rest, Macro, ForceBreak1);
+
 expr_([{'case', _} | _] = Tokens, Doc, ForceBreak0) ->
   {GroupForceBreak, Group, Rest} = case_(Tokens),
   ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
   expr_(Rest, space(Doc, Group), ForceBreak1);
+
 expr_([{'if', _} | _] = Tokens, Doc, ForceBreak0) ->
   {GroupForceBreak, Group, Rest} = if_(Tokens),
   ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
   expr_(Rest, space(Doc, Group), ForceBreak1);
+
 expr_([{'receive', _} | _] = Tokens, Doc, ForceBreak0) ->
   {GroupForceBreak, Group, Rest} = receive_(Tokens),
   ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
   expr_(Rest, space(Doc, Group), ForceBreak1);
+
 expr_([{'try', _} | _] = Tokens, Doc, ForceBreak0) ->
   {GroupForceBreak, Group, Rest} = try_(Tokens),
   ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
   expr_(Rest, space(Doc, Group), ForceBreak1);
+
 expr_([{'begin', _} | _] = Tokens, Doc, ForceBreak0) ->
   {GroupForceBreak, Group, Rest} = begin_(Tokens),
   ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
   expr_(Rest, space(Doc, Group), ForceBreak1);
+
 expr_([{'when', _} | _] = Tokens, Doc, ForceBreak0) ->
   {End, GroupForceBreak, Group} = when_(Tokens),
   ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
   {End, ForceBreak1, space(Doc, Group)};
+
 expr_([{'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
   % Handle records
   % #record_name{key => value}
@@ -904,6 +966,7 @@ expr_([{'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0, Doc
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Record = group(cons([text(<<"#">>), text(a2b(Atom)), ListGroup])),
   expr_(Rest, space(Doc, Record), ForceBreak1);
+
 expr_(
   [{'#', LineNum}, {'?', LineNum}, {var, LineNum, Var}, {'{', LineNum} | _] = Tokens0,
   Doc,
@@ -916,6 +979,7 @@ expr_(
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Record = group(cons([text(<<"#">>), text(<<"?">>), text(v2b(Var)), ListGroup])),
   expr_(Rest, space(Doc, Record), ForceBreak1);
+
 expr_(
   [
     {var, LineNum, Var},
@@ -933,6 +997,7 @@ when ?IS_VALID_RECORD_KEY(K) ->
   Record =
     group(cons([text(v2b(Var)), text(<<"#">>), text(a2b(Rec)), text(<<".">>), record_key(Key)])),
   expr_(Rest, space(Doc, Record), ForceBreak);
+
 expr_(
   [
     {var, LineNum, Var},
@@ -962,6 +1027,7 @@ when ?IS_VALID_RECORD_KEY(K) ->
       )
     ),
   expr_(Rest, space(Doc, Record), ForceBreak);
+
 expr_(
   [{'#', LineNum}, {atom, LineNum, Rec}, {'.', LineNum}, {K, LineNum, _} = Key | Rest],
   Doc,
@@ -972,6 +1038,7 @@ when ?IS_VALID_RECORD_KEY(K) ->
   % #record_name.key
   Record = group(cons([text(<<"#">>), text(a2b(Rec)), text(<<".">>), record_key(Key)])),
   expr_(Rest, space(Doc, Record), ForceBreak);
+
 expr_(
   [
     {'#', LineNum},
@@ -989,6 +1056,7 @@ when ?IS_VALID_RECORD_KEY(K) ->
   Record =
     group(cons([text(<<"#">>), text(<<"?">>), text(v2b(Var)), text(<<".">>), record_key(Key)])),
   expr_(Rest, space(Doc, Record), ForceBreak);
+
 expr_(
   [{var, LineNum, Var}, {'#', LineNum}, {atom, LineNum, Atom}, {'{', LineNum} | _] = Tokens0,
   Doc,
@@ -1001,6 +1069,7 @@ expr_(
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Record = group(cons([text(v2b(Var)), text(<<"#">>), text(a2b(Atom)), ListGroup])),
   expr_(Rest, space(Doc, Record), ForceBreak1);
+
 expr_(
   [{var, LineNum, Var}, {'#', LineNum}, {'?', LineNum}, {var, LineNum, Macro}, {'{', LineNum} | _] =
     Tokens0,
@@ -1014,6 +1083,7 @@ expr_(
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Record = group(cons([text(v2b(Var)), text(<<"#">>), text(<<"?">>), text(v2b(Macro)), ListGroup])),
   expr_(Rest, space(Doc, Record), ForceBreak1);
+
 expr_([{'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
   % Handle maps
   % #{key => value}
@@ -1022,6 +1092,7 @@ expr_([{'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Map = group(cons(text(<<"#">>), ListGroup)),
   expr_(Rest, space(Doc, Map), ForceBreak1);
+
 expr_([{var, LineNum, Var}, {'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, ForceBreak0) ->
   % Handle map updates
   % X#{key => value}
@@ -1030,16 +1101,19 @@ expr_([{var, LineNum, Var}, {'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, 
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Map = group(cons([text(v2b(Var)), text(<<"#">>), ListGroup])),
   expr_(Rest, space(Doc, Map), ForceBreak1);
+
 expr_([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
   % Handle binary matching
   % <<Thing/binary>>
   TermDoc = cons([text(v2b(Var)), text(<<"/">>), text(a2b(Atom))]),
   expr_(Rest, space(Doc, TermDoc), ForceBreak);
+
 expr_([{string, _, String}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
   % Handle binary literals
   % <<"hello"/utf8>>
   TermDoc = cons([text(s2b(String)), text(<<"/">>), text(a2b(Atom))]),
   expr_(Rest, space(Doc, TermDoc), ForceBreak);
+
 expr_(
   [{var, _, Var}, {':', _}, {S, _, _} = Size, {'/', _}, {atom, _, Atom} | Rest],
   Doc,
@@ -1053,6 +1127,7 @@ when ?IS_VALID_BINARY_SIZE(S) ->
   TermDoc =
     cons([text(v2b(Var)), text(<<":">>), binary_size(Size), text(<<"/">>), text(a2b(Atom))]),
   expr_(Rest, space(Doc, TermDoc), ForceBreak);
+
 expr_([{'fun', _}, {'(', _}, {'(', _} | _] = Tokens0, Doc, ForceBreak0) ->
   % Handle 'fun((Arg :: type()) -> other_type())'
   Tokens1 = tl(Tokens0),
@@ -1060,6 +1135,7 @@ expr_([{'fun', _}, {'(', _}, {'(', _} | _] = Tokens0, Doc, ForceBreak0) ->
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Fun = group(cons(text(<<"fun">>), ListGroup)),
   expr_(Rest, space(Doc, Fun), ForceBreak1);
+
 expr_(
   [
     {'fun', _},
@@ -1086,6 +1162,7 @@ when ?IS_VALID_MFA(M, F, A) ->
       ]
     ),
   expr_(Rest, space(Doc, Fun), ForceBreak);
+
 expr_(
   [
     {'fun', _},
@@ -1114,6 +1191,7 @@ when ?IS_VALID_FA(F, A) ->
       ]
     ),
   expr_(Rest, space(Doc, Fun), ForceBreak);
+
 expr_(
   [{'fun', _}, {F, LineNum, _} = Function, {'/', LineNum}, {A, LineNum, _} = Arity | Rest],
   Doc,
@@ -1123,12 +1201,14 @@ when ?IS_VALID_FA(F, A) ->
   % Handle `fun function/arity`
   Fun = cons([text(<<"fun ">>), mfa_function(Function), text(<<"/">>), mfa_arity(Arity)]),
   expr_(Rest, space(Doc, Fun), ForceBreak);
+
 expr_([{'fun', _} | _] = Tokens, Doc, ForceBreak0) ->
   % Handle any 'fun' expressions which have an 'end' and a few other special cases
   % without an `end`.
   {GroupForceBreak, Group, Rest} = fun_(Tokens),
   ForceBreak1 = resolve_force_break([ForceBreak0, GroupForceBreak]),
   expr_(Rest, space(Doc, Group), ForceBreak1);
+
 expr_(
   [{M, LineNum, _} = Module, {':', LineNum}, {F, LineNum, _} = Function, {'(', LineNum} | _] =
     Tokens0,
@@ -1143,6 +1223,7 @@ when ?IS_VALID_MF(M, F) ->
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Doc1 = space(Doc0, cons([mfa_module(Module), text(<<":">>), mfa_function(Function), ListGroup])),
   expr_(Rest, Doc1, ForceBreak1);
+
 expr_(
   [
       {M, LineNum, _} = Module,
@@ -1168,6 +1249,7 @@ when ?IS_VALID_MF(M, F) ->
       cons([mfa_module(Module), text(<<":">>), text(<<"?">>), mfa_function(Function), ListGroup])
     ),
   expr_(Rest, Doc1, ForceBreak1);
+
 expr_(
   [{M, LineNum, _} = Module, {':', LineNum}, {F, LineNum, _} = Function | _] = Tokens,
   Doc0,
@@ -1184,6 +1266,7 @@ when ?IS_VALID_MF(M, F) ->
   [_, _, _ | Rest] = Tokens,
   Doc1 = space(Doc0, cons([mfa_module(Module), text(<<":">>), mfa_function(Function)])),
   expr_(Rest, Doc1, ForceBreak);
+
 expr_(
   [{M, LineNum, _} = Module, {':', LineNum}, {'?', LineNum}, {F, LineNum, _} = Function | _] =
     Tokens,
@@ -1196,6 +1279,7 @@ when ?IS_VALID_MF(M, F) ->
   Doc1 =
     space(Doc0, cons([mfa_module(Module), text(<<":">>), text(<<"?">>), mfa_function(Function)])),
   expr_(Rest, Doc1, ForceBreak);
+
 expr_([{F, LineNum, _} = Function, {'(', LineNum} | _] = Tokens0, Doc0, ForceBreak0)
 when ?IS_VALID_FUNCTION_TYPE(F) ->
   % Handle local function calls
@@ -1205,11 +1289,13 @@ when ?IS_VALID_FUNCTION_TYPE(F) ->
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   Doc1 = space(Doc0, cons(mfa_function(Function), ListGroup)),
   expr_(Rest, Doc1, ForceBreak1);
+
 expr_([{C, _} | _] = Tokens, Doc, ForceBreak0) when ?IS_LIST_OPEN_CHAR(C) ->
   % Handle lists
   {ListForceBreak, ListGroup, Rest} = list_group(Tokens),
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
   expr_(Rest, space(Doc, ListGroup), ForceBreak1);
+
 expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
   % Handle things like
   % Arg3 =
@@ -1221,6 +1307,7 @@ expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
         {_Tokens, [], not_found} ->
           % This should never happen
           throw(token_not_found);
+
         {Tokens, Rest1, EndToken} ->
           % If we have a list of boolean terms
           %   e.g. Arg1 == 5 andalso Arg2 == 6
@@ -1231,43 +1318,52 @@ expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
           ForceBreak1 = resolve_force_break([ForceBreak0, RestForceBreak]),
           expr_([EndToken | Rest1], Equation, ForceBreak1)
       end;
+
     false ->
       {End, RestForceBreak, Expr} = expr_(Rest0, empty(), no_force_break),
       Equation = equation(Equals, Expr, RestForceBreak),
       ForceBreak1 = resolve_force_break([ForceBreak0, RestForceBreak]),
       {End, ForceBreak1, Equation}
   end;
+
 expr_([{End, _}], Doc, ForceBreak) ->
   % Handle the expression end character
   {End, ForceBreak, cons(Doc, text(op2b(End)))};
+
 expr_([{Type0, _, _} = Num0, {'-', _}, {Type1, _, _} = Num1 | Rest], Doc0, ForceBreak)
 when ?IS_NUMBER(Type0) andalso ?IS_NUMBER(Type1) ->
   % Subtraction: numbers
   Doc1 = space([Doc0, text(n2b(Num0)), text(op2b('-')), text(n2b(Num1))]),
   expr_(Rest, Doc1, ForceBreak);
+
 expr_([{var, _, Var}, {'-', _}, {Type, _, _} = Num | Rest], Doc0, ForceBreak) when ?IS_NUMBER(Type) ->
   % Subtraction: variables
   Doc1 = space([Doc0, text(v2b(Var)), text(op2b('-')), text(n2b(Num))]),
   expr_(Rest, Doc1, ForceBreak);
+
 expr_([{Op, _}, {'-', _}, {Type, _, _} = Num | Rest], Doc0, ForceBreak) when ?IS_NUMBER(Type) ->
   % Negative number
   Bin = n2b(Num),
   Doc1 = space([Doc0, text(op2b(Op)), text(<<"-", Bin/binary>>)]),
   expr_(Rest, Doc1, ForceBreak);
+
 expr_([{'-', _}, {Type, _, _} = Num | Rest], doc_nil = Doc0, ForceBreak) when ?IS_NUMBER(Type) ->
   % Negative number
   Bin = n2b(Num),
   Doc1 = space(Doc0, text(<<"-", Bin/binary>>)),
   expr_(Rest, Doc1, ForceBreak);
+
 expr_([{'-', _}, {Type, _, _} = Num | Rest], Doc0, ForceBreak) when ?IS_NUMBER(Type) ->
   % Subtraction: functions
   Doc1 = space([Doc0, text(op2b('-')), text(n2b(Num))]),
   expr_(Rest, Doc1, ForceBreak);
+
 expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
   % Handle function arity expressions
   % some_fun/1
   FunctionDoc = cons([text(a2b(Atom)), text(<<"/">>), text(i2b(Int))]),
   expr_(Rest, space(Doc, FunctionDoc), ForceBreak);
+
 expr_([{atom, _, Atom} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(a2b(Atom))), ForceBreak);
 expr_([{var, _, Var} | Rest], Doc, ForceBreak) ->
@@ -1278,35 +1374,43 @@ expr_([{float, _, Float} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(f2b(Float))), ForceBreak);
 expr_([{string, _, Var} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(s2b(Var))), ForceBreak);
+
 expr_([{BoolOp, _} | Rest0], Doc, ForceBreak0) when ?IS_BOOL_CONCATENATOR(BoolOp) ->
   case get_until_any(['andalso', 'orelse'], Rest0) of
     {Tokens, [], not_found} ->
       {End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
       {End, ForceBreak1, space(Doc, group(space(text(op2b(BoolOp)), Expr)))};
+
     {Tokens, Rest1, EndToken} ->
       {_End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
       expr_([EndToken | Rest1], space(Doc, group(space(text(op2b(BoolOp)), Expr))), ForceBreak1)
   end;
+
 expr_([{'|' = Op, _} | Rest0], Doc, ForceBreak0) ->
   case get_until_any(['|'], Rest0) of
     {Tokens, [], not_found} ->
       {End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
       {End, ForceBreak1, space(Doc, group(space(text(op2b(Op)), Expr)))};
+
     {Tokens, Rest1, EndToken} ->
       {_End, ForceBreak1, Expr} = expr_(Tokens, empty(), ForceBreak0),
       expr_([EndToken | Rest1], space(Doc, group(space(text(op2b(Op)), Expr))), ForceBreak1)
   end;
+
 expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
   {comment, force_break, space(Doc, comment(Comment))};
 expr_([{comment, _, Comment} | Rest], Doc, _ForceBreak) ->
   expr_(Rest, space(Doc, comment(Comment)), force_break);
+
 expr_([{'||', _} | Rest], Doc, ForceBreak0) ->
   % Handle list comprehensions
   {End, ForceBreak1, Expr} = expr_(Rest, text(<<"||">>), ForceBreak0),
   {End, ForceBreak1, group(space(Doc, group(Expr)))};
+
 expr_([{Op, _} | Rest], Doc0, ForceBreak) ->
   Doc1 = space(Doc0, text(op2b(Op))),
   expr_(Rest, Doc1, ForceBreak);
+
 expr_([{char, _, Char} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(c2b(Char))), ForceBreak).
 
@@ -1329,6 +1433,7 @@ format(W, _, [{I, break, {doc_break, ?two_nl}} | Rest]) ->
 format(W, _, [{I, break, {doc_break, _}} | Rest]) -> {s_line, I, format(W, I, Rest)};
 format(W, K, [{I, _, {doc_force_break, X}} | Rest]) -> format(W, K, [{I, break, X} | Rest]);
 format(W, K, [{I, break, {doc_group, X, inherit}} | Rest]) -> format(W, K, [{I, break, X} | Rest]);
+
 format(W, K, [{I, _, {doc_group, X, _}} | Rest]) ->
   case fits(W - K, [{I, flat, X}]) of
     true -> format(W, K, [{I, flat, X} | Rest]);
@@ -1352,9 +1457,15 @@ fits(W, [{I, _, {doc_group, X, _}} | Rest]) -> fits(W, [{I, flat, X} | Rest]).
 
 -spec sdoc_to_string(sdoc()) -> binary().
 sdoc_to_string(s_nil) -> <<"">>;
+
 sdoc_to_string({s_text, String, Doc}) ->
   DocString = sdoc_to_string(Doc),
   <<String/binary, DocString/binary>>;
+
+sdoc_to_string({s_line, _Indent, {s_text, <<"">>, Doc}}) ->
+  DocString = sdoc_to_string(Doc),
+  <<"\n", DocString/binary>>;
+
 sdoc_to_string({s_line, Indent, Doc}) ->
   Prefix = repeat(?sp, Indent),
   DocString = sdoc_to_string(Doc),
@@ -1412,25 +1523,31 @@ get_until(End, Tokens) -> get_until(End, Tokens, [], [], []).
 -spec get_until(atom(), tokens(), tokens(), list(atom()), list(atom())) ->
   {tokens(), tokens(), token()}.
 get_until(_End, [Token], Acc, _BracketStack, _KeywordStack) -> {lists:reverse(Acc), [], Token};
+
 get_until(_End, [{dot, _} = Token | Rest], Acc, _, _) ->
   % An unexpected dot probably means there's an unused macro which has invalid syntax.
   {lists:reverse(Acc), Rest, Token};
+
 get_until(End, [{End, _} = Token | Rest], Acc, [], _KeywordStack) when ?IS_LIST_CLOSE_CHAR(End) ->
   % The keyword stack is not necessarily empty here.
   % If it's not empty then we probably have some funny macro syntax.
   % That's dealt with elsewhere.
   {lists:reverse(Acc), Rest, Token};
+
 get_until(End, [{End, _} = Token | Rest], Acc, [], []) -> {lists:reverse(Acc), Rest, Token};
 get_until(End, [{'end', _} = Token | Rest], Acc, BracketStack, [Keyword | KeywordStack])
 when ?IS_TERMINATED_KEYWORD(Keyword) ->
   get_until(End, Rest, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(End, [{C, _} = Token | Rest], Acc, [C | BracketStack], KeywordStack)
 when ?IS_LIST_CLOSE_CHAR(C) ->
   % Close bracket
   get_until(End, Rest, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(End, [{C, _} = Token | Rest], Acc, BracketStack, KeywordStack) when ?IS_LIST_OPEN_CHAR(C) ->
   % If we hit an open bracket we ignore until the close bracket
   get_until(End, Rest, [Token | Acc], [close_bracket(C) | BracketStack], KeywordStack);
+
 get_until(
   End,
   [{'fun', _} = Token, {'(', _}, {')', _}, {Op, _} | _] = Rest0,
@@ -1449,6 +1566,7 @@ when Op == '|' orelse Op == dot orelse Op == ',' orelse Op == '}' orelse Op == '
   % -type x() :: {y(), fun()}.
   Rest1 = tl(Rest0),
   get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(
   End,
   [{'fun', _} = Token, {'(', _}, {'(', _} | _] = Rest0,
@@ -1460,11 +1578,13 @@ get_until(
   % fun((Arg :: type) -> other_type())
   Rest1 = tl(Rest0),
   get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(End, [{'fun', _} = Token, {atom, _, _} | _] = Rest0, Acc, BracketStack, KeywordStack) ->
   % 'fun' without 'end'
   % fun local/1
   Rest1 = tl(Rest0),
   get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(
   End,
   [{'fun', _} = Token, {var, _, _}, {'/', _} | _] = Rest0,
@@ -1476,6 +1596,7 @@ get_until(
   % fun X/1
   Rest1 = tl(Rest0),
   get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(
   End,
   [{'fun', _} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0,
@@ -1487,6 +1608,7 @@ get_until(
   % fun ?MACRO:x/1
   Rest1 = tl(Rest0),
   get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(
   End,
   [{'fun', _} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0,
@@ -1498,6 +1620,7 @@ get_until(
   % fun ?MACRO/1
   Rest1 = tl(Rest0),
   get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(
   End,
   [{'fun', _} = Token, {var, _, _}, {':', _} | _] = Rest0,
@@ -1509,6 +1632,7 @@ get_until(
   % fun Var:x/1
   Rest1 = tl(Rest0),
   get_until(End, Rest1, [Token | Acc], BracketStack, KeywordStack);
+
 get_until(End, [{Keyword, _} = Token | Rest], Acc, BracketStack, KeywordStack)
 when ?IS_TERMINATED_KEYWORD(Keyword) ->
   % If a 'fun' keyword gets through to here then we expect it to have an end.
@@ -1517,6 +1641,7 @@ when ?IS_TERMINATED_KEYWORD(Keyword) ->
   % `fun F() -> do_stuff end`
   %
   get_until(End, Rest, [Token | Acc], BracketStack, [Keyword | KeywordStack]);
+
 get_until(End, [Token | Rest], Acc, BracketStack, KeywordStack) ->
   get_until(End, Rest, [Token | Acc], BracketStack, KeywordStack).
 
@@ -1530,9 +1655,11 @@ get_until_of([{'of', _} = Token | Rest], Acc, ['try' | _] = Stack) ->
   get_until_of(Rest, [Token | Acc], Stack);
 get_until_of([{'of', _} = Token | Rest], Acc, Stack) ->
   get_until_of(Rest, [Token | Acc], tl(Stack));
+
 get_until_of([{Op, _} = Token | Rest], Acc, ['try' | Stack]) when Op == 'catch' orelse Op == 'after' ->
   % Only a 'catch' or an 'after' can remove the 'try' from the stack.
   get_until_of(Rest, [Token | Acc], Stack);
+
 get_until_of([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_OF_KEYWORD(Keyword) ->
   get_until_of(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_of([Token | Rest], Acc, Stack) -> get_until_of(Rest, [Token | Acc], Stack).
@@ -1543,16 +1670,20 @@ get_until_any(Ends, Tokens) -> get_until_any(Ends, Tokens, [], []).
 -spec get_until_any(list(atom()), tokens(), tokens(), list(atom())) ->
   {tokens(), tokens(), token() | not_found}.
 get_until_any(_Ends, [], Acc, []) -> {lists:reverse(Acc), [], not_found};
+
 get_until_any(Ends, [{Open, _} = Token | Rest], Acc, Stack) when ?IS_LIST_OPEN_CHAR(Open) ->
   Close = close_bracket(Open),
   get_until_any(Ends, Rest, [Token | Acc], [Close | Stack]);
+
 get_until_any(Ends, [{CloseBracket, _} = Token | Rest], Acc, [CloseBracket | Stack]) ->
   get_until_any(Ends, Rest, [Token | Acc], Stack);
+
 get_until_any(Ends, [{MaybeEnd, _} = Token | Rest], Acc, [] = Stack) ->
   case lists:member(MaybeEnd, Ends) of
     true -> {lists:reverse(Acc), Rest, Token};
     false -> get_until_any(Ends, Rest, [Token | Acc], Stack)
   end;
+
 get_until_any(Ends, [Token | Rest], Acc, Stack) -> get_until_any(Ends, Rest, [Token | Acc], Stack).
 
 -spec remove_matching(atom(), atom(), tokens()) -> tokens().
@@ -1582,18 +1713,21 @@ get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, [], no_when).
 get_end_of_expr([], Acc, _LineNum, _KeywordStack, _When) -> {lists:reverse(Acc), []};
 get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack, _) ->
   {[Comment], Rest};
+
 get_end_of_expr([{comment, LineNum, _} = Comment | Rest], Acc, LineNum, [], _) ->
   % Inline comment - naughty naughty
   % Return the comment and put the acc back.
   % We must only do this when the keyword stack is empty otherwise we'll put the comment
   % in the wrong place.
   {[Comment], lists:reverse(Acc) ++ Rest};
+
 get_end_of_expr([{comment, _, _} = Comment | Rest] = Tokens, Acc, _, [], _) ->
   case only_comments_left(Rest) of
     true ->
       % If there are only comments left we leave them alone. Trailing comments
       % are handled elsewhere.
       {lists:reverse(Acc), Tokens};
+
     false ->
       % This can happen if you have something ludicrous like:
       %
@@ -1608,6 +1742,7 @@ get_end_of_expr([{comment, _, _} = Comment | Rest] = Tokens, Acc, _, [], _) ->
       % in the wrong place.
       {[Comment], lists:reverse(Acc) ++ Rest}
   end;
+
 get_end_of_expr([{End, LineNum} = Token, {comment, LineNum, _} = Comment | Rest], Acc, _, [], _)
 when End == ',' orelse End == ';' orelse End == dot ->
   % Inline comment - naughty naughty
@@ -1615,6 +1750,7 @@ when End == ',' orelse End == ';' orelse End == dot ->
   % We must only do this when the keyword stack is empty otherwise we'll put the comment
   % in the wrong place.
   {[Comment], lists:reverse([Token | Acc]) ++ Rest};
+
 get_end_of_expr([{End, _} = Token | Rest], Acc, _, [], no_when)
 when End == ',' orelse End == ';' orelse End == dot ->
   {lists:reverse([Token | Acc]), Rest};
@@ -1632,6 +1768,7 @@ get_end_of_expr([{'::', LineNum} = Token | Rest], Acc, _, KeywordStack, when_gua
   get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, when_type);
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack, Guard) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack), Guard);
+
 get_end_of_expr(
   [{'fun', LineNum} = Token, {'(', _}, {'(', _} | _] = Rest0,
   Acc,
@@ -1643,6 +1780,7 @@ get_end_of_expr(
   % fun((Arg :: type) -> other_type())
   Rest1 = tl(Rest0),
   get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+
 get_end_of_expr(
   [{'fun', LineNum} = Token, {'(', _}, {')', _}, {Op, _} | _] = Rest0,
   Acc,
@@ -1661,11 +1799,13 @@ when Op == dot orelse Op == '|' orelse Op == ',' orelse Op == '}' orelse Op == '
   % -type x() :: {y(), fun()}.
   Rest1 = tl(Rest0),
   get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+
 get_end_of_expr([{'fun', LineNum} = Token, {atom, _, _} | _] = Rest0, Acc, _, KeywordStack, Guard) ->
   % 'fun' without 'end'
   % fun local/1
   Rest1 = tl(Rest0),
   get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+
 get_end_of_expr(
   [{'fun', LineNum} = Token, {var, _, _}, {'/', _} | _] = Rest0,
   Acc,
@@ -1677,6 +1817,7 @@ get_end_of_expr(
   % fun X/1
   Rest1 = tl(Rest0),
   get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+
 get_end_of_expr(
   [{'fun', LineNum} = Token, {'?', _}, {var, _, _}, {':', _} | _] = Rest0,
   Acc,
@@ -1688,6 +1829,7 @@ get_end_of_expr(
   % fun ?MACRO:x/1
   Rest1 = tl(Rest0),
   get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+
 get_end_of_expr(
   [{'fun', LineNum} = Token, {'?', _}, {var, _, _}, {'/', _} | _] = Rest0,
   Acc,
@@ -1699,6 +1841,7 @@ get_end_of_expr(
   % fun ?MACRO/1
   Rest1 = tl(Rest0),
   get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+
 get_end_of_expr(
   [{'fun', LineNum} = Token, {var, _, _}, {':', _} | _] = Rest0,
   Acc,
@@ -1710,6 +1853,7 @@ get_end_of_expr(
   % fun Var:x/1
   Rest1 = tl(Rest0),
   get_end_of_expr(Rest1, [Token | Acc], LineNum, KeywordStack, Guard);
+
 get_end_of_expr([{Keyword, LineNum} = Token | Rest], Acc, _, KeywordStack, Guard)
 when ?IS_TERMINATED_KEYWORD(Keyword) ->
   % If a 'fun' keyword gets through to here then we expect it to have an end.
@@ -1718,6 +1862,7 @@ when ?IS_TERMINATED_KEYWORD(Keyword) ->
   % `fun F() -> do_stuff end`
   %
   get_end_of_expr(Rest, [Token | Acc], LineNum, [Keyword | KeywordStack], Guard);
+
 get_end_of_expr([{Open, _} = Token | Rest0], Acc, _, KeywordStack, Guard)
 when ?IS_LIST_OPEN_CHAR(Open) ->
   Close = close_bracket(Open),
@@ -1729,6 +1874,7 @@ when ?IS_LIST_OPEN_CHAR(Open) ->
     KeywordStack,
     Guard
   );
+
 get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _, KeywordStack, Guard) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, Guard);
 get_end_of_expr([{_, LineNum, _} = Token | Rest], Acc, _, KeywordStack, Guard) ->

@@ -20,11 +20,13 @@ format(File, Opts) ->
       try
         case format_code(Code, File, LineLength, Includes, Macros) of
           {ok, Code} -> ok;
+
           {ok, FormattedCode} ->
             case Check of
               true -> {error, <<"Check failed: code needs to be formatted.">>};
               false -> file:write_file(File, FormattedCode)
             end;
+
           {error, _} = Err -> Err
         end
       catch
@@ -55,6 +57,7 @@ format(File, Opts) ->
           };
         {complaint, Reason} -> {error, {complaint, File, Reason}}
       end;
+
     {error, enoent} -> {error, <<"file does not exist">>};
     {error, eisdir} -> {error, <<"that's a directory">>};
     {error, _} = Err -> Err
@@ -106,12 +109,16 @@ format_code(Code, File, LineLength, Includes, Macros) ->
                     true -> {ok, FormattedCode};
                     false -> handle_formatting_error({error, ast_mismatch}, File, FormattedCode)
                   end;
+
                 {error, _} = Err -> handle_formatting_error(Err, File, FormattedCode)
               end;
+
             {error, Msg} -> {error, {File, Msg}}
           end;
+
         {error, _} = Err -> Err
       end;
+
     _ ->
       % Don't check the AST for config files and for files in our ignore list.
       case steamroller_ast:tokens(Code) of

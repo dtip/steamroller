@@ -31,6 +31,7 @@ handle_call(_, _From, State) -> {reply, not_implemented, State}.
 handle_cast({format_file, File, Opts, ReplyPid}, Id) ->
   ReplyPid ! {steamroll, {worker_id, Id}, catch (steamroller:format_file(File, Opts))},
   {noreply, Id};
+
 handle_cast(_, State) -> {noreply, State}.
 
 handle_info(_, State) -> {noreply, State}.
