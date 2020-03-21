@@ -90,12 +90,16 @@ do(State) ->
 
 -spec format_error(any()) -> iolist().
 format_error(Reason) when is_binary(Reason) -> io_lib:format("Steamroller Error: ~s", [Reason]);
+
 format_error({File, Reason}) when is_binary(File) andalso is_binary(Reason) ->
   io_lib:format("Steamroller Error: File: ~s: ~s", [File, Reason]);
+
 format_error({complaint, File, Reason}) when is_binary(File) andalso is_binary(Reason) ->
   io_lib:format("Steamroller Error: File: ~s: ~s", [File, Reason]);
+
 format_error({complaint, File, Reason}) when is_binary(File) ->
   io_lib:format("Steamroller Error: File: ~s: ~p", [File, Reason]);
+
 format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 
 %% ===================================================================
@@ -268,6 +272,7 @@ macros(RebarOpts) ->
   case dict:find(erl_opts, RebarOpts) of
     {ok, ErlOpts} ->
       lists:filtermap(fun ({d, Macro, _}) -> {true, Macro}; (_) -> false end, ErlOpts);
+
     _ -> []
   end.
 

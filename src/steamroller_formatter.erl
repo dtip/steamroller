@@ -42,6 +42,7 @@ format(File, Opts) ->
               >>
             }
           };
+
         {complaint, reached_dot_before_closing_bracket} ->
           {
             error,
@@ -55,6 +56,7 @@ format(File, Opts) ->
               >>
             }
           };
+
         {complaint, Reason} -> {error, {complaint, File, Reason}}
       end;
 
