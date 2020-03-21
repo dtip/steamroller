@@ -63,6 +63,7 @@ format(File, Opts) ->
     {error, _} = Err -> Err
   end.
 
+
 -spec format_code(binary()) -> ok | {error, any()}.
 format_code(Code) ->
   format_code(Code, <<"no_file">>, ?default_line_length, ?default_includes, ?default_macros).
@@ -126,6 +127,7 @@ format_code(Code, File, LineLength, Includes, Macros) ->
         {error, Msg} -> {error, {File, Msg}}
       end
   end.
+
 
 handle_formatting_error({error, _} = Err, File, FormattedCode) ->
   file:write_file(?CRASHDUMP, FormattedCode),

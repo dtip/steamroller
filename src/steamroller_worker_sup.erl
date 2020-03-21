@@ -16,6 +16,7 @@ init(Opts) ->
   Children = [child(Id) || Id <- lists:seq(1, NumWorkers)],
   {ok, {RestartStrategy, Children}}.
 
+
 terminate_children() ->
   CountChildren = supervisor:count_children(?MODULE),
   NumWorkers = proplists:get_value(workers, CountChildren),

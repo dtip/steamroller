@@ -28,6 +28,7 @@ ast(Code, File, Includes, Macros) ->
     {error, _} = Err -> Err
   end.
 
+
 -spec tokens(binary()) -> {ok, tokens()} | {error, binary()}.
 tokens(Code) ->
   case unicode:characters_to_list(Code) of
@@ -40,6 +41,7 @@ tokens(Code) ->
       {ok, Scanned, _} = erl_scan:string(Unicode, 0, [return_comments]),
       {ok, Scanned}
   end.
+
 
 -spec eq(ast(), ast()) -> boolean().
 eq(Ast0, Ast1) -> lists:foldl(fun eq_/2, true, lists:zip(Ast0, Ast1)).
@@ -97,6 +99,7 @@ eq_({{{Type, _}, LeftValue}, {{Type, _}, RightValue}}, true) ->
 eq_({_Left, _Right}, _) ->
   io:format("[error] ast_mismatch\nLeft= ~p\nRight=~p~n", [_Left, _Right]),
   false.
+
 
 check_for_errors([], _) -> ok;
 check_for_errors([{error, Msg} | _], File) -> {error, {File, Msg}};

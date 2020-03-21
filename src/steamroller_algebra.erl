@@ -85,6 +85,7 @@ format_tokens(Tokens, Width) ->
   Doc = generate_doc(Tokens),
   pretty(Doc, Width).
 
+
 % Used for testing.
 -spec from_the_paper(integer(), integer()) -> binary().
 from_the_paper(Width, Indent) ->
@@ -198,6 +199,7 @@ when Spec == spec orelse Spec == callback ->
   Doc1 =
     case PrevTerm of
       function_comment -> newline(Doc0, Doc);
+      broken_function -> newlines(Doc0, newline(text(<<>>), Doc));
       _ -> newlines(Doc0, Doc)
     end,
   generate_doc_(Rest, Doc1, spec);
@@ -212,7 +214,7 @@ generate_doc_([{'-', _}, {atom, _, Type} | Tokens], Doc0, PrevTerm)
 when Type == type orelse Type == opaque ->
   % Type
   % Re-use the function code because the syntax is identical.
-  {Group, Rest} = function(Tokens),
+  {_ForceBreak, Group, Rest} = function(Tokens),
   Spec = cons([text(<<"-">>), text(a2b(Type)), text(<<" ">>), Group]),
   Doc1 =
     case PrevTerm of
@@ -242,13 +244,19 @@ generate_doc_([{'-', _}, {'if' = Atom, _} | Tokens], Doc0, _) ->
 
 generate_doc_([{atom, _, _Atom} | _] = Tokens, Doc0, PrevTerm) ->
   % Function
-  {Group, Rest} = function(Tokens),
+  {ForceBreak, Group, Rest} = function(Tokens),
+  Term =
+    case ForceBreak of
+      force_break -> broken_function;
+      no_force_break -> function
+    end,
   Doc1 =
     case PrevTerm of
       PrevTerm when PrevTerm == function_comment orelse PrevTerm == spec -> newline(Doc0, Group);
+      broken_function -> newlines(Doc0, newline(text(<<>>), Group));
       _ -> newlines(Doc0, Group)
     end,
-  generate_doc_(Rest, Doc1, function);
+  generate_doc_(Rest, Doc1, Term);
 
 generate_doc_([{comment, _, "%%" ++ _ = CommentText} | Rest], Doc0, PrevTerm) ->
   % Module Comment
@@ -268,6 +276,7 @@ generate_doc_([{comment, _, CommentText} | Rest], Doc0, PrevTerm) ->
     case PrevTerm of
       new_file -> cons(Doc0, Comment);
       PrevTerm when PrevTerm == function_comment orelse PrevTerm == spec -> newline(Doc0, Comment);
+      broken_function -> newlines(Doc0, newline(text(<<>>), Comment));
       _ -> newlines(Doc0, Comment)
     end,
   generate_doc_(Rest, Doc1, function_comment);
@@ -317,24 +326,26 @@ attribute(Att, Tokens0) ->
   Tokens1 = [{'(', 0} | AttTokens] ++ [{')', 0}, End | Rest],
   attribute(Att, Tokens1).
 
--spec function(tokens()) -> {doc(), tokens()}.
+
+-spec function(tokens()) -> {force_break(), doc(), tokens()}.
 function(Tokens0) ->
   {FunctionTokens0, Tokens1, Token} = get_until(dot, Tokens0),
   FunctionTokens1 = FunctionTokens0 ++ [Token],
-  Doc =
+  {ForceBreak, Doc} =
     case {get_until('->', FunctionTokens1), get_until('::', FunctionTokens1)} of
       {{_, _, {dot, _}}, {_, _, {dot, _}}} ->
         % This is not actually a function with clauses.
         % We can get here if there is funny code inside an ifdef.
         % Process it as a normal expression.
-        {_End, ForceBreak, Exprs, []} = exprs(FunctionTokens1),
-        force_break(ForceBreak, group(space(Exprs), inherit));
+        {_End, ForceBreak0, Exprs, []} = exprs(FunctionTokens1),
+        {ForceBreak0, force_break(ForceBreak0, group(space(Exprs), inherit))};
 
       _ ->
-        {_ForceBreak, Clauses, []} = clauses(FunctionTokens1),
-        newline(Clauses)
+        {ForceBreak0, Clauses, []} = clauses(FunctionTokens1),
+        {ForceBreak0, newline(Clauses)}
     end,
-  {Doc, Tokens1}.
+  {ForceBreak, Doc, Tokens1}.
+
 
 -spec spec(tokens()) -> {doc(), tokens()}.
 spec(Tokens0) ->
@@ -361,6 +372,7 @@ spec(Tokens0) ->
         )
     end,
   {Doc, Rest}.
+
 
 -spec case_(tokens()) -> {force_break(), doc(), tokens()}.
 case_([{'case', _} | Tokens]) ->
@@ -416,11 +428,13 @@ case_([{'case', _} | Tokens]) ->
   Doc = force_break(ForceBreak, group(space(CaseBody, text(<<"end">>)), inherit)),
   {ForceBreak, Doc, Rest1}.
 
+
 -spec case_arg(tokens()) -> {doc(), force_break(), tokens()}.
 case_arg(Tokens) ->
   {CaseArgTokens, Rest, _} = get_until_of(Tokens),
   {CaseArg, ForceBreak} = case_arg_(CaseArgTokens, no_force_break, empty()),
   {CaseArg, ForceBreak, Rest}.
+
 
 -spec case_arg_(tokens(), force_break(), doc()) -> {doc(), force_break()}.
 case_arg_(CaseArgTokens, ForceBreak, Doc0) ->
@@ -432,6 +446,7 @@ case_arg_(CaseArgTokens, ForceBreak, Doc0) ->
       Comments = comments(Rest),
       {group(space([Doc0, CaseArg | Comments]), inherit), force_break}
   end.
+
 
 -spec if_(tokens()) -> {force_break(), doc(), tokens()}.
 if_([{'if', _} | Tokens]) ->
@@ -449,6 +464,7 @@ if_([{'if', _} | Tokens]) ->
       group(space(nest(?indent, space(text(<<"if">>), GroupedClauses)), text(<<"end">>)), inherit)
     ),
   {ForceBreak, Doc, Rest1}.
+
 
 -spec receive_(tokens()) -> {force_break(), doc(), tokens()}.
 receive_([{'receive', _} | Tokens]) ->
@@ -476,6 +492,7 @@ receive_([{'receive', _} | Tokens]) ->
     ),
   {ForceBreak, Doc, Rest}.
 
+
 -spec after_(tokens()) -> {force_break(), doc()}.
 after_([]) -> {no_force_break, empty()};
 
@@ -490,6 +507,7 @@ after_([{'after', _} | Tokens]) ->
   Doc =
     force_break(ForceBreak, group(nest(?indent, space(text(<<"after">>), GroupedClauses)), inherit)),
   {ForceBreak, Doc}.
+
 
 % 'try' can have an 'of' followed by heads and clauses or it can have no 'of' and instead
 % be followed by expressions.
@@ -576,6 +594,7 @@ try_([{'try', _} | Tokens]) ->
     end,
   {ForceBreak0, Doc0, Rest}.
 
+
 -spec try_catch_(tokens()) -> doc().
 try_catch_([]) -> empty();
 
@@ -591,6 +610,7 @@ try_catch_([{'catch', _} | Tokens]) ->
     force_break(ForceBreak, group(nest(?indent, space(text(<<"catch">>), GroupedClauses)), inherit)),
   Doc.
 
+
 -spec try_after_(tokens()) -> {force_break(), doc()}.
 try_after_([]) -> {no_force_break, empty()};
 
@@ -605,6 +625,7 @@ try_after_([{'after', _} | Tokens]) ->
   Doc =
     force_break(ForceBreak, group(nest(?indent, space(text(<<"after">>), GroupedExprs)), inherit)),
   {ForceBreak, Doc}.
+
 
 -spec fun_(tokens()) -> {force_break(), doc(), tokens()}.
 fun_([{'fun', _} | Tokens]) ->
@@ -652,6 +673,7 @@ fun_([{'fun', _} | Tokens]) ->
     end,
   {ForceBreak, Doc, Rest}.
 
+
 -spec mfa_module(token()) -> doc().
 mfa_module({atom, _, M}) -> text(a2b(M));
 mfa_module({var, _, M}) -> text(v2b(M)).
@@ -684,12 +706,14 @@ begin_([{'begin', _} | Tokens]) ->
     ),
   {ForceBreak, group(Doc), Rest}.
 
+
 -spec when_(tokens()) -> {dot | ';' | empty, force_break(), doc()}.
 when_([{'when', _} | Tokens]) ->
   case is_attribute(Tokens) of
     true -> attribute_when_(Tokens, no_force_break, []);
     false -> function_when_(Tokens, no_force_break, [])
   end.
+
 
 -spec attribute_when_(tokens(), force_break(), list(doc())) ->
   {dot | ';' | empty, force_break(), doc()}.
@@ -699,6 +723,7 @@ attribute_when_(Tokens, ForceBreak0, Acc) ->
   ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
   Doc = group(cons(text(<<"when ">>), underneath(0, group(Expr, inherit)))),
   {End, ForceBreak1, Doc}.
+
 
 -spec function_when_(tokens(), force_break(), list(doc())) ->
   {dot | ';' | empty, force_break(), doc()}.
@@ -714,6 +739,7 @@ function_when_(Tokens, ForceBreak0, Acc) ->
       ForceBreak1 = resolve_force_break([ForceBreak, ForceBreak0]),
       {End, ForceBreak1, Doc}
   end.
+
 
 -spec is_attribute(tokens()) -> boolean().
 is_attribute([]) -> false;
@@ -734,6 +760,7 @@ handle_trailing_comments({ForceBreak, Clauses, []}) -> {ForceBreak, Clauses};
 handle_trailing_comments({_, Clauses, Comments}) ->
   CommentDocs = comments(Comments),
   {force_break, Clauses ++ CommentDocs}.
+
 
 -spec handle_trailing_expr_comments({empty, force_break(), list(doc()), tokens()}) ->
   {empty, force_break(), list(doc())}.
@@ -765,6 +792,7 @@ list_group([{Open, _} | Rest0]) when ?IS_LIST_OPEN_CHAR(Open) ->
       throw({complaint, reached_dot_before_closing_bracket})
   end.
 
+
 -spec brackets(tokens(), binary(), binary()) -> {force_break(), doc()}.
 brackets([], Open, Close) -> {no_force_break, group(cons(text(Open), text(Close)))};
 
@@ -776,6 +804,7 @@ brackets(Tokens, Open, Close) ->
     ),
   {ForceBreak, Doc}.
 
+
 -spec list_elements(tokens()) -> {force_break(), doc()}.
 list_elements(Tokens) -> list_elements(Tokens, empty(), no_force_break).
 
@@ -785,6 +814,7 @@ list_elements([], Doc, ForceBreak) -> {ForceBreak, Doc};
 list_elements(Tokens, Doc, ForceBreak0) ->
   {_End, ForceBreak1, Expr, Rest} = expr(Tokens, ForceBreak0),
   list_elements(Rest, space(Doc, group(Expr)), ForceBreak1).
+
 
 -spec clauses(tokens()) -> {force_break(), list(doc()), tokens()}.
 clauses([]) -> {no_force_break, [empty()], []};
@@ -812,6 +842,7 @@ clauses(Tokens, Acc0, ForceBreaks0) ->
       ForceBreak = resolve_force_break(ForceBreaks1),
       {ForceBreak, lists:reverse(Acc1), Rest0}
   end.
+
 
 -spec head_and_clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 head_and_clause([]) -> {done, force_break, empty(), []};
@@ -873,6 +904,7 @@ head_and_clause(Rest0, Doc0) ->
   Group = force_break(ForceBreak, group(space(Exprs), inherit)),
   head_and_clause(Leftovers ++ [Token | Rest1], space(Doc0, Group)).
 
+
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
 clause(Tokens) ->
   {End, ForceBreak, Exprs, Rest} = exprs(Tokens),
@@ -890,6 +922,7 @@ clause(Tokens) ->
       {Continue, force_break, space(Exprs), Rest}
   end.
 
+
 % Get a list of expressions.
 -spec exprs(tokens()) -> {dot | ';' | empty, force_break(), list(doc()), tokens()}.
 exprs(Tokens) -> exprs(Tokens, [], no_force_break).
@@ -904,12 +937,14 @@ exprs(Tokens, Acc0, ForceBreak0) ->
     _ -> {End, ForceBreak1, lists:reverse(Acc1), Rest}
   end.
 
+
 -spec expr(tokens(), force_break()) ->
   {dot | ';' | ',' | empty | comment, force_break(), doc(), tokens()}.
 expr(Tokens, ForceBreak0) ->
   {ExprTokens, Rest} = get_end_of_expr(Tokens),
   {End, ForceBreak1, Expr} = expr_(ExprTokens, empty(), ForceBreak0),
   {End, ForceBreak1, group(Expr), Rest}.
+
 
 -spec expr_(tokens(), doc(), force_break()) ->
   {dot | ';' | ',' | empty | comment, force_break(), doc()}.
@@ -1217,7 +1252,7 @@ expr_(
 )
 when ?IS_VALID_MF(M, F) ->
   % Handle function calls to other modules
-  % `module:fuction(Args)`
+  % `module:function(Args)`
   [_, _, _ | Tokens1] = Tokens0,
   {ListForceBreak, ListGroup, Rest} = list_group(Tokens1),
   ForceBreak1 = resolve_force_break([ForceBreak0, ListForceBreak]),
@@ -1440,6 +1475,7 @@ format(W, K, [{I, _, {doc_group, X, _}} | Rest]) ->
     false -> format(W, K, [{I, break, X} | Rest])
   end.
 
+
 -spec fits(integer(), list({integer(), mode(), doc()})) -> boolean().
 fits(W, _) when W < 0 -> false;
 fits(_, []) -> true;
@@ -1645,6 +1681,7 @@ when ?IS_TERMINATED_KEYWORD(Keyword) ->
 get_until(End, [Token | Rest], Acc, BracketStack, KeywordStack) ->
   get_until(End, Rest, [Token | Acc], BracketStack, KeywordStack).
 
+
 -spec get_until_of(tokens()) -> {tokens(), tokens(), token()}.
 get_until_of(Tokens) -> get_until_of(Tokens, [], []).
 
@@ -1663,6 +1700,7 @@ get_until_of([{Op, _} = Token | Rest], Acc, ['try' | Stack]) when Op == 'catch' 
 get_until_of([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_OF_KEYWORD(Keyword) ->
   get_until_of(Rest, [Token | Acc], [Keyword | Stack]);
 get_until_of([Token | Rest], Acc, Stack) -> get_until_of(Rest, [Token | Acc], Stack).
+
 
 -spec get_until_any(list(atom()), tokens()) -> {tokens(), tokens(), token() | not_found}.
 get_until_any(Ends, Tokens) -> get_until_any(Ends, Tokens, [], []).
@@ -1685,6 +1723,7 @@ get_until_any(Ends, [{MaybeEnd, _} = Token | Rest], Acc, [] = Stack) ->
   end;
 
 get_until_any(Ends, [Token | Rest], Acc, Stack) -> get_until_any(Ends, Rest, [Token | Acc], Stack).
+
 
 -spec remove_matching(atom(), atom(), tokens()) -> tokens().
 remove_matching(Start, End, Tokens) -> remove_matching(Start, End, Tokens, [], 0).
@@ -1880,12 +1919,14 @@ get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _, KeywordStack, Guard) ->
 get_end_of_expr([{_, LineNum, _} = Token | Rest], Acc, _, KeywordStack, Guard) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, Guard).
 
+
 -spec resolve_force_break(list(force_break())) -> force_break().
 resolve_force_break(Args) ->
   case lists:any(fun (X) -> X == force_break end, Args) of
     true -> force_break;
     false -> no_force_break
   end.
+
 
 -spec is_bool_list(tokens()) -> boolean().
 is_bool_list(Tokens) -> is_bool_list(Tokens, []).

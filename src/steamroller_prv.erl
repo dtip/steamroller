@@ -42,6 +42,7 @@ init(State) ->
     ),
   {ok, rebar_state:add_provider(State, Provider)}.
 
+
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
   % No idea why a two-element tuple is returned here.
@@ -86,6 +87,7 @@ do(State) ->
       {error, format_error(Err)}
   end.
 
+
 -spec format_error(any()) -> iolist().
 format_error(Reason) when is_binary(Reason) -> io_lib:format("Steamroller Error: ~s", [Reason]);
 format_error({File, Reason}) when is_binary(File) andalso is_binary(Reason) ->
@@ -110,6 +112,7 @@ format_apps([App | Rest], Opts) ->
   end;
 
 format_apps([], _) -> ok.
+
 
 find_root_files(Dir, Input) ->
   [list_to_binary(filename:join(Dir, File)) || File <- filelib:wildcard(Input, Dir)].
@@ -157,6 +160,7 @@ format_files(Files, Opts) ->
     ok -> format_files_(AvailableWorkers, J, OtherFiles, Opts);
     Err -> Err
   end.
+
 
 format_files_([Worker | Workers], J, [File | Rest], Opts) ->
   rebar_api:debug("Steamrolling file: ~s", [File]),
@@ -243,6 +247,7 @@ format_files_(Workers0, J, Files, Opts) ->
       end
   end.
 
+
 cleanup_temp_files() -> [file:delete(File) || File <- filelib:wildcard("steamroller_temp_*", ".")].
 
 includes(RebarOpts, State, ArgOpts) ->
@@ -258,12 +263,14 @@ includes(RebarOpts, State, ArgOpts) ->
     end,
   [RootInclude, Deps | Src] ++ DepIncludes ++ ExtraIncludes.
 
+
 macros(RebarOpts) ->
   case dict:find(erl_opts, RebarOpts) of
     {ok, ErlOpts} ->
       lists:filtermap(fun ({d, Macro, _}) -> {true, Macro}; (_) -> false end, ErlOpts);
     _ -> []
   end.
+
 
 maybe_set_indent(Opts) ->
   case proplists:get_value(indent, Opts) of

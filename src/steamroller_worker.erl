@@ -34,6 +34,7 @@ handle_cast({format_file, File, Opts, ReplyPid}, Id) ->
 
 handle_cast(_, State) -> {noreply, State}.
 
+
 handle_info(_, State) -> {noreply, State}.
 
 %% Internal
