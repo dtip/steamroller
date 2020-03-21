@@ -774,9 +774,15 @@ handle_trailing_expr_comments({empty, _, Exprs, Comments}) ->
 %% Generic Erlang Expressions
 %%
 
--spec equation(doc(), doc(), force_break()) -> doc().
-equation(Equals, Expr, ForceBreak) ->
-  group(nest(?indent, force_break(ForceBreak, group(space(Equals, group(Expr)), inherit)))).
+-spec equation(doc(), doc(), doc(), force_break()) -> doc().
+equation(Doc0, Equals, Expr, ForceBreak) ->
+  Equation =
+    group(nest(?indent, force_break(ForceBreak, group(space(Equals, group(Expr)), inherit)))),
+  case Doc0 of
+    doc_nil -> Equation;
+    _ -> group(cons([Doc0, text(?sp), Equation]))
+  end.
+
 
 -spec list_group(tokens()) -> {force_break(), doc(), tokens()}.
 list_group([{Open, _} | Rest0]) when ?IS_LIST_OPEN_CHAR(Open) ->
@@ -1261,14 +1267,12 @@ when ?IS_VALID_MF(M, F) ->
 
 expr_(
   [
-      {M, LineNum, _} = Module,
-      {':', LineNum},
-      {'?', LineNum},
-      {F, LineNum, _} = Function,
-      {'(', LineNum} | _
-    ]
-    =
-    Tokens0,
+    {M, LineNum, _} = Module,
+    {':', LineNum},
+    {'?', LineNum},
+    {F, LineNum, _} = Function,
+    {'(', LineNum} | _
+  ] = Tokens0,
   Doc0,
   ForceBreak0
 )
@@ -1335,7 +1339,7 @@ expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
   % Handle things like
   % Arg3 =
   %     Arg1 + Arg2,
-  Equals = group(space(Doc0, text(op2b(C)))),
+  Equals = text(op2b(C)),
   case is_bool_list(Rest0) of
     true ->
       case get_until_any(['andalso', 'orelse'], Rest0) of
@@ -1349,14 +1353,14 @@ expr_([{C, _} | Rest0], Doc0, ForceBreak0) when ?IS_EQUALS(C) ->
           % then we want to group each term individually rather than grouping everything
           % after the `==`.
           {_End, RestForceBreak, Expr} = expr_(Tokens, empty(), no_force_break),
-          Equation = equation(Equals, Expr, RestForceBreak),
+          Equation = equation(Doc0, Equals, Expr, RestForceBreak),
           ForceBreak1 = resolve_force_break([ForceBreak0, RestForceBreak]),
           expr_([EndToken | Rest1], Equation, ForceBreak1)
       end;
 
     false ->
       {End, RestForceBreak, Expr} = expr_(Rest0, empty(), no_force_break),
-      Equation = equation(Equals, Expr, RestForceBreak),
+      Equation = equation(Doc0, Equals, Expr, RestForceBreak),
       ForceBreak1 = resolve_force_break([ForceBreak0, RestForceBreak]),
       {End, ForceBreak1, Equation}
   end;
@@ -1498,7 +1502,7 @@ sdoc_to_string({s_text, String, Doc}) ->
   DocString = sdoc_to_string(Doc),
   <<String/binary, DocString/binary>>;
 
-sdoc_to_string({s_line, _Indent, {s_text, <<"">>, Doc}}) ->
+sdoc_to_string({s_line, _Indent, {s_text, <<"">>, {s_line, _, _} = Doc}}) ->
   DocString = sdoc_to_string(Doc),
   <<"\n", DocString/binary>>;
 

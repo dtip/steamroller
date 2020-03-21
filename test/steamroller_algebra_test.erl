@@ -608,6 +608,21 @@ function_head_pattern_match_test_() ->
     ?_assertEqual(Expect2, Result2)
   ].
 
+
+function_head_long_pattern_match_test_() ->
+  {ok, Tokens} = steamroller_ast:tokens(<<"long_foo([foo, bar, baz] = Y) -> Y.">>),
+  Expect0 = <<"long_foo([foo, bar, baz] = Y) -> Y.\n">>,
+  Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+  Expect1 = <<"long_foo(\n  [\n    foo,\n    bar,\n    baz\n  ] = Y\n) ->\n  Y.\n">>,
+  Result1 = steamroller_algebra:format_tokens(Tokens, 15),
+  Expect2 = <<"long_foo(\n  [\n    foo,\n    bar,\n    baz\n  ] = Y\n) ->\n  Y.\n">>,
+  Result2 = steamroller_algebra:format_tokens(Tokens, 10),
+  [
+    ?_assertEqual(Expect0, Result0),
+    ?_assertEqual(Expect1, Result1),
+    ?_assertEqual(Expect2, Result2)
+  ].
+
 %%
 %% Attribute
 %%
