@@ -1153,11 +1153,11 @@ expr_([{var, LineNum, Var}, {'#', LineNum}, {'{', LineNum} | _] = Tokens0, Doc, 
   Map = group(cons([text(v2b(Var)), text(<<"#">>), ListGroup])),
   expr_(Rest, space(Doc, Map), ForceBreak1);
 
-expr_([{var, _, Var}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
+expr_([{'/', _}, {atom, _, Atom} | Rest], Doc0, ForceBreak) ->
   % Handle binary matching
   % <<Thing/binary>>
-  TermDoc = cons([text(v2b(Var)), text(<<"/">>), text(a2b(Atom))]),
-  expr_(Rest, space(Doc, TermDoc), ForceBreak);
+  Doc1 = cons([Doc0, text(<<"/">>), text(a2b(Atom))]),
+  expr_(Rest, Doc1, ForceBreak);
 
 expr_([{string, _, String}, {'/', _}, {atom, _, Atom} | Rest], Doc, ForceBreak) ->
   % Handle binary literals

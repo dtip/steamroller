@@ -200,6 +200,25 @@ complex_binary_arg_test_() ->
   ].
 
 
+binary_arg_brackets_test_() ->
+  {ok, Tokens0} = steamroller_ast:tokens(<<"foo(X) -> <<(base62_encode_char(X))/integer>>.">>),
+  Expect0 = <<"foo(X) -> <<(base62_encode_char(X))/integer>>.\n">>,
+  Result0 = steamroller_algebra:format_tokens(Tokens0, 100),
+  {ok, Tokens1} =
+    steamroller_ast:tokens(<<"foo(X, Y) -> <<(base62_encode_char(X))/integer, Y/binary>>.">>),
+  Expect1 = <<"foo(X, Y) -> <<(base62_encode_char(X))/integer, Y/binary>>.\n">>,
+  Result1 = steamroller_algebra:format_tokens(Tokens1, 100),
+  {ok, Tokens2} =
+    steamroller_ast:tokens(<<"foo(X, Y) -> <<Y/binary, (base62_encode_char(X))/integer>>.">>),
+  Expect2 = <<"foo(X, Y) -> <<Y/binary, (base62_encode_char(X))/integer>>.\n">>,
+  Result2 = steamroller_algebra:format_tokens(Tokens2, 100),
+  [
+    ?_assertEqual(Expect0, Result0),
+    ?_assertEqual(Expect1, Result1),
+    ?_assertEqual(Expect2, Result2)
+  ].
+
+
 binary_size_integer_test_() ->
   {ok, Tokens} = steamroller_ast:tokens(<<"foo(X, Size) -> <<Y:Size/binary, _/binary>> = X, Y.">>),
   Expect0 = <<"foo(X, Size) ->\n  <<Y:Size/binary, _/binary>> = X,\n  Y.\n">>,
