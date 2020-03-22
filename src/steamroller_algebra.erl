@@ -224,8 +224,7 @@ when Type == type orelse Type == opaque ->
 generate_doc_([{'-', _}, {atom, _, Type} | Tokens], Doc0, PrevTerm)
 when Type == type orelse Type == opaque ->
   % Type
-  % Re-use the function code because the syntax is identical.
-  {_ForceBreak, Group, Rest} = function(Tokens),
+  {_ForceBreak, Group, Rest} = type(Tokens),
   Spec = cons([text(<<"-">>), text(a2b(Type)), text(<<" ">>), Group]),
   Doc1 =
     case PrevTerm of
@@ -345,8 +344,8 @@ function(Tokens0) ->
   {FunctionTokens0, Tokens1, Token} = get_until(dot, Tokens0),
   FunctionTokens1 = FunctionTokens0 ++ [Token],
   {ForceBreak, Doc} =
-    case {get_until('->', FunctionTokens1), get_until('::', FunctionTokens1)} of
-      {{_, _, {dot, _}}, {_, _, {dot, _}}} ->
+    case get_until('->', FunctionTokens1) of
+      {_, _, {dot, _}} ->
         % This is not actually a function with clauses.
         % We can get here if there is funny code inside an ifdef.
         % Process it as a normal expression.
@@ -355,6 +354,26 @@ function(Tokens0) ->
 
       _ ->
         {ForceBreak0, Clauses, []} = clauses(FunctionTokens1),
+        {ForceBreak0, newline(Clauses)}
+    end,
+  {ForceBreak, Doc, Tokens1}.
+
+
+-spec type(tokens()) -> {force_break(), doc(), tokens()}.
+type(Tokens0) ->
+  {FunctionTokens0, Tokens1, Token} = get_until(dot, Tokens0),
+  FunctionTokens1 = FunctionTokens0 ++ [Token],
+  {ForceBreak, Doc} =
+    case get_until('::', FunctionTokens1) of
+      {_, _, {dot, _}} ->
+        % This is not actually a type with clauses.
+        % We can get here if there is funny code inside an ifdef.
+        % Process it as a normal expression.
+        {_End, ForceBreak0, Exprs, []} = exprs(FunctionTokens1),
+        {ForceBreak0, force_break(ForceBreak0, group(space(Exprs), inherit))};
+
+      _ ->
+        {ForceBreak0, Clauses, []} = type_clauses(FunctionTokens1),
         {ForceBreak0, newline(Clauses)}
     end,
   {ForceBreak, Doc, Tokens1}.
@@ -852,6 +871,19 @@ clauses(Tokens, Acc0, ForceBreaks0) ->
   end.
 
 
+-spec type_clauses(tokens()) -> {force_break(), list(doc()), tokens()}.
+type_clauses(Tokens) -> type_clauses(Tokens, [], []).
+
+-spec type_clauses(tokens(), list(doc()), list(force_break())) ->
+  {force_break(), list(doc()), tokens()}.
+type_clauses(Tokens, Acc0, ForceBreaks0) ->
+  {done, ClauseForceBreak, Clause, []} = type_head_and_clause(Tokens, Acc0),
+  Acc1 = [Clause | Acc0],
+  ForceBreaks1 = [ClauseForceBreak | ForceBreaks0],
+  ForceBreak = resolve_force_break(ForceBreaks1),
+  {ForceBreak, lists:reverse(Acc1), []}.
+
+
 -spec head_and_clause(tokens(), list(doc())) -> {continue(), force_break(), doc(), tokens()}.
 head_and_clause([], _) -> {done, force_break, empty(), []};
 head_and_clause(Tokens, PrevClauses) -> head_and_clause(Tokens, PrevClauses, empty()).
@@ -898,15 +930,6 @@ head_and_clause([{'->', _} | Rest0], PrevClauses, Doc0) ->
     end,
   {Continue, ForceBreak, group(Doc1), Rest1};
 
-head_and_clause([{'::', _} | Rest0], _PrevClauses, Doc) ->
-  % Altenative End (for Type definitions)
-  {Continue, ForceBreak, Clause, Rest1} = clause(Rest0),
-  Doc1 =
-    cons([Doc, text(<<" :: ">>), force_break(ForceBreak, underneath(-2, group(Clause, inherit)))]),
-  Doc1 =
-    cons([Doc, text(<<" :: ">>), force_break(ForceBreak, underneath(-2, group(Clause, inherit)))]),
-  {Continue, ForceBreak, Doc1, Rest1};
-
 head_and_clause(Rest0, PrevClauses, Doc0) ->
   {Tokens, Rest1, Token} = get_until('->', Rest0),
   % We expect this to come back with either:
@@ -936,6 +959,97 @@ clause(Tokens) ->
     _ ->
       % Force indentation for multi-expression clauses
       {Continue, force_break, space(Exprs), Rest}
+  end.
+
+
+-spec type_head_and_clause(tokens(), list(doc())) -> {continue(), force_break(), doc(), tokens()}.
+type_head_and_clause([], _) -> {done, force_break, empty(), []};
+type_head_and_clause(Tokens, PrevClauses) -> type_head_and_clause(Tokens, PrevClauses, empty()).
+
+-spec type_head_and_clause(tokens(), list(doc()), doc()) ->
+  {continue(), force_break(), doc(), tokens()}.
+type_head_and_clause([{atom, _, Name} | Rest], PrevClauses, Doc) ->
+  % Name
+  type_head_and_clause(Rest, PrevClauses, cons(Doc, text(a2b(Name))));
+
+type_head_and_clause([{C, _} | _] = Tokens, PrevClauses, Doc) when ?IS_LIST_OPEN_CHAR(C) ->
+  % Args
+  {_ForceBreak, Group, Rest} = list_group(Tokens),
+  type_head_and_clause(Rest, PrevClauses, cons(Doc, Group));
+
+type_head_and_clause([{comment, _Line, Comment} | Rest], _PrevClauses, Doc0) ->
+  % Handle comments between type clauses.
+  {Continue, ForceBreak, Doc1, Tokens} = type_head_and_clause(Rest, []),
+  Doc2 = newline([Doc0, comment(Comment), Doc1]),
+  {Continue, ForceBreak, Doc2, Tokens};
+
+type_head_and_clause([{'::', _} | Rest0], _PrevClauses, Doc0) ->
+  % End
+  {ForceBreak, Doc1} =
+    case type_clause(Rest0) of
+      {ForceBreak0, Clause, leading_comment} ->
+        Doc =
+          cons(
+            [
+              Doc0,
+              force_break(
+                ForceBreak0,
+                underneath(2, space(text(<<" ::">>), group(Clause, inherit)))
+              )
+            ]
+          ),
+        {ForceBreak0, Doc};
+
+      {ForceBreak0, Clause, no_leading_comment} ->
+        Doc =
+          cons(
+            [
+              Doc0,
+              text(<<" :: ">>),
+              force_break(ForceBreak0, underneath(-2, group(Clause, inherit)))
+            ]
+          ),
+        {ForceBreak0, Doc}
+    end,
+  {done, ForceBreak, Doc1, []}.
+
+
+-spec type_clause(tokens()) -> {force_break(), doc(), leading_comment | no_leading_comment}.
+type_clause(Tokens) -> type_clause_(Tokens, [], [], [], no_leading_comment).
+
+type_clause_(Tokens, Pipes, ForceBreaks, Acc, HasLeadingComment0) ->
+  case get_until_any(['|', dot], Tokens) of
+    {Tokens0, [], {dot, _}} ->
+      {empty, ForceBreak, Exprs, []} = exprs(Pipes ++ Tokens0),
+      {
+        resolve_force_break([ForceBreak | ForceBreaks]),
+        cons(space(Acc ++ Exprs), text(?dot)),
+        HasLeadingComment0
+      };
+
+    {Tokens0, Rest, {'|', _} = Pipe} ->
+      {empty, ForceBreak, Exprs, Leftovers} = exprs(Pipes ++ Tokens0),
+      {Exprs0, HasLeadingComment} =
+        case {Acc, Exprs} of
+          {[], [{doc_group, {doc_text, <<"%", _/binary>>}, _} = First | Rest0]} ->
+            % Inject two spaces into second expression for horizontal alignment
+            Rest2 =
+              case Rest0 of
+                [Second | Rest1] -> [cons(text(<<"  ">>), Second) | Rest1];
+                [] -> []
+              end,
+            {[First | Rest2], leading_comment};
+
+          {[], _} -> {Exprs, no_leading_comment};
+          _ -> {Exprs, HasLeadingComment0}
+        end,
+      type_clause_(
+        Leftovers ++ Rest,
+        [Pipe],
+        [ForceBreak | ForceBreaks],
+        Acc ++ Exprs0,
+        HasLeadingComment
+      )
   end.
 
 
