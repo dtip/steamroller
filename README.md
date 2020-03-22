@@ -28,6 +28,14 @@ Then ask it to steamroll your code directly in an existing application:
     ===> Compiling steamroller
     <Steamroller Output>
 
+### CI Check
+
+To check that code is properly formatted as part of your CI:
+
+    $ rebar3 steamroll --check
+
+The exit code will be non-zero if the code has not been formatted before being committed.
+
 ## Configure
 
 Steamroller comes with sensible default configuration. If you want, you can configure the line
@@ -41,6 +49,7 @@ length, indent, and input files from your rebar config:
         {inputs, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]}
       ]
     }.
+
 
 ## Editor Integration
 
@@ -67,14 +76,6 @@ autocmd BufWritePre rebar.config,*.[he]rl,*.app.src Neoformat steamroller
 You can use steamroller from Visual Studio Code with the
 [Erlang Formatter](https://marketplace.visualstudio.com/items?itemName=szTheory.erlang-formatter)
 extension created by [szTheory](https://github.com/szTheory).
-
-## CI
-
-To check that code is properly formatted as part of your CI:
-
-    $ rebar3 steamroll --check
-
-The exit code will be non-zero if the code has not been formatted before being committed.
 
 ## Build
 
