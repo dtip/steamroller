@@ -117,6 +117,7 @@ temp_file(File) ->
            X =:= $-;
            X =:= $. ->
         X;
+
       (_) -> $_
     end,
     Temp

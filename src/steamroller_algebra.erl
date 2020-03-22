@@ -22,9 +22,11 @@
              | {doc_underneath, integer(), doc()}
              | {doc_break, binary()}
              | {doc_group, doc(), inherit()}
+             | {doc_pad_group, doc(), padding(), inherit()}
              | {doc_force_break, doc()}.
 -type sdoc() :: s_nil | {s_text, binary(), sdoc()} | {s_line, binary(), sdoc()}.
 -type mode() :: flat | break.
+-type padding() :: top | bottom | both.
 -type inherit() :: self | inherit.
 -type continue() :: continue | done.
 -type force_break() :: force_break | no_force_break.
@@ -147,6 +149,15 @@ group(D) -> {doc_group, D, self}.
 group(doc_nil, _) -> doc_nil;
 group(D, Inherit) -> {doc_group, D, Inherit}.
 
+-spec pad_group(doc(), inherit()) -> doc().
+pad_group(D, Inherit) -> {doc_pad_group, D, both, Inherit}.
+
+-spec pad_group_top(doc(), inherit()) -> doc().
+pad_group_top(D, Inherit) -> {doc_pad_group, D, top, Inherit}.
+
+-spec pad_group_bottom(doc(), inherit()) -> doc().
+pad_group_bottom(D, Inherit) -> {doc_pad_group, D, bottom, Inherit}.
+
 %%
 %% Operators
 %%
@@ -230,8 +241,10 @@ generate_doc_([{'-', _}, {atom, _, Atom} | Tokens], Doc0, PrevTerm) ->
     case {Atom, PrevTerm} of
       {_, function_comment} -> newline(Doc0, Group);
       {Atom, {attribute, Atom}} -> newline(Doc0, Group);
+
       {define, {attribute, IfDef}} when IfDef == ifdef orelse IfDef == else orelse IfDef == 'if' ->
         newline(Doc0, Group);
+
       {IfDef, {attribute, define}} when IfDef == else orelse IfDef == endif -> newline(Doc0, Group);
       _ -> newlines(Doc0, Group)
     end,
@@ -419,6 +432,7 @@ case_([{'case', _} | Tokens]) ->
             )
           )
         );
+
       no_force_break ->
         cons(
           group(space(text(<<"case">>), CaseArg)),
@@ -606,9 +620,7 @@ try_catch_([{'catch', _} | Tokens]) ->
       false -> CatchForceBreak
     end,
   GroupedClauses = force_break(ForceBreak, group(space(Clauses), inherit)),
-  Doc =
-    force_break(ForceBreak, group(nest(?indent, space(text(<<"catch">>), GroupedClauses)), inherit)),
-  Doc.
+  force_break(ForceBreak, group(nest(?indent, space(text(<<"catch">>), GroupedClauses)), inherit)).
 
 
 -spec try_after_(tokens()) -> {force_break(), doc()}.
@@ -828,21 +840,11 @@ clauses(Tokens) -> clauses(Tokens, [], []).
 
 -spec clauses(tokens(), list(doc()), list(force_break())) -> {force_break(), list(doc()), tokens()}.
 clauses(Tokens, Acc0, ForceBreaks0) ->
-  {Continue, ClauseForceBreak, Clause, Rest0} = head_and_clause(Tokens),
-  Acc1 =
-    case {ForceBreaks0, ClauseForceBreak} of
-      {[no_force_break | _], force_break} -> [Clause, text(<<>>) | Acc0];
-      _ -> [Clause | Acc0]
-    end,
+  {Continue, ClauseForceBreak, Clause, Rest0} = head_and_clause(Tokens, Acc0),
+  Acc1 = [Clause | Acc0],
   ForceBreaks1 = [ClauseForceBreak | ForceBreaks0],
   case Continue of
-    continue ->
-      Acc2 =
-        case ClauseForceBreak of
-          force_break -> [text(<<>>) | Acc1];
-          no_force_break -> Acc1
-        end,
-      clauses(Rest0, Acc2, ForceBreaks1);
+    continue -> clauses(Rest0, Acc1, ForceBreaks1);
 
     done ->
       ForceBreak = resolve_force_break(ForceBreaks1),
@@ -850,45 +852,53 @@ clauses(Tokens, Acc0, ForceBreaks0) ->
   end.
 
 
--spec head_and_clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
-head_and_clause([]) -> {done, force_break, empty(), []};
-head_and_clause(Tokens) -> head_and_clause(Tokens, empty()).
+-spec head_and_clause(tokens(), list(doc())) -> {continue(), force_break(), doc(), tokens()}.
+head_and_clause([], _) -> {done, force_break, empty(), []};
+head_and_clause(Tokens, PrevClauses) -> head_and_clause(Tokens, PrevClauses, empty()).
 
--spec head_and_clause(tokens(), doc()) -> {continue(), force_break(), doc(), tokens()}.
-head_and_clause([{'?', _} | _] = Tokens, doc_nil) ->
+-spec head_and_clause(tokens(), list(doc()), doc()) -> {continue(), force_break(), doc(), tokens()}.
+head_and_clause([{'?', _} | _] = Tokens, PrevClauses, doc_nil) ->
   % Macro
   case lists:any(fun ({'->', _}) -> true; (_) -> false end, Tokens) of
     true ->
       % This is a hack so the doc_nil above no longer matches.
-      head_and_clause(Tokens, cons(empty(), empty()));
+      head_and_clause(Tokens, PrevClauses, cons(empty(), empty()));
 
     false -> clause(Tokens)
   end;
 
-head_and_clause([{atom, _, Name} | Rest], Doc) ->
+head_and_clause([{atom, _, Name} | Rest], PrevClauses, Doc) ->
   % Name
-  head_and_clause(Rest, cons(Doc, text(a2b(Name))));
+  head_and_clause(Rest, PrevClauses, cons(Doc, text(a2b(Name))));
 
-head_and_clause([{C, _} | _] = Tokens, Doc) when ?IS_LIST_OPEN_CHAR(C) ->
+head_and_clause([{C, _} | _] = Tokens, PrevClauses, Doc) when ?IS_LIST_OPEN_CHAR(C) ->
   % Args
   {_ForceBreak, Group, Rest} = list_group(Tokens),
-  head_and_clause(Rest, cons(Doc, Group));
+  head_and_clause(Rest, PrevClauses, cons(Doc, Group));
 
-head_and_clause([{comment, _, Comment} | Rest], Doc0) ->
+head_and_clause([{comment, _, Comment} | Rest], _PrevClauses, Doc0) ->
   % Handle any comments between function clauses.
-  {Continue, ForceBreak, Doc1, Tokens} = head_and_clause(Rest),
+  {Continue, ForceBreak, Doc1, Tokens} = head_and_clause(Rest, []),
   Doc2 = newline([Doc0, comment(Comment), Doc1]),
   {Continue, ForceBreak, Doc2, Tokens};
 
-head_and_clause([{'->', _} | Rest0], Doc0) ->
+head_and_clause([{'->', _} | Rest0], PrevClauses, Doc0) ->
   % End
   {Continue, ForceBreak, Clause, Rest1} = clause(Rest0),
   ClauseGroup =
     force_break(ForceBreak, nest(?indent, group(space(text(<<" ->">>), Clause), inherit))),
-  Doc1 = group(cons(group(Doc0), ClauseGroup)),
-  {Continue, ForceBreak, Doc1, Rest1};
+  Doc1 =
+    case {Continue, PrevClauses} of
+      {continue, []} ->
+        force_break(ForceBreak, pad_group_bottom(cons(group(Doc0), ClauseGroup), inherit));
 
-head_and_clause([{'::', _} | Rest0], Doc) ->
+      {done, []} -> cons(group(Doc0), ClauseGroup);
+      {done, _} -> force_break(ForceBreak, pad_group_top(cons(group(Doc0), ClauseGroup), inherit));
+      _ -> force_break(ForceBreak, pad_group(cons(group(Doc0), ClauseGroup), inherit))
+    end,
+  {Continue, ForceBreak, group(Doc1), Rest1};
+
+head_and_clause([{'::', _} | Rest0], _PrevClauses, Doc) ->
   % Altenative End (for Type definitions)
   {Continue, ForceBreak, Clause, Rest1} = clause(Rest0),
   Doc1 =
@@ -897,7 +907,7 @@ head_and_clause([{'::', _} | Rest0], Doc) ->
     cons([Doc, text(<<" :: ">>), force_break(ForceBreak, underneath(-2, group(Clause, inherit)))]),
   {Continue, ForceBreak, Doc1, Rest1};
 
-head_and_clause(Rest0, Doc0) ->
+head_and_clause(Rest0, PrevClauses, Doc0) ->
   {Tokens, Rest1, Token} = get_until('->', Rest0),
   % We expect this to come back with either:
   % End = empty and Rest = []
@@ -908,7 +918,7 @@ head_and_clause(Rest0, Doc0) ->
   % if X =:= test; X =:= other ->
   {_End, ForceBreak, Exprs, Leftovers} = exprs(Tokens),
   Group = force_break(ForceBreak, group(space(Exprs), inherit)),
-  head_and_clause(Leftovers ++ [Token | Rest1], space(Doc0, Group)).
+  head_and_clause(Leftovers ++ [Token | Rest1], PrevClauses, space(Doc0, Group)).
 
 
 -spec clause(tokens()) -> {continue(), force_break(), doc(), tokens()}.
@@ -1405,12 +1415,16 @@ expr_([{atom, _, Atom}, {'/', _}, {integer, _, Int} | Rest], Doc, ForceBreak) ->
 
 expr_([{atom, _, Atom} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(a2b(Atom))), ForceBreak);
+
 expr_([{var, _, Var} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(v2b(Var))), ForceBreak);
+
 expr_([{integer, _, Integer} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(i2b(Integer))), ForceBreak);
+
 expr_([{float, _, Float} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(f2b(Float))), ForceBreak);
+
 expr_([{string, _, Var} | Rest], Doc, ForceBreak) ->
   expr_(Rest, space(Doc, text(s2b(Var))), ForceBreak);
 
@@ -1438,6 +1452,7 @@ expr_([{'|' = Op, _} | Rest0], Doc, ForceBreak0) ->
 
 expr_([{comment, _, Comment}], Doc, _ForceBreak) ->
   {comment, force_break, space(Doc, comment(Comment))};
+
 expr_([{comment, _, Comment} | Rest], Doc, _ForceBreak) ->
   expr_(Rest, space(Doc, comment(Comment)), force_break);
 
@@ -1467,9 +1482,293 @@ format(W, K, [{_, _, {doc_text, S}} | Rest]) -> {s_text, S, format(W, K + byte_s
 format(W, _, [{I, flat, {doc_break, ?nl}} | Rest]) -> {s_text, ?nl, format(W, I, Rest)};
 format(W, _, [{I, flat, {doc_break, ?two_nl}} | Rest]) -> {s_text, ?two_nl, format(W, I, Rest)};
 format(W, K, [{_, flat, {doc_break, S}} | Rest]) -> {s_text, S, format(W, K + byte_size(S), Rest)};
+
 format(W, _, [{I, break, {doc_break, ?two_nl}} | Rest]) ->
   {s_line, 0, {s_line, I, format(W, I, Rest)}};
+
 format(W, _, [{I, break, {doc_break, _}} | Rest]) -> {s_line, I, format(W, I, Rest)};
+%
+% Lookahead.
+% If this group has bottom padding and doesn't fit and the next group has top padding and doesn't
+% fit, we want the skip the bottom padding for this group else we'll get double padding.
+format(
+  W,
+  K,
+  [
+    {I, _, {doc_group, {doc_pad_group, X, Padding, _}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_cons, {doc_group, {doc_pad_group, Y, LookaheadPadding, _}, self}, _}
+      }
+    } = Next | Rest0
+  ]
+)
+when (Padding == bottom orelse Padding == both)
+     andalso (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  Rest = [Next | Rest0],
+  fiddle_padding(W, K, I, X, Padding, Y, Rest);
+
+format(
+  W,
+  K,
+  [
+    {I, _, {doc_group, {doc_pad_group, X, Padding, _}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_cons, {doc_group, {doc_force_break, {doc_pad_group, _, LookaheadPadding, _}}, self}, _}
+      }
+    } = Next | Rest0
+  ]
+)
+when (Padding == bottom orelse Padding == both)
+     andalso (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  Rest = [Next | Rest0],
+  case fits(W - K, [{I, flat, X}]) of
+    true -> format(W, K, [{I, flat, X} | Rest]);
+
+    false ->
+      case Padding of
+        both -> format(W, K, pad(I, X, top) ++ Rest);
+        bottom -> format(W, K, [{I, break, X} | Rest])
+      end
+  end;
+
+format(
+  W,
+  K,
+  [
+    {I, _, {doc_group, {doc_pad_group, X, Padding, _}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_group, {doc_force_break, {doc_pad_group, _, LookaheadPadding, _}}, self}
+      }
+    } = Next | Rest0
+  ]
+)
+when (Padding == bottom orelse Padding == both)
+     andalso (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  Rest = [Next | Rest0],
+  case fits(W - K, [{I, flat, X}]) of
+    true -> format(W, K, [{I, flat, X} | Rest]);
+
+    false ->
+      case Padding of
+        both -> format(W, K, pad(I, X, top) ++ Rest);
+        bottom -> format(W, K, [{I, break, X} | Rest])
+      end
+  end;
+
+% More Lookahead
+format(
+  W,
+  K,
+  [
+    {I, _, {doc_group, {doc_pad_group, X, Padding, _}, self}},
+    {_, _, {doc_cons, {doc_break, _}, {doc_group, {doc_pad_group, Y, LookaheadPadding, _}, self}}} =
+      Next | Rest0
+  ]
+)
+when (Padding == bottom orelse Padding == both)
+     andalso (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  Rest = [Next | Rest0],
+  fiddle_padding(W, K, I, X, Padding, Y, Rest);
+
+% ForceBreak Lookahead
+format(
+  W,
+  K,
+  [
+    {I, M, {doc_group, {doc_force_break, {doc_pad_group, X, bottom, Inherit}}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_group, {doc_force_break, {doc_pad_group, _, LookaheadPadding, _}}, self}
+      }
+    } = Next | Rest0
+  ]
+)
+when (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  % Both broken, so skip bottom padding for this one.
+  format(W, K, [{I, M, {doc_force_break, {doc_group, X, Inherit}}}, Next | Rest0]);
+
+format(
+  W,
+  K,
+  [
+    {I, M, {doc_group, {doc_force_break, {doc_pad_group, X, bottom, Inherit}}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_cons, {doc_group, {doc_force_break, {doc_pad_group, _, LookaheadPadding, _}}, self}, _}
+      }
+    } = Next | Rest0
+  ]
+)
+when (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  % Both broken, so skip bottom padding for this one.
+  format(W, K, [{I, M, {doc_force_break, {doc_group, X, Inherit}}}, Next | Rest0]);
+
+% ForceBreak Lookahead
+format(
+  W,
+  K,
+  [
+    {I, M, {doc_group, {doc_force_break, {doc_pad_group, X, both, Inherit}}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_group, {doc_force_break, {doc_pad_group, _, LookaheadPadding, _}}, self}
+      }
+    } = Next | Rest0
+  ]
+)
+when (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  % Both broken, so skip bottom padding for this one.
+  format(W, K, [{I, M, {doc_force_break, {doc_pad_group, X, top, Inherit}}}, Next | Rest0]);
+
+format(
+  W,
+  K,
+  [
+    {I, M, {doc_group, {doc_force_break, {doc_pad_group, X, both, Inherit}}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_cons, {doc_group, {doc_force_break, {doc_pad_group, _, LookaheadPadding, _}}, self}, _}
+      }
+    } = Next | Rest0
+  ]
+)
+when (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  % Both broken, so skip bottom padding for this one.
+  format(W, K, [{I, M, {doc_force_break, {doc_pad_group, X, top, Inherit}}}, Next | Rest0]);
+
+% More ForceBreak Lookahead
+format(
+  W,
+  K,
+  [
+    {I, M, {doc_group, {doc_force_break, {doc_pad_group, X, bottom, Inherit}}, self}},
+    {_, _, {doc_cons, {doc_break, _}, {doc_group, {doc_pad_group, Y, LookaheadPadding, _}, self}}} =
+      Next | Rest0
+  ]
+)
+when (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  Rest = [Next | Rest0],
+  case fits(W - K, [{I, flat, Y}]) of
+    true ->
+      % Keep padding
+      format(W, K, pad(I, X, bottom) ++ Rest);
+
+    false ->
+      % Remove bottom padding
+      format(W, K, [{I, M, {doc_force_break, {doc_group, X, Inherit}}} | Rest])
+  end;
+
+% More ForceBreak Lookahead
+format(
+  W,
+  K,
+  [
+    {I, M, {doc_group, {doc_force_break, {doc_pad_group, X, both, Inherit}}, self}},
+    {_, _, {doc_cons, {doc_break, _}, {doc_group, {doc_pad_group, Y, LookaheadPadding, _}, self}}} =
+      Next | Rest0
+  ]
+)
+when (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  Rest = [Next | Rest0],
+  case fits(W - K, [{I, flat, Y}]) of
+    true ->
+      % Keep padding
+      format(W, K, pad(I, X, both) ++ Rest);
+
+    false ->
+      % Remove bottom padding
+      format(W, K, [{I, M, {doc_force_break, {doc_pad_group, X, top, Inherit}}} | Rest])
+  end;
+
+% Even More ForceBreak Lookahead
+format(
+  W,
+  K,
+  [
+    {I, M, {doc_group, {doc_force_break, {doc_pad_group, X, bottom, Inherit}}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_cons, {doc_group, {doc_pad_group, Y, LookaheadPadding, _}, self}, _}
+      }
+    } = Next | Rest0
+  ]
+)
+when (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  Rest = [Next | Rest0],
+  case fits(W - K, [{I, flat, Y}]) of
+    true ->
+      % Keep padding
+      format(W, K, pad(I, X, bottom) ++ Rest);
+
+    false ->
+      % Remove bottom padding
+      format(W, K, [{I, M, {doc_force_break, {doc_group, X, Inherit}}} | Rest])
+  end;
+
+% Even More ForceBreak Lookahead
+format(
+  W,
+  K,
+  [
+    {I, M, {doc_group, {doc_force_break, {doc_pad_group, X, both, Inherit}}, self}},
+    {
+      _,
+      _,
+      {
+        doc_cons,
+        {doc_break, _},
+        {doc_cons, {doc_group, {doc_pad_group, Y, LookaheadPadding, _}, self}, _}
+      }
+    } = Next | Rest0
+  ]
+)
+when (LookaheadPadding == top orelse LookaheadPadding == both) ->
+  Rest = [Next | Rest0],
+  case fits(W - K, [{I, flat, Y}]) of
+    true ->
+      % Keep padding
+      format(W, K, pad(I, X, both) ++ Rest);
+
+    false ->
+      % Remove bottom padding
+      format(W, K, [{I, M, {doc_force_break, {doc_pad_group, X, top, Inherit}}} | Rest])
+  end;
+
 format(W, K, [{I, _, {doc_force_break, X}} | Rest]) -> format(W, K, [{I, break, X} | Rest]);
 format(W, K, [{I, break, {doc_group, X, inherit}} | Rest]) -> format(W, K, [{I, break, X} | Rest]);
 
@@ -1477,6 +1776,33 @@ format(W, K, [{I, _, {doc_group, X, _}} | Rest]) ->
   case fits(W - K, [{I, flat, X}]) of
     true -> format(W, K, [{I, flat, X} | Rest]);
     false -> format(W, K, [{I, break, X} | Rest])
+  end;
+
+format(W, K, [{I, break, {doc_pad_group, X, Padding, inherit}} | Rest]) ->
+  format(W, K, pad(I, X, Padding) ++ Rest);
+
+format(W, K, [{I, _, {doc_pad_group, X, Padding, _}} | Rest]) ->
+  case fits(W - K, [{I, flat, X}]) of
+    true -> format(W, K, [{I, flat, X} | Rest]);
+    false -> format(W, K, pad(I, X, Padding) ++ Rest)
+  end.
+
+
+-spec pad(integer(), doc(), padding()) -> list({integer(), mode(), doc()}).
+pad(I, X, top) -> [{I, break, {doc_break, ?nl}}, {I, break, X}];
+pad(I, X, bottom) -> [{I, break, X}, {I, flat, {doc_break, ?nl}}];
+pad(I, X, both) -> [{I, break, {doc_break, ?nl}}, {I, break, X}, {I, flat, {doc_break, ?nl}}].
+
+fiddle_padding(W, K, I, X, Padding, Y, Rest) ->
+  case {fits(W - K, [{I, flat, X}]), fits(W - K, [{I, flat, Y}])} of
+    {true, _} -> format(W, K, [{I, flat, X} | Rest]);
+    {false, true} -> format(W, K, pad(I, X, Padding) ++ Rest);
+
+    {false, false} ->
+      case Padding of
+        both -> format(W, K, pad(I, X, top) ++ Rest);
+        bottom -> format(W, K, [{I, break, X} | Rest])
+      end
   end.
 
 
@@ -1493,7 +1819,8 @@ fits(W, [{_, flat, {doc_break, S}} | Rest]) -> fits(W - byte_size(S), Rest);
 % This clause is impossible according to the research paper and dialyzer agrees.
 %fits(_, [{_, break, {doc_break, _}} | _Rest]) -> throw(impossible);
 fits(_, [{_, _, {doc_force_break, _}} | _]) -> true;
-fits(W, [{I, _, {doc_group, X, _}} | Rest]) -> fits(W, [{I, flat, X} | Rest]).
+fits(W, [{I, _, {doc_group, X, _}} | Rest]) -> fits(W, [{I, flat, X} | Rest]);
+fits(W, [{I, _, {doc_pad_group, X, _, _}} | Rest]) -> fits(W, [{I, flat, X} | Rest]).
 
 -spec sdoc_to_string(sdoc()) -> binary().
 sdoc_to_string(s_nil) -> <<"">>;
@@ -1503,6 +1830,10 @@ sdoc_to_string({s_text, String, Doc}) ->
   <<String/binary, DocString/binary>>;
 
 sdoc_to_string({s_line, _Indent, {s_text, <<"">>, {s_line, _, _} = Doc}}) ->
+  DocString = sdoc_to_string(Doc),
+  <<"\n", DocString/binary>>;
+
+sdoc_to_string({s_line, _Indent, {s_line, _, _} = Doc}) ->
   DocString = sdoc_to_string(Doc),
   <<"\n", DocString/binary>>;
 
@@ -1575,6 +1906,7 @@ get_until(End, [{End, _} = Token | Rest], Acc, [], _KeywordStack) when ?IS_LIST_
   {lists:reverse(Acc), Rest, Token};
 
 get_until(End, [{End, _} = Token | Rest], Acc, [], []) -> {lists:reverse(Acc), Rest, Token};
+
 get_until(End, [{'end', _} = Token | Rest], Acc, BracketStack, [Keyword | KeywordStack])
 when ?IS_TERMINATED_KEYWORD(Keyword) ->
   get_until(End, Rest, [Token | Acc], BracketStack, KeywordStack);
@@ -1692,8 +2024,10 @@ get_until_of(Tokens) -> get_until_of(Tokens, [], []).
 -spec get_until_of(tokens(), tokens(), list(atom())) -> {tokens(), tokens(), token()}.
 get_until_of([], Acc, []) -> {lists:reverse(Acc), [], not_found};
 get_until_of([{'of', _} = Token | Rest], Acc, []) -> {lists:reverse(Acc), Rest, Token};
+
 get_until_of([{'of', _} = Token | Rest], Acc, ['try' | _] = Stack) ->
   get_until_of(Rest, [Token | Acc], Stack);
+
 get_until_of([{'of', _} = Token | Rest], Acc, Stack) ->
   get_until_of(Rest, [Token | Acc], tl(Stack));
 
@@ -1703,6 +2037,7 @@ get_until_of([{Op, _} = Token | Rest], Acc, ['try' | Stack]) when Op == 'catch' 
 
 get_until_of([{Keyword, _} = Token | Rest], Acc, Stack) when ?IS_OF_KEYWORD(Keyword) ->
   get_until_of(Rest, [Token | Acc], [Keyword | Stack]);
+
 get_until_of([Token | Rest], Acc, Stack) -> get_until_of(Rest, [Token | Acc], Stack).
 
 
@@ -1735,9 +2070,12 @@ remove_matching(Start, End, Tokens) -> remove_matching(Start, End, Tokens, [], 0
 -spec remove_matching(atom(), atom(), tokens(), tokens(), integer()) -> tokens().
 remove_matching(Start, End, [{Start, _} = Token | Rest], Acc, Stack) ->
   remove_matching(Start, End, Rest, [Token | Acc], Stack + 1);
+
 remove_matching(_Start, End, [{End, _} | Rest], Acc, 0) -> lists:reverse(Acc) ++ Rest;
+
 remove_matching(Start, End, [{End, _} = Token | Rest], Acc, Stack) ->
   remove_matching(Start, End, Rest, [Token | Acc], Stack - 1);
+
 remove_matching(Start, End, [Token | Rest], Acc, Stack) ->
   remove_matching(Start, End, Rest, [Token | Acc], Stack).
 
@@ -1754,6 +2092,7 @@ get_end_of_expr(Tokens) -> get_end_of_expr(Tokens, [], 0, [], no_when).
 % unless we find a '::', which means the 'when' is part of a type spec and so is terminated by
 % a ';' or a dot.
 get_end_of_expr([], Acc, _LineNum, _KeywordStack, _When) -> {lists:reverse(Acc), []};
+
 get_end_of_expr([{comment, _, _} = Comment | Rest], [], _LineNum, _KeywordStack, _) ->
   {[Comment], Rest};
 
@@ -1797,18 +2136,25 @@ when End == ',' orelse End == ';' orelse End == dot ->
 get_end_of_expr([{End, _} = Token | Rest], Acc, _, [], no_when)
 when End == ',' orelse End == ';' orelse End == dot ->
   {lists:reverse([Token | Acc]), Rest};
+
 get_end_of_expr([{dot, _} = Token | Rest], Acc, _, [], when_guard) ->
   {lists:reverse([Token | Acc]), Rest};
+
 get_end_of_expr([{End, _} = Token | Rest], Acc, _, [], when_type) when End == ';' orelse End == dot ->
   {lists:reverse([Token | Acc]), Rest};
+
 get_end_of_expr([{'end', _} = Token | Rest], Acc, _LineNum, [], _) ->
   {lists:reverse([Token | Acc]), Rest};
+
 get_end_of_expr([{'when', LineNum} = Token | Rest], Acc, _, KeywordStack, no_when) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, when_guard);
+
 get_end_of_expr([{'->', LineNum} = Token | Rest], Acc, _, KeywordStack, when_guard) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, no_when);
+
 get_end_of_expr([{'::', LineNum} = Token | Rest], Acc, _, KeywordStack, when_guard) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, when_type);
+
 get_end_of_expr([{'end', _} = Token | Rest], Acc, LineNum, KeywordStack, Guard) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, tl(KeywordStack), Guard);
 
@@ -1920,6 +2266,7 @@ when ?IS_LIST_OPEN_CHAR(Open) ->
 
 get_end_of_expr([{_, LineNum} = Token | Rest], Acc, _, KeywordStack, Guard) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, Guard);
+
 get_end_of_expr([{_, LineNum, _} = Token | Rest], Acc, _, KeywordStack, Guard) ->
   get_end_of_expr(Rest, [Token | Acc], LineNum, KeywordStack, Guard).
 
@@ -1939,8 +2286,10 @@ is_bool_list(Tokens) -> is_bool_list(Tokens, []).
 is_bool_list([], []) -> false;
 is_bool_list([{Op, _} | _], []) when ?IS_TERMINATED_KEYWORD(Op) -> false;
 is_bool_list([{Op, _} | _], []) when ?IS_BOOL_CONCATENATOR(Op) -> true;
+
 is_bool_list([{C, _} | Rest], Stack) when ?IS_LIST_OPEN_CHAR(C) ->
   is_bool_list(Rest, [close_bracket(C) | Stack]);
+
 is_bool_list([{C, _} | Rest], [C | Stack]) when ?IS_LIST_CLOSE_CHAR(C) -> is_bool_list(Rest, Stack);
 is_bool_list([_ | Rest], Stack) -> is_bool_list(Rest, Stack).
 
