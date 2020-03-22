@@ -2187,6 +2187,26 @@ function_inline_comment_test_() ->
   [?_assertEqual(Expect0, Result0), ?_assertEqual(Expect1, Result1)].
 
 
+type_comment_test_() ->
+  {ok, Tokens} = steamroller_ast:tokens(<<"-type foo() :: % one\n  one\n% two\n | two\n.">>),
+  Expect0 =
+    <<
+      "-type foo() ::\n             % one\n               one\n             % two\n             | two.\n"
+    >>,
+  Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+  [?_assertEqual(Expect0, Result0)].
+
+
+type_inline_comment_test_() ->
+  {ok, Tokens} = steamroller_ast:tokens(<<"-type foo() :: one % one\n | two % two\n.">>),
+  Expect0 =
+    <<
+      "-type foo() ::\n             % one\n               one\n             % two\n             | two.\n"
+    >>,
+  Result0 = steamroller_algebra:format_tokens(Tokens, 100),
+  [?_assertEqual(Expect0, Result0)].
+
+
 comment_list_test_() ->
   {ok, Tokens0} = steamroller_ast:tokens(<<"foo() ->\n  {error,\n % TODO improve\noh_no}.">>),
   Expect0 = <<"foo() ->\n  {\n    error,\n    % TODO improve\n    oh_no\n  }.\n">>,
