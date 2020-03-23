@@ -66,13 +66,13 @@ format(File, Opts) ->
   end.
 
 
--spec format_code(binary()) -> ok | {error, any()}.
+-spec format_code(binary()) -> {ok, binary()} | {error, any()}.
 format_code(Code) ->
   format_code(Code, <<"no_file">>, ?default_line_length, ?default_includes, ?default_macros).
 
 % For testing.
 % We give the file a proper name so that we compare the ASTs.
--spec test_format(binary()) -> ok | {error, any()}.
+-spec test_format(binary()) -> {ok, binary()} | {error, any()}.
 test_format(Code) ->
   format_code(Code, <<"test.erl">>, ?default_line_length, ?default_includes, ?default_macros).
 
