@@ -19,7 +19,9 @@ Steamroller should be used as part of your CI to enforce a consistent style acro
 
 Add steamroller to your rebar config:
 
-    {plugins, [steamroller]}.
+```erlang
+{plugins, [steamroller]}.
+```
 
 Then ask it to steamroll your code directly in an existing application:
 
@@ -41,15 +43,16 @@ The exit code will be non-zero if the code has not been formatted before being c
 Steamroller comes with sensible default configuration. If you want, you can configure the line
 length, indent, and input files from your rebar config:
 
-    {
-      steamroller,
-      [
-        {line_length, 100},
-        {indent, 2},
-        {inputs, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]}
-      ]
-    }.
-
+```erlang
+{
+  steamroller,
+  [
+    {line_length, 100},
+    {indent, 2},
+    {inputs, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]}
+  ]
+}.
+```
 
 ## Editor Integration
 
