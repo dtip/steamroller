@@ -65,24 +65,26 @@ do(State) ->
   Opts = Opts0 ++ [{includes, Includes}, {macros, Macros}],
   maybe_set_indent(Opts),
   Files =
-    case lists:any(fun (O) -> proplists:is_defined(O, Opts) end,
-                   [?FILE_KEY, ?DIR_KEY, ?APP_KEY]) of
-        true ->
-            Fs = proplists:get_all_values(?FILE_KEY, Opts),
-            Ds = proplists:get_all_values(?DIR_KEY, Opts),
-            As = proplists:get_all_values(?APP_KEY, Opts),
-            AppDirs = dirs_for_apps(As, State),
-            Fs ++ directory_files(Ds, [{inputs, ["./**/*.{[he]rl,app.src}"]}|Opts])
-                ++ directory_files(AppDirs, Opts);
-        false ->
-            Apps = case rebar_state:current_app(State) of
-                       undefined ->
-                           rebar_state:project_apps(State);
-                       AppInfo ->
-                           [AppInfo]
-                   end,
-            AppDirs = [rebar_app_info:dir(A) || A <- Apps],
-            directory_files(["."|AppDirs], Opts)
+    case lists:any(fun (O) -> proplists:is_defined(O, Opts) end, [?FILE_KEY, ?DIR_KEY, ?APP_KEY]) of
+      true ->
+        Fs = proplists:get_all_values(?FILE_KEY, Opts),
+        Ds = proplists:get_all_values(?DIR_KEY, Opts),
+        As = proplists:get_all_values(?APP_KEY, Opts),
+        AppDirs = dirs_for_apps(As, State),
+        Fs
+        ++
+        directory_files(Ds, [{inputs, ["./**/*.{[he]rl,app.src}"]} | Opts])
+        ++
+        directory_files(AppDirs, Opts);
+
+      false ->
+        Apps =
+          case rebar_state:current_app(State) of
+            undefined -> rebar_state:project_apps(State);
+            AppInfo -> [AppInfo]
+          end,
+        AppDirs = [rebar_app_info:dir(A) || A <- Apps],
+        directory_files(["." | AppDirs], Opts)
     end,
   case format_files(Files, Opts) of
     ok ->
@@ -93,6 +95,7 @@ do(State) ->
       cleanup_temp_files(),
       {error, format_error(Err)}
   end.
+
 
 -spec format_error(any()) -> iolist().
 format_error(Reason) when is_binary(Reason) -> io_lib:format("Steamroller Error: ~s", [Reason]);
@@ -113,20 +116,20 @@ format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 %% ===================================================================
 
 dirs_for_apps(As, State) ->
-  [rebar_app_info:dir(A)
-   || A <- rebar_state:project_apps(State),
-      lists:member(rebar_app_info:name(A), As)].
+  [
+    rebar_app_info:dir(A) || A <- rebar_state:project_apps(State),
+    lists:member(rebar_app_info:name(A), As)
+  ].
 
-directory_files(Ds, Opts) ->
-  lists:flatmap(fun (D) -> find_dir_files(D, Opts) end, Ds).
+directory_files(Ds, Opts) -> lists:flatmap(fun (D) -> find_dir_files(D, Opts) end, Ds).
 
 find_dir_files(Dir, Opts) ->
   Inputs = proplists:get_value(inputs, Opts, ?DEFAULT_INPUTS),
   lists:flatmap(fun (Input) -> find_root_files(Dir, Input) end, Inputs).
 
+
 find_root_files(Dir, Input) ->
-  [list_to_binary(filename:join(Dir, File))
-   || File <- filelib:wildcard(Input, Dir)].
+  [list_to_binary(filename:join(Dir, File)) || File <- filelib:wildcard(Input, Dir)].
 
 format_files(Files, Opts) ->
   {Headers, OtherFiles} = steamroller_utils:split_header_files(Files),
