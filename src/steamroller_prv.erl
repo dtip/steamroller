@@ -113,14 +113,12 @@ format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 %% ===================================================================
 
 dirs_for_apps(As, State) ->
-    [rebar_app_info:dir(A)
-     || A <- rebar_state:project_apps(State),
-        lists:member(rebar_app_info:name(A), As)].
+  [rebar_app_info:dir(A)
+   || A <- rebar_state:project_apps(State),
+      lists:member(rebar_app_info:name(A), As)].
 
-directory_files([], _Opts) ->
-    [];
-directory_files([D|Ds], Opts) ->
-    find_dir_files(D, Opts) ++ directory_files(Ds, Opts).
+directory_files(Ds, Opts) ->
+  lists:flatmap(fun (D) -> find_dir_files(D, Opts) end, Ds).
 
 find_dir_files(Dir, Opts) ->
   Inputs = proplists:get_value(inputs, Opts, ?DEFAULT_INPUTS),
