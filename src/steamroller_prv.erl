@@ -62,22 +62,23 @@ do(State) ->
     end,
   Opts = Opts0 ++ [{includes, Includes}, {macros, Macros}],
   maybe_set_indent(Opts),
-  Result =
-    case {lists:keyfind(?FILE_KEY, 1, Opts), lists:keyfind(?DIR_KEY, 1, Opts)} of
-      {{?FILE_KEY, File}, _} ->
-        rebar_api:info("Steamrolling file: ~s", [File]),
-        steamroller:format_file(File, Opts);
-
-      {_, {?DIR_KEY, Dir}} ->
-        rebar_api:info("Steamrolling dir: ~s", [Dir]),
-        Files = find_dir_files(Dir),
-        format_files(Files, Opts);
-
-      _ ->
-        rebar_api:info("Steamrolling code...", []),
-        format_apps(rebar_state:project_apps(State), Opts)
+  Files =
+    case lists:any(fun (O) -> proplists:is_defined(O, Opts) end,
+                   [?FILE_KEY, ?DIR_KEY, ?APP_KEY]) of
+        true ->
+            Fs = proplists:get_all_values(?FILE_KEY, Opts),
+            Ds = proplists:get_all_values(?DIR_KEY, Opts),
+            Fs ++ directory_files(Ds, Opts);
+        false ->
+            Apps = case rebar_state:current_app(State) of
+                       undefined ->
+                           rebar_state:project_apps(State);
+                       AppInfo ->
+                           [AppInfo]
+                   end,
+            application_files(Apps, Opts)
     end,
-  case Result of
+  case format_files(Files, Opts) of
     ok ->
       rebar_api:info("Steamrolling done.", []),
       {ok, State};
@@ -86,7 +87,6 @@ do(State) ->
       cleanup_temp_files(),
       {error, format_error(Err)}
   end.
-
 
 -spec format_error(any()) -> iolist().
 format_error(Reason) when is_binary(Reason) -> io_lib:format("Steamroller Error: ~s", [Reason]);
@@ -106,26 +106,30 @@ format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 %% Internal
 %% ===================================================================
 
-format_apps([App | Rest], Opts) ->
-  Inputs = proplists:get_value(inputs, Opts, ?DEFAULT_INPUTS),
-  AppDir = rebar_app_info:dir(App),
-  Files = lists:flatten(lists:map(fun (Input) -> find_root_files(AppDir, Input) end, Inputs)),
-  case format_files(Files, Opts) of
-    ok -> format_apps(Rest, Opts);
-    {error, _} = Err -> Err
-  end;
+application_files([], _) ->
+    [];
+application_files([A|As], Opts) ->
+    app_files(A, Opts) ++ application_files(As, Opts).
 
-format_apps([], _) -> ok.
-
+app_files(A, Opts) ->
+    Inputs = proplists:get_value(inputs, Opts, ?DEFAULT_INPUTS),
+    AppDir = rebar_app_info:dir(A),
+    lists:flatmap(fun (Input) -> find_root_files(AppDir, Input) end, Inputs).
 
 find_root_files(Dir, Input) ->
   [list_to_binary(filename:join(Dir, File)) || File <- filelib:wildcard(Input, Dir)].
 
-find_dir_files(Dir) ->
+directory_files([], _Opts) ->
+    [];
+directory_files([D|Ds], Opts) ->
+    find_dir_files(D, Opts) ++ directory_files(Ds, Opts).
+
+find_dir_files(Dir, _Opts) ->
   lists:filtermap(
-    fun ("_" ++ _) -> false; (File) -> {true, list_to_binary(filename:join(Dir, File))} end,
-    filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)
-  ).
+    fun ("_" ++ _) -> false;
+        (File) -> {true, list_to_binary(filename:join(Dir, File))}
+    end,
+    filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)).
 
 format_files(Files, Opts) ->
   {Headers, OtherFiles} = steamroller_utils:split_header_files(Files),
