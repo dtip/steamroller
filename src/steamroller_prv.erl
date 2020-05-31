@@ -8,6 +8,7 @@
 -define(DEPS, [app_discovery]).
 -define(FILE_KEY, steamroll_file).
 -define(DIR_KEY, steamroll_dir).
+-define(APP_KEY, steamroll_app).
 -define(INCLUDES_KEY, steamroll_includes).
 -define(DEFAULT_INPUTS, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]).
 -define(DEFAULT_J_FACTOR, 1).
@@ -31,6 +32,7 @@ init(State) ->
           [
             {?FILE_KEY, $f, "file", binary, "File name to format."},
             {?DIR_KEY, $d, "dir", string, "Dir name to format."},
+            {?APP_KEY, $a, "app", string, "App name to format."},
             {?INCLUDES_KEY, $i, "includes", string, "Wildcard includes path."},
             {j, $j, undefined, integer, "J Factor."},
             {check, $c, "check", undefined, "Check code formatting without changing anything."}
@@ -68,7 +70,9 @@ do(State) ->
         true ->
             Fs = proplists:get_all_values(?FILE_KEY, Opts),
             Ds = proplists:get_all_values(?DIR_KEY, Opts),
-            Fs ++ directory_files(Ds, Opts);
+            As = proplists:get_all_values(?APP_KEY, Opts),
+            Apps = find_app_infos(As, State),
+            Fs ++ directory_files(Ds, Opts) ++ application_files(Apps, Opts);
         false ->
             Apps = case rebar_state:current_app(State) of
                        undefined ->
@@ -105,6 +109,10 @@ format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 %% ===================================================================
 %% Internal
 %% ===================================================================
+
+find_app_infos(As, State) ->
+    [A || A <- rebar_state:project_apps(State),
+          lists:member(rebar_app_info:name(A), As)].
 
 application_files([], _) ->
     [];
