@@ -82,7 +82,7 @@ do(State) ->
                            [AppInfo]
                    end,
             AppDirs = [rebar_app_info:dir(A) || A <- Apps],
-            directory_files(AppDirs, Opts)
+            directory_files(["."|AppDirs], Opts)
     end,
   case format_files(Files, Opts) of
     ok ->
