@@ -49,7 +49,7 @@ length, indent, and input files from your rebar config:
   [
     {line_length, 100},
     {indent, 2},
-    {inputs, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]}
+    {inputs, ["rebar.config", "{src,test,include}/*.{[he]rl,app.src}"]}
   ]
 }.
 ```
