@@ -49,7 +49,7 @@ length, indent, and input files from your rebar config:
   [
     {line_length, 100},
     {indent, 2},
-    {inputs, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]}
+    {inputs, ["rebar.config", "{src,test,include}/*.{[he]rl,app.src}"]}
   ]
 }.
 ```
@@ -93,16 +93,3 @@ extension created by [szTheory](https://github.com/szTheory).
 Dialyzer is Erlang's static analysis tool.
 
     $ rebar3 dialyzer
-
-## Local Development
-
-In order to use steamroller locally on itself you need to symlink the repo into the \_checkouts
-directory:
-
-    cd $local_steamroller_repo
-    mkdir _checkouts
-    ln -s $PWD ./_checkouts/steamroller
-
-Rebar3 will use the version of steamroller in the \_checkouts directory with higher priority than
-the version specified in the rebar.config. There's a line in the rebar.config (see `overrides`)
-which prevents infinite plugin loops when using steamroller locally like this.

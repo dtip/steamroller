@@ -107,8 +107,7 @@ generate_doc(Tokens) -> generate_doc_(Tokens, empty(), new_file).
 -spec pretty(doc(), integer()) -> binary().
 pretty(Doc, Width) ->
   SDoc = format(Width, 0, [{0, flat, group(Doc)}]),
-  String = sdoc_to_string(SDoc),
-  <<String/binary, "\n">>.
+  iolist_to_binary([sdoc_to_iolist(SDoc), <<"\n">>]).
 
 %%
 %% Constructor Functions
@@ -1908,14 +1907,18 @@ pad(I, X, bottom) -> [{I, break, X}, {I, flat, {doc_break, ?nl}}];
 pad(I, X, both) -> [{I, break, {doc_break, ?nl}}, {I, break, X}, {I, flat, {doc_break, ?nl}}].
 
 fiddle_padding(W, K, I, X, Padding, Y, Rest) ->
-  case {fits(W - K, [{I, flat, X}]), fits(W - K, [{I, flat, Y}])} of
-    {true, _} -> format(W, K, [{I, flat, X} | Rest]);
-    {false, true} -> format(W, K, pad(I, X, Padding) ++ Rest);
+  case fits(W - K, [{I, flat, X}]) of
+    true -> format(W, K, [{I, flat, X} | Rest]);
 
-    {false, false} ->
-      case Padding of
-        both -> format(W, K, pad(I, X, top) ++ Rest);
-        bottom -> format(W, K, [{I, break, X} | Rest])
+    false ->
+      case fits(W - K, [{I, flat, Y}]) of
+        true -> format(W, K, pad(I, X, Padding) ++ Rest);
+
+        false ->
+          case Padding of
+            both -> format(W, K, pad(I, X, top) ++ Rest);
+            bottom -> format(W, K, [{I, break, X} | Rest])
+          end
       end
   end.
 
@@ -1936,25 +1939,15 @@ fits(_, [{_, _, {doc_force_break, _}} | _]) -> true;
 fits(W, [{I, _, {doc_group, X, _}} | Rest]) -> fits(W, [{I, flat, X} | Rest]);
 fits(W, [{I, _, {doc_pad_group, X, _, _}} | Rest]) -> fits(W, [{I, flat, X} | Rest]).
 
--spec sdoc_to_string(sdoc()) -> binary().
-sdoc_to_string(s_nil) -> <<"">>;
+-spec sdoc_to_iolist(sdoc()) -> iolist().
+sdoc_to_iolist(s_nil) -> [<<"">>];
+sdoc_to_iolist({s_text, String, Doc}) -> [String | sdoc_to_iolist(Doc)];
 
-sdoc_to_string({s_text, String, Doc}) ->
-  DocString = sdoc_to_string(Doc),
-  <<String/binary, DocString/binary>>;
+sdoc_to_iolist({s_line, _Indent, {s_text, <<"">>, {s_line, _, _} = Doc}}) ->
+  [<<"\n">> | sdoc_to_iolist(Doc)];
 
-sdoc_to_string({s_line, _Indent, {s_text, <<"">>, {s_line, _, _} = Doc}}) ->
-  DocString = sdoc_to_string(Doc),
-  <<"\n", DocString/binary>>;
-
-sdoc_to_string({s_line, _Indent, {s_line, _, _} = Doc}) ->
-  DocString = sdoc_to_string(Doc),
-  <<"\n", DocString/binary>>;
-
-sdoc_to_string({s_line, Indent, Doc}) ->
-  Prefix = repeat(?sp, Indent),
-  DocString = sdoc_to_string(Doc),
-  <<"\n", Prefix/binary, DocString/binary>>.
+sdoc_to_iolist({s_line, _Indent, {s_line, _, _} = Doc}) -> [<<"\n">> | sdoc_to_iolist(Doc)];
+sdoc_to_iolist({s_line, Indent, Doc}) -> [<<"\n">>, repeat(?sp, Indent) | sdoc_to_iolist(Doc)].
 
 %%
 %% Binary Conversion
