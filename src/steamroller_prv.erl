@@ -8,7 +8,6 @@
 -define(DEPS, [app_discovery]).
 -define(FILE_KEY, steamroll_file).
 -define(DIR_KEY, steamroll_dir).
--define(APP_KEY, steamroll_app).
 -define(INCLUDES_KEY, steamroll_includes).
 -define(DEFAULT_INPUTS, ["rebar.config", "{src,test}/**/*.{[he]rl,app.src}"]).
 -define(DEFAULT_J_FACTOR, 1).
@@ -30,9 +29,8 @@ init(State) ->
         {
           opts,
           [
-            {?FILE_KEY, $f, "file", binary, "File name to format. Will not use `inputs` parameter."},
-            {?DIR_KEY, $d, "dir", string, "Dir name to format. Will not use `inputs` parameter."},
-            {?APP_KEY, $a, "app", string, "App name to format."},
+            {?FILE_KEY, $f, "file", binary, "File name to format."},
+            {?DIR_KEY, $d, "dir", string, "Dir name to format."},
             {?INCLUDES_KEY, $i, "includes", string, "Wildcard includes path."},
             {j, $j, undefined, integer, "J Factor."},
             {check, $c, "check", undefined, "Check code formatting without changing anything."}
@@ -64,29 +62,22 @@ do(State) ->
     end,
   Opts = Opts0 ++ [{includes, Includes}, {macros, Macros}],
   maybe_set_indent(Opts),
-  Files =
-    case lists:any(fun (O) -> proplists:is_defined(O, Opts) end, [?FILE_KEY, ?DIR_KEY, ?APP_KEY]) of
-      true ->
-        Fs = proplists:get_all_values(?FILE_KEY, Opts),
-        Ds = proplists:get_all_values(?DIR_KEY, Opts),
-        As = proplists:get_all_values(?APP_KEY, Opts),
-        AppDirs = dirs_for_apps(As, State),
-        Fs
-        ++
-        directory_files(Ds, [{inputs, ["./**/*.{[he]rl,app.src}"]} | Opts])
-        ++
-        directory_files(AppDirs, Opts);
+  Result =
+    case {lists:keyfind(?FILE_KEY, 1, Opts), lists:keyfind(?DIR_KEY, 1, Opts)} of
+      {{?FILE_KEY, File}, _} ->
+        rebar_api:info("Steamrolling file: ~s", [File]),
+        steamroller:format_file(File, Opts);
 
-      false ->
-        Apps =
-          case rebar_state:current_app(State) of
-            undefined -> rebar_state:project_apps(State);
-            AppInfo -> [AppInfo]
-          end,
-        AppDirs = [rebar_app_info:dir(A) || A <- Apps],
-        directory_files(["." | AppDirs], Opts)
+      {_, {?DIR_KEY, Dir}} ->
+        rebar_api:info("Steamrolling dir: ~s", [Dir]),
+        Files = find_dir_files(Dir),
+        format_files(Files, Opts);
+
+      _ ->
+        rebar_api:info("Steamrolling code...", []),
+        format_apps(rebar_state:project_apps(State), Opts)
     end,
-  case format_files(Files, Opts) of
+  case Result of
     ok ->
       rebar_api:info("Steamrolling done.", []),
       {ok, State};
@@ -115,21 +106,26 @@ format_error(Reason) -> io_lib:format("Steamroller Error: ~p", [Reason]).
 %% Internal
 %% ===================================================================
 
-dirs_for_apps(As, State) ->
-  [
-    rebar_app_info:dir(A) || A <- rebar_state:project_apps(State),
-    lists:member(rebar_app_info:name(A), As)
-  ].
-
-directory_files(Ds, Opts) -> lists:flatmap(fun (D) -> find_dir_files(D, Opts) end, Ds).
-
-find_dir_files(Dir, Opts) ->
+format_apps([App | Rest], Opts) ->
   Inputs = proplists:get_value(inputs, Opts, ?DEFAULT_INPUTS),
-  lists:flatmap(fun (Input) -> find_root_files(Dir, Input) end, Inputs).
+  AppDir = rebar_app_info:dir(App),
+  Files = lists:flatten(lists:map(fun (Input) -> find_root_files(AppDir, Input) end, Inputs)),
+  case format_files(Files, Opts) of
+    ok -> format_apps(Rest, Opts);
+    {error, _} = Err -> Err
+  end;
+
+format_apps([], _) -> ok.
 
 
 find_root_files(Dir, Input) ->
   [list_to_binary(filename:join(Dir, File)) || File <- filelib:wildcard(Input, Dir)].
+
+find_dir_files(Dir) ->
+  lists:filtermap(
+    fun ("_" ++ _) -> false; (File) -> {true, list_to_binary(filename:join(Dir, File))} end,
+    filelib:wildcard("./**/*.{[he]rl,app.src}", Dir)
+  ).
 
 format_files(Files, Opts) ->
   {Headers, OtherFiles} = steamroller_utils:split_header_files(Files),
