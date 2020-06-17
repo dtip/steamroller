@@ -14,8 +14,6 @@ jobs:
     - uses: actions/checkout@v1
     - name: Compile
       run: rebar3 compile
-    - name: Use self for formatting
-      run: mkdir _checkouts && ln -s $PWD ./_checkouts/steamroller
     - name: Check formatting
       run: rebar3 steamroll --check
     - name: Run tests
