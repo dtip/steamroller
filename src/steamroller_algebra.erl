@@ -1907,14 +1907,18 @@ pad(I, X, bottom) -> [{I, break, X}, {I, flat, {doc_break, ?nl}}];
 pad(I, X, both) -> [{I, break, {doc_break, ?nl}}, {I, break, X}, {I, flat, {doc_break, ?nl}}].
 
 fiddle_padding(W, K, I, X, Padding, Y, Rest) ->
-  case {fits(W - K, [{I, flat, X}]), fits(W - K, [{I, flat, Y}])} of
-    {true, _} -> format(W, K, [{I, flat, X} | Rest]);
-    {false, true} -> format(W, K, pad(I, X, Padding) ++ Rest);
+  case fits(W - K, [{I, flat, X}]) of
+    true -> format(W, K, [{I, flat, X} | Rest]);
 
-    {false, false} ->
-      case Padding of
-        both -> format(W, K, pad(I, X, top) ++ Rest);
-        bottom -> format(W, K, [{I, break, X} | Rest])
+    false ->
+      case fits(W - K, [{I, flat, Y}]) of
+        true -> format(W, K, pad(I, X, Padding) ++ Rest);
+
+        false ->
+          case Padding of
+            both -> format(W, K, pad(I, X, top) ++ Rest);
+            bottom -> format(W, K, [{I, break, X} | Rest])
+          end
       end
   end.
 
