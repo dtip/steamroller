@@ -3,7 +3,7 @@
   steamroller,
   [
     {description, "An opinionated Erlang code formatter."},
-    {vsn, "0.14.0"},
+    {vsn, "0.14.1"},
     {registered, []},
     {applications, [kernel, stdlib]},
     {env, []},
