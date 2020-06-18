@@ -41,24 +41,23 @@ init(State) ->
 
 -spec opts(proplist:proplist(), rebar_state:t()) -> proplist:proplist().
 opts(UserOpts, State) ->
-  {ArgOpts0, _} = rebar_state:command_parsed_args(State),
   % proplists:get_value() takes the first value it finds.
   % Put UserOpts first in the options list so they have priority.
-  ArgOpts = UserOpts ++ ArgOpts0,
   RebarOpts = rebar_state:opts(State),
-  Includes = includes(RebarOpts, State, ArgOpts),
+  Includes = includes(RebarOpts, State, UserOpts),
   Macros = macros(RebarOpts),
   rebar_api:debug("Steamroller Includes: ~p", [Includes]),
   rebar_api:debug("Steamroller Macros: ~p", [Macros]),
   Opts =
-    rebar_state:get(State, steamroller, []) ++ ArgOpts ++ [{includes, Includes}, {macros, Macros}],
+    rebar_state:get(State, steamroller, []) ++ UserOpts ++ [{includes, Includes}, {macros, Macros}],
   maybe_set_indent(Opts),
   Opts.
 
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-  Opts = opts([], State),
+  {ArgOpts, _} = rebar_state:command_parsed_args(State),
+  Opts = opts(ArgOpts, State),
   % This essentially serves as an integration test to make sure we can format files which
   % include macros which are defined in the rebar.config
   rebar_api:debug("Steamroller Test Macro: ~p", [?TEST_MACRO]),
