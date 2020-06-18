@@ -49,7 +49,7 @@ opts(UserOpts, State) ->
   rebar_api:debug("Steamroller Includes: ~p", [Includes]),
   rebar_api:debug("Steamroller Macros: ~p", [Macros]),
   Opts =
-    rebar_state:get(State, steamroller, []) ++ UserOpts ++ [{includes, Includes}, {macros, Macros}],
+    UserOpts ++ rebar_state:get(State, steamroller, []) ++ [{includes, Includes}, {macros, Macros}],
   maybe_set_indent(Opts),
   Opts.
 
