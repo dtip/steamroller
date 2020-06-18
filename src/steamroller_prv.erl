@@ -2,7 +2,7 @@
 
 -behaviour(provider).
 
--export([init/1, do/1, format_error/1]).
+-export([init/1, opts/2, do/1, format_error/1]).
 
 -define(PROVIDER, steamroll).
 -define(DEPS, [app_discovery]).
@@ -39,25 +39,29 @@ init(State) ->
   {ok, rebar_state:add_provider(State, Provider)}.
 
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
-do(State) ->
-  % No idea why a two-element tuple is returned here.
-  {ArgOpts, _} = rebar_state:command_parsed_args(State),
+-spec opts(proplist:proplist(), rebar_state:t()) -> proplist:proplist().
+opts(UserOpts, State) ->
+  {ArgOpts0, _} = rebar_state:command_parsed_args(State),
+  % proplists:get_value() takes the first value it finds.
+  % Put UserOpts first in the options list so they have priority.
+  ArgOpts = UserOpts ++ ArgOpts0,
   RebarOpts = rebar_state:opts(State),
   Includes = includes(RebarOpts, State, ArgOpts),
   Macros = macros(RebarOpts),
   rebar_api:debug("Steamroller Includes: ~p", [Includes]),
   rebar_api:debug("Steamroller Macros: ~p", [Macros]),
+  Opts =
+    rebar_state:get(State, steamroller, []) ++ ArgOpts ++ [{includes, Includes}, {macros, Macros}],
+  maybe_set_indent(Opts),
+  Opts.
+
+
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+do(State) ->
+  Opts = opts([], State),
   % This essentially serves as an integration test to make sure we can format files which
   % include macros which are defined in the rebar.config
   rebar_api:debug("Steamroller Test Macro: ~p", [?TEST_MACRO]),
-  Opts0 =
-    case dict:find(steamroller, RebarOpts) of
-      {ok, ConfigOpts} -> ArgOpts ++ ConfigOpts;
-      error -> ArgOpts
-    end,
-  Opts = Opts0 ++ [{includes, Includes}, {macros, Macros}],
-  maybe_set_indent(Opts),
   rebar_api:info("Steamrolling code...", []),
   case format_apps(rebar_state:project_apps(State), Opts) of
     ok ->

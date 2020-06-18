@@ -43,7 +43,7 @@
 
 -module(steamroller).
 
--export([init/1, format_file/1, format_file/2]).
+-export([init/1, opts/2, format_file/1, format_file/2]).
 
 %% ===================================================================
 %% Public API
@@ -54,6 +54,11 @@
 init(State) ->
   {ok, State1} = steamroller_prv:init(State),
   {ok, State1}.
+
+%% @doc Merges user options with options from the rebar3 state. User options take priority.
+
+-spec opts(proplist:proplist(), rebar_state:t()) -> proplist:proplist().
+opts(Opts, State) -> steamroller_prv:opts(Opts, State).
 
 %% @doc Format a file.
 
