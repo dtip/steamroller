@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v*
   pull_request:
     branches:
       - master
@@ -26,3 +28,19 @@ jobs:
       run: rebar3 test
     - name: Run dialyzer
       run: rebar3 dialyzer
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: test
+    env:
+      HEXPM_USER: ${{ secrets.HEXPM_USER }}
+      HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+      HEXPM_WRITE_KEY: ${{ secrets.HEXPM_WRITE_KEY }}
+      HEXPM_LOCAL_PASSWORD: ${{ secrets.HEXPM_LOCAL_PASSWORD }}
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:22.1.8
+    steps:
+    - uses: actions/checkout@v1
+    - name: Publish
+      run: bash publi.sh
